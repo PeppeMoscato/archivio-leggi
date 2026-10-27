@@ -8,7 +8,7 @@ from archivio.governi import governo_alla_data
 from archivio.modelli import Atto, Nota, Riferimento
 from archivio.note import PRONUNCIA, classifica
 from archivio.pipeline import riga_legge, unisci
-from archivio.relazioni import Risolutore, data_decadenza, relazioni_di, stato_di
+from archivio.relazioni import Risolutore, conversioni_dai_titoli, convertito_dal_titolo, data_decadenza, relazioni_di, stato_di
 from archivio.storia import chiave_urn, leggi_storie
 from fixture_export import aggiornamento, articolo, metadati, scrivi_export
 
@@ -240,6 +240,30 @@ def test_decreto_legge_decaduto_senza_frase_nel_titolo():
     # Convertito, o abrogato quando il testo originale valeva da anni: non è decaduto.
     dl.fine_vigore_originale = date(1999, 1, 1)
     assert stato_di(dl, []) == "abrogata"
+
+
+@pytest.mark.parametrize(
+    ("titolo", "atteso"),
+    [
+        ("Conversione in legge, con modificazioni, del decreto-legge 28 gennaio 2019, n. 4, recante disposizioni urgenti "
+         "in materia di reddito di cittadinanza e di pensioni.", "urn:nir:stato:decreto.legge:2019-01-28;4"),
+        ("Conversione in legge del decreto-legge 1° marzo 1995, n. 58, recante ...", "urn:nir:stato:decreto.legge:1995-03-01;58"),
+        ("Conversione in legge, con\nmodificazioni, del decreto-legge 7 gennaio 1995, n. 1", "urn:nir:stato:decreto.legge:1995-01-07;1"),
+        ("Disposizioni per disincentivare l'esodo del personale militare.", None),
+    ],
+)
+def test_convertito_dal_titolo(titolo, atteso):
+    assert convertito_dal_titolo(titolo) == atteso
+
+
+def test_conversione_dal_titolo_evita_la_decadenza():
+    legge = atto(CONVERSIONE_RDC, "legge", titolo="Conversione in legge, con modificazioni, del decreto-legge 28 gennaio 2019, n. 4.",
+                 gazzetta_data=date(2019, 3, 29), gazzetta_codice="19G00033")
+    conversione = conversioni_dai_titoli([legge])[RDC]
+    assert (conversione.urn_origine, conversione.tipo, conversione.data) == (CONVERSIONE_RDC, "converte", date(2019, 3, 29))
+    dl = atto(RDC, "decreto-legge", data=date(2019, 1, 28), abrogato=True, decaduto=False, fine_vigore_originale=date(2019, 3, 29))
+    assert stato_di(dl, []) == "decaduta"
+    assert stato_di(dl, [conversione]) == "abrogata"
 
 
 def test_riga_legge():

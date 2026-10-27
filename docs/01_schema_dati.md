@@ -55,6 +55,8 @@ Le tabelle delle schede non sono ancora nella DDL: si creano in Fase 2, dopo le 
 | `governo_id` | governo in carica alla data di emanazione |
 | `materia` | non disponibile da Normattiva: resta vuota |
 
+Le relazioni `converte` vengono dalle note di aggiornamento del D.L. e, perché le note la citano solo a volte, dal titolo della legge di conversione ("Conversione in legge, con modificazioni, del decreto-legge 28 gennaio 2019, n. 4"): in quel caso `nota` contiene il titolo della legge.
+
 ## Storico modifiche dello schema
 - v1.1 (2026-10-27): dopo lo spike Normattiva (`docs/spike_normattiva.md`). Nuova tabella `governo`; in `legge` aggiunti `data_entrata_vigore`, `gazzetta_data`, `gazzetta_numero`, `gazzetta_codice`, `governo_id`, `aggiornato_il`; `stato` = vigente / abrogata / decaduta, "modificata" derivata nella vista `legge_estesa`. In `relazione_normativa` aggiunti `articolo_origine`, `articolo_destinazione`, `nota`, `origine_gazzetta_codice`, `origine_gazzetta_data`; nuovi tipi abroga_parziale, converte, delega; `urn_origine` non più FK. Nuova tabella `pronuncia_costituzionale`. `iter`: voti opzionali. Tabella tecnica `gazzetta_urn`.
 - v1 (2026-10-27): prima versione.

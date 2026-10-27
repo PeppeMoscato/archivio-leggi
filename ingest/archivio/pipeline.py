@@ -27,7 +27,7 @@ from normattiva.modelli import ExportMode
 from archivio import db, governi
 from archivio.catalogo import PER_PAGINA, atto_da_ricerca, catalogo
 from archivio.modelli import TIPI, Atto
-from archivio.relazioni import Risolutore, data_decadenza, relazioni_di, stato_di
+from archivio.relazioni import Risolutore, conversioni_dai_titoli, data_decadenza, relazioni_di, stato_di
 from archivio.storia import Storia, chiave_urn, decaduto, leggi_storie
 
 logger = logging.getLogger(__name__)
@@ -236,11 +236,16 @@ def carica(conn, atti: list[Atto], client: Normattiva | None = None, blocco: int
     )
     stati: Counter = Counter()
     tipi: Counter = Counter()
-    pronunce_totali = senza_origine = 0
+    pronunce_totali = senza_origine = dai_titoli = 0
+    conversioni = conversioni_dai_titoli(atti)
     # Prima tutte le leggi (le relazioni hanno la FK su urn_destinazione), poi le relazioni a blocchi.
     calcolate = []
     for atto in atti:
         relazioni, pronunce = relazioni_di(atto, risolutore)
+        conversione = conversioni.get(atto.urn)
+        if conversione and not any(r.tipo == "converte" and r.urn_origine == conversione.urn_origine for r in relazioni):
+            relazioni.append(conversione)
+            dai_titoli += 1
         stato = stato_di(atto, relazioni)
         calcolate.append((atto, relazioni, pronunce))
         stati[(atto.tipo, stato)] += 1
@@ -261,6 +266,7 @@ def carica(conn, atti: list[Atto], client: Normattiva | None = None, blocco: int
     for (tipo, stato), quanti in sorted(stati.items()):
         rapporto.aggiungi(f"- {tipo}, {stato}: {quanti}")
     rapporto.aggiungi(f"Relazioni: {sum(tipi.values())} ({', '.join(f'{t} {n}' for t, n in tipi.most_common())})")
+    rapporto.aggiungi(f"- converte ricavate dal titolo della legge di conversione: {dai_titoli}")
     rapporto.aggiungi(f"- senza atto di origine risolto: {senza_origine}")
     rapporto.aggiungi(f"Pronunce della Corte costituzionale: {pronunce_totali}")
     rapporto.aggiungi(f"Chiamate API per risolvere riferimenti: {risolutore.chiamate} (non risolti: {risolutore.non_risolti})")

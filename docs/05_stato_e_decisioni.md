@@ -4,7 +4,7 @@ Ultimo aggiornamento: 27/10/2026
 Aggiornare a fine di ogni sessione di lavoro.
 
 ## Fase attuale
-Fase 0 — Setup. Repository creato (https://github.com/PeppeMoscato/archivio-leggi). In corso il Task 0.2: struttura del repo e prova (spike) sull'API di Normattiva.
+Fase 0 — Setup. Repository creato (https://github.com/PeppeMoscato/archivio-leggi). Task 0.2 completato: l'API di Normattiva funziona (da GitHub Actions) e restituisce stato, versioni e modifiche. Prossimo passo: approvare lo schema v1.1 proposto in `docs/spike_normattiva.md`, poi Task 1.1.
 
 ## Decisioni prese
 | Data | Decisione | Motivo |
@@ -22,7 +22,8 @@ Fase 0 — Setup. Repository creato (https://github.com/PeppeMoscato/archivio-le
 | 2026-10-27 | Scheda di esempio: Legge Sirchia (L. 3/2003, art. 51) | Obiettivo chiaro, buoni studi, poco divisiva: ideale per fissare il metodo |
 | 2026-10-27 | Perimetro iniziale degli atti: legge, legge costituzionale, decreto-legge, decreto legislativo (dal 1990) | Sono gli atti delle 30 leggi MVP e hanno un URN verificato su Normattiva. L'obiettivo di lungo periodo è archiviare tutte le decisioni dei governi (anche DPR, DPCM, decreti ministeriali) |
 | 2026-10-27 | I documenti di progetto vivono in `docs/` del repository; la cartella del Progetto Claude ne è una copia | Una sola fonte di verità, versionata con il codice |
-| 2026-10-27 | Client Normattiva: `normattiva-sdk` (PyPI, MIT, non ufficiale, versione 0.1.0 alpha) | Copre tutta l'API open data. Da confermare con lo spike; in caso di problemi si chiama direttamente l'API |
+| 2026-10-27 | Client Normattiva: `normattiva-sdk` (PyPI, MIT, non ufficiale, versione 0.1.0 alpha) | Copre tutta l'API open data; confermato dallo spike su 5 leggi MVP |
+| 2026-10-27 | Le chiamate a Normattiva, Camera, Senato e Istat girano su GitHub Actions | Dal container cloud di Claude Code quei domini sono bloccati |
 
 ## Ancora da decidere
 - Schema v1.1, dopo lo spike: `data_entrata_vigore`, `governo`, relazioni `converte` e `delega`, valori di `stato`. Dettagli in `docs/revisioni/2026-10-27_revisione_documentazione.md`.
@@ -37,7 +38,7 @@ Fase 0 — Setup. Repository creato (https://github.com/PeppeMoscato/archivio-le
 ### Fase 0 — Setup
 - [ ] Creare Progetto Claude e caricare la knowledge
 - [x] Creare repo GitHub `archivio-leggi`
-- [ ] Task 0.2: `CLAUDE.md`, `docs/`, spike Normattiva (in corso)
+- [x] Task 0.2: `CLAUDE.md`, `docs/`, spike Normattiva (risultati in `docs/spike_normattiva.md`)
 - [ ] Schema v1.1 sui risultati dello spike
 - [x] Compilare `04_scheda_esempio.md` su una legge vera (Legge Sirchia; resta la revisione a mano)
 - [x] Scegliere le 30 leggi dell'MVP (`06_leggi_mvp.md`)
@@ -66,4 +67,4 @@ Fase 0 — Setup. Repository creato (https://github.com/PeppeMoscato/archivio-le
 - 2026-10-27: definiti visione, schema v1, metodo, fonti, stack e decisioni.
 - 2026-10-27: scelto Neon, definita la lista delle 30 leggi, compilata la scheda di esempio sulla Legge Sirchia.
 - 2026-10-27: annotata l'idea del carosello TikTok "pagella politica" per dopo l'MVP.
-- 2026-10-27: revisione della documentazione (vedi `docs/revisioni/`); creato il repository; deciso il perimetro iniziale degli atti; avviato il Task 0.2.
+- 2026-10-27: revisione della documentazione (vedi `docs/revisioni/`); creato il repository; deciso il perimetro iniziale degli atti; Task 0.2 completato (circa 8.900 atti nel perimetro dal 1990; proposte per lo schema v1.1).

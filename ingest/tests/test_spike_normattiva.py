@@ -64,3 +64,34 @@ def test_dettaglio_legge_sirchia():
         atto = client.dettaglio(ATTI_DI_PROVA[0].urn)
     assert atto.estremi.numero == "3"
     assert atto.estremi.data == date(2003, 1, 16)
+
+
+def test_report_con_urn_ambiguo():
+    ok = {"ok": True, "dati": "AGGIORNATO"}
+    risultati = {
+        "eseguito_il": "2026-10-27",
+        "atti": [
+            {
+                "nome": "Reddito di cittadinanza",
+                "urn": "urn:nir:stato:decreto.legge:2019-01-28;4",
+                "stato_atteso": "RdC abrogato",
+                "ricerca": {"ok": True, "dati": []},
+                "classe": ok,
+                "dettaglio": {
+                    "ok": True,
+                    "dati": {
+                        "ambiguo": True,
+                        "candidati": [
+                            {"estremi": {}, "gazzetta": {"data": "2019-01-28", "numero": 23, "codice_redazionale": "19G00008"}, "titolo": "Disposizioni urgenti"}
+                        ],
+                    },
+                },
+                "export": {"ok": True, "dati": {"atti": [{"abrogato": False, "versioni": ["None"], "aggiornamenti": [{"data": "2019-03-29", "testo": "Modifica", "riferimenti": []}]}]}},
+            }
+        ],
+        "conteggi": [],
+    }
+    testo = report(risultati)
+    assert "URN ambiguo (vedi dettagli)" in testo
+    assert "codice 19G00008" in testo
+    assert "Primi aggiornamenti — 2019-03-29: Modifica" in testo

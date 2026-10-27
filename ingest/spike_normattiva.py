@@ -23,7 +23,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from normattiva import ClasseProvvedimento, Format, Normattiva, NormattivaError, Urn
+from normattiva import AmbiguityError, ClasseProvvedimento, Format, Normattiva, NormattivaError, Urn
 from normattiva.modelli import ExportMode
 
 CARTELLA_SAMPLES = Path(__file__).parent / "samples"
@@ -138,10 +138,22 @@ def ricerca(client: Normattiva, atto: AttoDiProva) -> list[Any]:
     return [in_dizionario(trovato) for trovato in esito.atti]
 
 
+def candidati(errore: AmbiguityError) -> list[dict[str, Any]]:
+    return [
+        {"estremi": in_dizionario(c.estremi), "gazzetta": in_dizionario(c.gazzetta), "titolo": c.titolo}
+        for c in errore.candidati
+    ]
+
+
 def dettaglio(client: Normattiva, atto: AttoDiProva) -> dict[str, Any]:
-    letto = client.dettaglio(atto.urn)
+    try:
+        letto = client.dettaglio(atto.urn)
+    except AmbiguityError as errore:
+        # Lo stesso URN può indicare più pubblicazioni in Gazzetta: le registriamo per lo schema.
+        return {"ambiguo": True, "candidati": candidati(errore)}
     note = letto.note_aggiornamento or ""
     return {
+        "ambiguo": False,
         "estremi": in_dizionario(letto.estremi),
         "gazzetta": in_dizionario(letto.gazzetta),
         "titolo": letto.titolo,
@@ -240,6 +252,8 @@ def report(risultati: dict[str, Any]) -> str:
             abrogato = str(storico["abrogato"])
             versioni = str(len(storico["versioni"]))
             modifiche = str(len(storico["aggiornamenti"]))
+        if voce["dettaglio"]["ok"] and voce["dettaglio"]["dati"]["ambiguo"]:
+            voce = {**voce, "dettaglio": {"ok": False, "errore": "URN ambiguo (vedi dettagli)"}}
         modificante = "—"
         if "modificante" in voce:
             passo = voce["modificante"]
@@ -249,8 +263,29 @@ def report(risultati: dict[str, Any]) -> str:
             f"{esito_breve(voce['ricerca'])} | {esito_breve(voce['dettaglio'])} | {esito_breve(voce['export'])} | "
             f"{abrogato} | {versioni} | {modifiche} | {modificante} |"
         )
+    righe += ["", "## Dettagli per atto", ""]
+    for voce in risultati["atti"]:
+        righe.append(f"### {voce['nome']}")
+        if voce["dettaglio"]["ok"]:
+            letto = voce["dettaglio"]["dati"]
+            if letto["ambiguo"]:
+                righe.append("- URN ambiguo, candidati:")
+                for candidato in letto["candidati"]:
+                    gazzetta = candidato["gazzetta"]
+                    righe.append(
+                        f"  - GU {gazzetta.get('data')} n. {gazzetta.get('numero')}, "
+                        f"codice {gazzetta.get('codice_redazionale')}: {candidato['titolo'][:150]}"
+                    )
+            else:
+                righe.append(f"- Finestra di vigenza del testo letto: {letto['finestra']}")
+        if voce["export"]["ok"] and voce["export"]["dati"]["atti"]:
+            aggiornamenti = voce["export"]["dati"]["atti"][0]["aggiornamenti"]
+            for etichetta, scelti in (("Primi", aggiornamenti[:3]), ("Ultimi", aggiornamenti[-2:])):
+                for aggiornamento in scelti:
+                    testo = " ".join(aggiornamento["testo"].split())[:220]
+                    righe.append(f"- {etichetta} aggiornamenti — {aggiornamento['data']}: {testo}")
+        righe.append("")
     righe += [
-        "",
         f"## Atti emanati dal {INIZIO_PERIMETRO.isoformat()}",
         "",
         "| Tipo | Nel perimetro | Totale | Abrogati | Aggiornati |",

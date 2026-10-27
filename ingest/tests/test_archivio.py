@@ -8,7 +8,7 @@ from archivio.governi import governo_alla_data
 from archivio.modelli import Atto, Nota, Riferimento
 from archivio.note import PRONUNCIA, classifica
 from archivio.pipeline import riga_legge, unisci
-from archivio.relazioni import Risolutore, relazioni_di, stato_di
+from archivio.relazioni import Risolutore, data_decadenza, relazioni_di, stato_di
 from archivio.storia import chiave_urn, leggi_storie
 from fixture_export import aggiornamento, articolo, metadati, scrivi_export
 
@@ -226,6 +226,20 @@ def test_decreto_legge_abrogato_senza_conversione_e_decaduto():
     assert stato_di(dl, []) == "abrogata"
     dl.abrogato = False
     assert stato_di(dl, relazioni) == "vigente"
+
+
+def test_decreto_legge_decaduto_senza_frase_nel_titolo():
+    # Come nell'export del 27/10/2026: titolo senza "decaduto", testo originale in vigore per 60 giorni.
+    dl = atto(
+        "urn:nir:stato:decreto.legge:1995-01-07;1", "decreto-legge", data=date(1995, 1, 7), gazzetta_data=date(1995, 1, 7),
+        abrogato=True, decaduto=False, fine_vigore_originale=date(1995, 3, 8), data_abrogazione=date(1996, 3, 9),
+    )
+    assert stato_di(dl, []) == "decaduta"
+    assert data_decadenza(dl) == date(1995, 3, 9)
+    assert riga_legge(dl, "decaduta", carica_governi()).data_abrogazione == date(1995, 3, 9)
+    # Convertito, o abrogato quando il testo originale valeva da anni: non è decaduto.
+    dl.fine_vigore_originale = date(1999, 1, 1)
+    assert stato_di(dl, []) == "abrogata"
 
 
 def test_riga_legge():

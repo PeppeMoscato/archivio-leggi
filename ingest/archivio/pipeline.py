@@ -27,8 +27,8 @@ from normattiva.modelli import ExportMode
 from archivio import db, governi
 from archivio.catalogo import PER_PAGINA, atto_da_ricerca, catalogo
 from archivio.modelli import TIPI, Atto
-from archivio.relazioni import Risolutore, relazioni_di, stato_di
-from archivio.storia import Storia, chiave_urn, leggi_storie
+from archivio.relazioni import Risolutore, data_decadenza, relazioni_di, stato_di
+from archivio.storia import Storia, chiave_urn, decaduto, leggi_storie
 
 logger = logging.getLogger(__name__)
 
@@ -149,10 +149,12 @@ def unisci(atti: dict[str, Atto], storie: Iterable[Storia], abrogati: set[str]) 
         if atto.abrogato is not None:
             conti["export_doppi"] += 1
         atto.abrogato = storia.abrogato
-        atto.decaduto = storia.decaduto
+        # La frase sulla decadenza può stare nel titolo dell'export o in quello della ricerca.
+        atto.decaduto = storia.decaduto or decaduto(atto.titolo)
         atto.versioni = storia.versioni
         atto.data_abrogazione = storia.data_abrogazione
         atto.data_entrata_vigore = storia.data_entrata_vigore
+        atto.fine_vigore_originale = storia.fine_vigore_originale
         atto.note = storia.note
     for atto in per_urn.values():
         per_classe = atto.urn in abrogati
@@ -211,7 +213,7 @@ def riga_legge(atto: Atto, stato: str, elenco_governi: list[governi.Governo]) ->
         titolo=atto.titolo,
         link_normattiva=Urn.parse(atto.urn).permalink,
         stato=stato,
-        data_abrogazione=atto.data_abrogazione if stato != "vigente" else None,
+        data_abrogazione=None if stato == "vigente" else data_decadenza(atto) if stato == "decaduta" else atto.data_abrogazione,
         data_entrata_vigore=atto.data_entrata_vigore,
         gazzetta_data=atto.gazzetta_data,
         gazzetta_numero=atto.gazzetta_numero,

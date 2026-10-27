@@ -49,7 +49,7 @@ Le tabelle delle schede non sono ancora nella DDL: si creano in Fase 2, dopo le 
 | `tipo`, `numero`, `data`, `titolo` | ricerca avanzata di Normattiva |
 | `gazzetta_data`, `gazzetta_numero`, `gazzetta_codice` | ricerca avanzata; con più pubblicazioni per lo stesso URN si tiene la più vecchia |
 | `link_normattiva` | permalink costruito dall'URN |
-| `stato` | `abrogata` se Normattiva segna l'atto come abrogato; `decaduta` se è un D.L. abrogato senza legge di conversione; altrimenti `vigente` |
+| `stato` | `abrogata` se Normattiva segna l'atto come abrogato; `decaduta` se è un D.L. che Normattiva dichiara "decaduto per mancata conversione", oppure un D.L. abrogato senza legge di conversione il cui testo originale ha smesso di valere entro 60 giorni (o senza export); altrimenti `vigente`. Per i decaduti `data_abrogazione` è il giorno dopo la fine di vigenza del testo originale |
 | `data_abrogazione` | inizio dell'ultima versione nell'export multivigente (coincide con l'entrata in vigore dell'atto abrogante) |
 | `data_entrata_vigore` | inizio di vigenza più vecchio fra gli articoli del testo originale |
 | `governo_id` | governo in carica alla data di emanazione |

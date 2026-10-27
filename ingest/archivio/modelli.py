@@ -55,6 +55,8 @@ class Atto:
     versioni: int | None = None
     data_abrogazione: date | None = None
     data_entrata_vigore: date | None = None
+    # Ultimo giorno di vigenza del testo originale (per i D.L. decaduti: 60 giorni dalla pubblicazione).
+    fine_vigore_originale: date | None = None
     note: list[Nota] = field(default_factory=list)
 
     def in_json(self) -> dict[str, Any]:
@@ -77,6 +79,7 @@ class Atto:
             versioni=dati.get("versioni"),
             data_abrogazione=giorno(dati.get("data_abrogazione")),
             data_entrata_vigore=giorno(dati.get("data_entrata_vigore")),
+            fine_vigore_originale=giorno(dati.get("fine_vigore_originale")),
             note=[
                 Nota(
                     testo=nota["testo"],

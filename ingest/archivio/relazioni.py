@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from datetime import date
+from datetime import date, timedelta
 
 from normattiva import AmbiguityError, Normattiva, NormattivaError, NotFoundError
 from normattiva.errori import InvalidUrnError
@@ -115,17 +115,39 @@ def relazioni_di(atto: Atto, risolutore: Risolutore) -> tuple[list[RigaRelazione
     return list(relazioni), list(pronunce)
 
 
+# Il D.L. perde efficacia se non è convertito entro 60 giorni dalla pubblicazione (art. 77 Cost.);
+# due giorni di margine per le date di vigenza scritte da Normattiva.
+TERMINE_CONVERSIONE = timedelta(days=62)
+
+
+def scaduto_senza_conversione(atto: Atto) -> bool:
+    """Il testo originale ha smesso di valere entro il termine di conversione."""
+    pubblicazione = atto.gazzetta_data or atto.data
+    return atto.fine_vigore_originale is not None and atto.fine_vigore_originale <= pubblicazione + TERMINE_CONVERSIONE
+
+
 def stato_di(atto: Atto, relazioni: list[RigaRelazione]) -> str:
     """vigente / abrogata / decaduta.
 
     Decaduta: Normattiva scrive "Decreto-Legge decaduto per mancata conversione"
-    nel titolo dell'export. Se l'export manca, un D.L. abrogato senza legge di
-    conversione si considera decaduto.
+    nel titolo. Non sempre però: nell'esecuzione completa del 27/10/2026 la
+    frase mancava dai titoli dell'export, che la sonda della mattina invece
+    mostrava. Per questo un D.L. abrogato senza legge di conversione si
+    considera decaduto anche quando il testo originale ha smesso di valere entro
+    il termine di conversione, o quando l'export manca.
     """
     if atto.decaduto:
         return "decaduta"
     if not atto.abrogato:
         return "vigente"
-    if atto.decaduto is None and atto.tipo == "decreto-legge" and not any(r.tipo == "converte" for r in relazioni):
-        return "decaduta"
+    if atto.tipo == "decreto-legge" and not any(r.tipo == "converte" for r in relazioni):
+        if atto.decaduto is None or scaduto_senza_conversione(atto):
+            return "decaduta"
     return "abrogata"
+
+
+def data_decadenza(atto: Atto) -> date | None:
+    """Il giorno dopo la fine di vigenza del testo originale; altrimenti la data già ricavata dall'export."""
+    if atto.fine_vigore_originale is not None:
+        return atto.fine_vigore_originale + timedelta(days=1)
+    return atto.data_abrogazione

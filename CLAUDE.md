@@ -16,7 +16,7 @@ App gratuita e non commerciale che archivia le leggi statali italiane (dal 1990)
 
 ## Struttura
 - `docs/` — documenti di progetto (fonte di verità).
-- `ingest/` — pipeline Python di ingestione (Normattiva, Camera, Senato, Istat).
+- `ingest/` — pipeline Python di ingestione (Normattiva, Camera, Senato, Istat). Pacchetto `ingest/archivio/`: pipeline Normattiva → Postgres.
 - `api/` — FastAPI (da creare, Fase 1).
 - `web/` — Next.js (da creare, Fase 1).
 
@@ -24,10 +24,16 @@ App gratuita e non commerciale che archivia le leggi statali italiane (dal 1990)
 ```bash
 cd ingest
 pip install -e ".[dev]"
-pytest                  # prove offline
+pytest                  # prove offline (con TEST_DATABASE_URL anche quelle sul database)
 pytest -m rete          # prove contro i servizi reali (serve internet)
 python spike_normattiva.py   # spike: scrive samples/ e stampa il report
+
+# Pipeline Normattiva → Postgres (Task 1.1)
+python -m archivio estrai --anni 2003 --uscita dati        # catalogo + export, un JSONL per anno
+DATABASE_URL=... python -m archivio carica --da dati       # relazioni, stato, governo → database
 ```
+- Normattiva non è raggiungibile dal container di Claude Code: la pipeline gira sul workflow "Pipeline Normattiva" (Actions → Run workflow, campo `anni`). Con il secret `DATABASE_URL` scrive su Neon, altrimenti pubblica il dump `archivio-db` come artifact.
+- La DDL è `ingest/archivio/schema.sql`: va tenuta allineata a `docs/01_schema_dati.md`.
 
 ## Fonti e licenze
 - Normattiva: CC BY 4.0, attribuzione obbligatoria nel footer dell'app (testo in `docs/03_fonti.md`).

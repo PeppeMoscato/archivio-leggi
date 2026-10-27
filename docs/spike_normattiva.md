@@ -80,3 +80,26 @@ Da approvare prima del Task 1.1 (pipeline). Nessuna modifica a `01_schema_dati.m
 - `pronuncia_costituzionale`: nuova tabella per le sentenze di illegittimità della Consulta (`id`, `urn_legge`, `articolo`, `numero_sentenza`, `anno`, `nota`), perché non sono leggi e non possono stare in `relazione_normativa`.
 - `iter`: `voti_favorevoli` e `voti_contrari` opzionali (i D.Lgs. non hanno voto finale).
 
+
+## 4. Sonda sull'export per anno (27/10/2026, Task 1.1)
+
+Prima di scrivere la pipeline: una [sonda](https://github.com/PeppeMoscato/archivio-leggi/actions/runs/40492177666) ha esportato un anno intero di leggi (2003) e di decreti-legge (1995) nelle tre modalità.
+
+| Export | Atti | Tempo | Zip | Note di aggiornamento |
+|---|---|---|---|---|
+| Leggi 2003, originale | 165 | 35 s | 2,0 MB | assenti |
+| Leggi 2003, vigente | 165 | 34 s | 1,9 MB | presenti |
+| Leggi 2003, multivigente | 165 (368 file) | 63 s | 15,5 MB | presenti (nell'ultima versione) |
+| D.L. 1995, originale | 294 | 57 s | 2,1 MB | assenti |
+| D.L. 1995, vigente | 294 | 54 s | 0,8 MB | presenti |
+| D.L. 1995, multivigente | 294 (1.090 file) | 92 s | 7,6 MB | presenti |
+
+Cosa ne ricaviamo:
+1. **Un export per tipo e anno basta**: circa un minuto ciascuno. Tutto il perimetro (37 anni × 4 tipi) sta in un'ora di job paralleli. La pipeline usa il multivigente, perché dà anche le date delle versioni e la vigenza del testo originale.
+2. **La ricerca avanzata restituisce fino a 200 risultati per pagina** (anche 500 nella prova): il catalogo di un anno costa una o due chiamate.
+3. **Il titolo nell'export contiene due informazioni preziose**: "Entrata in vigore del provvedimento: 22/1/2004" e, per i decreti non convertiti, "Decreto-Legge decaduto per mancata conversione". Dei 294 D.L. del 1995, 243 sono marcati abrogati: sono quasi tutti decaduti (la reiterazione degli anni '90). Lo stato `decaduta` si ricava da questa frase, non da un'ipotesi.
+4. **Per i D.L. decaduti l'ultima versione non è la data di decadenza** (D.L. 1/1995: versioni del 9/3/1995 e del 9/3/1996). La data giusta è il giorno dopo la fine di vigenza del testo originale (60 giorni dalla pubblicazione).
+5. **Le note non nominano l'atto che dispone**: cominciano con "ha disposto (con l'art. …)" o con un frammento (", di conversione, ha disposto …", ", convertito con modificazioni dalla L. … ha disposto …"). L'atto si identifica solo dal riferimento in Gazzetta. Una nota può descrivere più azioni separate da ";".
+6. **Le pronunce della Consulta non citano il numero della sentenza** ("ha dichiarato l'illegittimita' costituzionale dell'art. 10, comma 6."): resta il riferimento in Gazzetta (data e codice), da risolvere più avanti.
+7. **Il numero di alcuni atti nella ricerca porta un'aggiunta**: "1 (Raccolta 2019)". La pipeline lo pulisce prima di comporre l'URN.
+8. Altre forme di nota: "ha confermato … l'abrogazione" (conferma di un'abrogazione già disposta, ad esempio dal D.Lgs. 66/2010 sul taglia-leggi del D.L. 112/2008) e "la soppressione del comma …" (trattata come modifica).

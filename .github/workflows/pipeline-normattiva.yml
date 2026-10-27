@@ -1,0 +1,115 @@
+name: Pipeline Normattiva
+
+# Normattiva → Postgres (Task 1.1). Un job di estrazione per anno, poi un caricamento unico.
+# Lanciato a mano (Actions → Run workflow) scrive su Neon se c'è il secret DATABASE_URL; sulle pull request, e senza secret,
+# usa un Postgres temporaneo e pubblica il dump come artifact.
+on:
+  workflow_dispatch:
+    inputs:
+      anni:
+        description: "Anni da estrarre: 2003, 1990-1995, 1990- (fino a oggi)"
+        default: "1990-"
+  pull_request:
+    paths:
+      - "ingest/archivio/**"
+      - ".github/workflows/pipeline-normattiva.yml"
+
+concurrency:
+  group: pipeline-normattiva-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  anni:
+    runs-on: ubuntu-latest
+    outputs:
+      elenco: ${{ steps.elenco.outputs.elenco }}
+    steps:
+      - id: elenco
+        env:
+          # Sulle pull request basta un anno di prova (1995: tanti D.L. decaduti); l'archivio completo si lancia a mano.
+          ANNI: ${{ inputs.anni || '1995' }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import datetime, json, os
+          inizio, _, fine = os.environ["ANNI"].partition("-")
+          fine = fine or (str(datetime.date.today().year) if "-" in os.environ["ANNI"] else inizio)
+          print("elenco=" + json.dumps(list(range(int(inizio), int(fine) + 1))))
+          PY
+
+  estrai:
+    needs: anni
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      max-parallel: 4  # Normattiva non pubblica quote: restiamo prudenti
+      matrix:
+        anno: ${{ fromJSON(needs.anni.outputs.elenco) }}
+    defaults:
+      run:
+        working-directory: ingest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - run: python -m archivio estrai --anni ${{ matrix.anno }} --uscita dati
+      - uses: actions/upload-artifact@v4
+        with:
+          name: atti-${{ matrix.anno }}
+          path: ingest/dati/atti_${{ matrix.anno }}.jsonl
+          retention-days: 30
+
+  carica:
+    needs: estrai
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: archivio
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      LOCALE: postgresql://postgres:postgres@localhost:5432/archivio
+      # Su Neon scrive solo l'esecuzione lanciata a mano; le prove delle pull request restano nel Postgres del job.
+      NEON: ${{ github.event_name == 'workflow_dispatch' && secrets.DATABASE_URL || '' }}
+    defaults:
+      run:
+        working-directory: ingest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: atti-*
+          path: ingest/dati
+          merge-multiple: true
+      - name: Carica
+        run: |
+          if [ -n "$NEON" ]; then
+            echo "Destinazione: Neon (secret DATABASE_URL)" | tee -a "$GITHUB_STEP_SUMMARY"
+            export DATABASE_URL="$NEON"
+          else
+            echo "Destinazione: Postgres temporaneo del job (manca il secret DATABASE_URL)" | tee -a "$GITHUB_STEP_SUMMARY"
+            export DATABASE_URL="$LOCALE"
+          fi
+          python -m archivio carica --da dati
+      - name: Dump del Postgres temporaneo
+        if: env.NEON == ''
+        run: |
+          PGPASSWORD=postgres pg_dump -h localhost -U postgres -d archivio --no-owner | gzip > archivio.sql.gz
+          ls -lh archivio.sql.gz
+      - uses: actions/upload-artifact@v4
+        if: env.NEON == ''
+        with:
+          name: archivio-db
+          path: ingest/archivio.sql.gz
+          retention-days: 30

@@ -1,0 +1,77 @@
+"""Riga di comando della pipeline Normattiva → Postgres.
+
+    python -m archivio estrai --anni 2003 2004 --uscita dati/
+    python -m archivio carica --da dati/            # DATABASE_URL nell'ambiente
+
+Il rapporto finisce su stdout e, su GitHub Actions, nel riepilogo del job.
+"""
+
+from __future__ import annotations
+
+import argparse
+import logging
+import os
+import sys
+from datetime import date
+from pathlib import Path
+
+from normattiva import Normattiva
+
+from archivio import db
+from archivio.pipeline import PERIMETRO, carica, estrai, leggi_atti
+
+USER_AGENT = "archivio-leggi pipeline (+https://github.com/PeppeMoscato/archivio-leggi)"
+
+
+def anni(testo: str) -> list[int]:
+    """"2003", "1990-1995" o "1990-" (fino all'anno in corso)."""
+    if "-" not in testo:
+        return [int(testo)]
+    inizio, _, fine = testo.partition("-")
+    return list(range(int(inizio), int(fine or date.today().year) + 1))
+
+
+def pubblica(titolo: str, testo: str) -> None:
+    print(f"## {titolo}\n\n{testo}")
+    if riepilogo := os.environ.get("GITHUB_STEP_SUMMARY"):
+        with open(riepilogo, "a", encoding="utf-8") as file:
+            file.write(f"## {titolo}\n\n{testo}\n")
+
+
+def main(argomenti: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="archivio")
+    comandi = parser.add_subparsers(dest="comando", required=True)
+    p_estrai = comandi.add_parser("estrai", help="catalogo ed export da Normattiva in JSONL")
+    p_estrai.add_argument("--anni", nargs="+", required=True, help="es. 2003, 1990-1995, 1990-")
+    p_estrai.add_argument("--tipi", nargs="+", default=list(PERIMETRO), choices=PERIMETRO)
+    p_estrai.add_argument("--uscita", type=Path, required=True)
+    p_carica = comandi.add_parser("carica", help="dai JSONL al database")
+    p_carica.add_argument("--da", type=Path, required=True)
+    p_carica.add_argument("--senza-api", action="store_true", help="non chiamare Normattiva per i riferimenti")
+    opzioni = parser.parse_args(argomenti)
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+
+    if opzioni.comando == "estrai":
+        elenco = sorted({anno for testo in opzioni.anni for anno in anni(testo)})
+        with Normattiva(user_agent=USER_AGENT, timeout=300.0) as client:
+            rapporto = estrai(client, elenco, opzioni.uscita, opzioni.tipi)
+        pubblica(f"Estrazione {elenco[0]}–{elenco[-1]}", rapporto.testo())
+        return 0
+
+    dsn = os.environ.get("DATABASE_URL")
+    if not dsn:
+        print("DATABASE_URL non impostata", file=sys.stderr)
+        return 2
+    atti = leggi_atti(opzioni.da)
+    with db.connetti(dsn) as conn:
+        if opzioni.senza_api:
+            rapporto = carica(conn, atti)
+        else:
+            with Normattiva(user_agent=USER_AGENT, timeout=120.0) as client:
+                rapporto = carica(conn, atti, client)
+    pubblica("Caricamento", rapporto.testo())
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

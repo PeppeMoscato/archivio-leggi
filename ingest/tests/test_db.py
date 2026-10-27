@@ -1,11 +1,10 @@
-"""Prove del caricamento su un Postgres vero. Servono `TEST_DATABASE_URL` e un database usa e getta."""
+"""Prove del caricamento su un Postgres vero. Servono `TEST_DATABASE_URL` e un database usa e getta (fixture `conn` in conftest.py)."""
 
 import os
 from datetime import date
 
 import pytest
 
-from archivio import db
 from archivio.modelli import Atto, Nota, Riferimento
 from archivio.pipeline import carica
 
@@ -15,18 +14,6 @@ pytestmark = [pytest.mark.db, pytest.mark.skipif(not DSN, reason="TEST_DATABASE_
 MERLONI = "urn:nir:stato:legge:1994-02-11;109"
 CODICE_APPALTI = "urn:nir:stato:decreto.legislativo:2006-04-12;163"
 DL_DECADUTO = "urn:nir:stato:decreto.legge:1995-01-02;1"
-
-
-@pytest.fixture
-def conn():
-    with db.connetti(DSN) as connessione:
-        with connessione.cursor() as cur:
-            cur.execute(
-                "DROP VIEW IF EXISTS legge_estesa; DROP TABLE IF EXISTS relazione_normativa, pronuncia_costituzionale, "
-                "gazzetta_urn, legge, governo CASCADE"
-            )
-        connessione.commit()
-        yield connessione
 
 
 def atti():

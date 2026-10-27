@@ -16,7 +16,7 @@ py-modules = ["spike_normattiva"]
 packages = ["archivio"]
 
 [tool.setuptools.package-data]
-archivio = ["schema.sql", "governi.csv"]
+archivio = ["schema.sql", "governi.csv", "governi_partiti.csv"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

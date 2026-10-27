@@ -122,6 +122,20 @@ def entrata_in_vigore_dichiarata(titolo: str) -> date | None:
         return None
 
 
+def _documento(archivio: zipfile.ZipFile, nome: str) -> dict[str, Any] | None:
+    """Il JSON di una versione, o None se il file è vuoto o illeggibile.
+
+    Succede davvero: nella prima esecuzione completa (27/10/2026) alcuni
+    archivi annuali contenevano file vuoti.
+    """
+    try:
+        documento = json.loads(archivio.read(nome))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        logger.warning("file illeggibile nell'export: %s", nome)
+        return None
+    return documento if isinstance(documento, dict) else None
+
+
 def leggi_storie(percorso: Path) -> Iterator[Storia]:
     """Una `Storia` per ogni atto contenuto nell'archivio di export."""
     with zipfile.ZipFile(percorso) as archivio:
@@ -134,14 +148,23 @@ def leggi_storie(percorso: Path) -> Iterator[Storia]:
             per_atto.setdefault(nome.rsplit("/", 1)[0], []).append((int(trovato.group(2)), vigenza, nome))
         for cartella, file in per_atto.items():
             file.sort()
-            ultimo = json.loads(archivio.read(file[-1][2]))
+            # L'ultima versione leggibile: è quella con le note e il flag di abrogazione aggiornati.
+            ultimo, nome_ultimo = next(
+                ((documento, nome) for _, _, nome in reversed(file) if (documento := _documento(archivio, nome))),
+                (None, None),
+            )
+            if ultimo is None:
+                logger.warning("nessuna versione leggibile per %s", cartella)
+                continue
+            if nome_ultimo != file[-1][2]:
+                logger.warning("%s: uso la versione %s, le successive sono illeggibili", cartella, nome_ultimo)
             metadati = ultimo.get("metadati") or {}
             urn = str(metadati.get("urn") or "").strip()
             if not urn:
                 logger.warning("atto senza URN nell'export: %s", cartella)
                 continue
             originale = next((nome for _, vigenza, nome in file if vigenza is None), None)
-            documento_originale = ultimo if originale == file[-1][2] else json.loads(archivio.read(originale)) if originale else None
+            documento_originale = ultimo if originale == nome_ultimo else _documento(archivio, originale) if originale else None
             finestre = list(finestre_di_vigenza(documento_originale)) if documento_originale else []
             fini = [fine for _, fine in finestre]
             datate = [vigenza for _, vigenza, _ in file if vigenza is not None]

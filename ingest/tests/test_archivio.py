@@ -295,3 +295,19 @@ def test_estrai_scrive_un_jsonl_per_anno(tmp_path):
     assert atti["365"].abrogato is True and atti["365"].data_abrogazione == date(2010, 10, 9)
     assert atti["365"].note[0].riferimenti[0].codice == "010G0091"
     assert "2003 LEGGE: 2 atti, export 2, abrogati 1" in rapporto.testo()
+
+
+def test_leggi_storie_salta_i_file_vuoti(tmp_path):
+    import zipfile
+
+    percorso = scrivi_export(
+        tmp_path / "export.zip",
+        [{"cartella": "merloni", "metadati": metadati(MERLONI, "LEGGE", "109", "19940211"), "versioni": [None, "2006-07-01"],
+          "articoli": [articolo("1", "19940219")]}],
+    )
+    with zipfile.ZipFile(percorso, "a") as archivio:
+        archivio.writestr("merloni/merloni_VIGENZA_2010-01-01_V3.json", "")
+        archivio.writestr("vuoto/vuoto_ORIGINALE_V1.json", "")
+    (storia,) = list(leggi_storie(percorso))
+    assert storia.urn == MERLONI
+    assert storia.versioni == 3

@@ -33,8 +33,12 @@ from archivio.storia import Storia, chiave_urn, leggi_storie
 logger = logging.getLogger(__name__)
 
 PERIMETRO = tuple(TIPI)
-ATTESA_EXPORT = 2400.0
-TENTATIVI_EXPORT = 3
+# Un export annuale dura di solito 1-2 minuti (sonda del 27/10/2026), ma alcuni restano
+# in lavorazione per ore (D.L. 2008 nella prima esecuzione completa): meglio arrendersi
+# presto e dividere la richiesta.
+ATTESA_ANNO = 900.0
+ATTESA_MESE = 600.0
+ATTESA_ATTO = 300.0
 
 
 # --- Fase 1: estrazione -------------------------------------------------------
@@ -55,39 +59,70 @@ def abrogati_per_classe(client: Normattiva, denominazione: str, anno: int) -> se
         pagina += 1
 
 
-def esporta(client: Normattiva, cartella: Path, nome: str, **criteri) -> list[Storia]:
+class ExportNonRiuscito(Exception):
+    pass
+
+
+def esporta(client: Normattiva, cartella: Path, nome: str, attesa: float, tentativi: int = 2, **criteri) -> list[Storia]:
     """Export multivigente in JSON; l'archivio si legge e poi si cancella."""
     ultimo_errore: Exception | None = None
-    for tentativo in range(1, TENTATIVI_EXPORT + 1):
+    for tentativo in range(1, tentativi + 1):
         inizio = time.monotonic()
         try:
             export = client.start_export(format=Format.JSON, mode=ExportMode.MULTIVIGENTE, massimo_atti=None, **criteri)
-            export.wait(timeout=ATTESA_EXPORT)
+            export.wait(timeout=attesa)
             percorso = export.save(cartella / f"{nome}.zip")
         except NormattivaError as errore:
             ultimo_errore = errore
             logger.warning("export %s, tentativo %s fallito: %s", nome, tentativo, errore)
-            time.sleep(30 * tentativo)
+            if tentativo < tentativi:
+                time.sleep(30 * tentativo)
             continue
         dimensione = percorso.stat().st_size
         storie = list(leggi_storie(percorso))
         percorso.unlink()
         logger.info("export %s: %s atti, %.1f MB, %.0f s", nome, len(storie), dimensione / 1e6, time.monotonic() - inizio)
         return storie
-    raise RuntimeError(f"export {nome} non riuscito dopo {TENTATIVI_EXPORT} tentativi: {ultimo_errore}")
+    raise ExportNonRiuscito(f"export {nome} non riuscito: {ultimo_errore}")
 
 
-def storie_dell_anno(client: Normattiva, cartella: Path, denominazione: str, anno: int) -> list[Storia]:
-    """Export di un anno intero; se fallisce, un export per mese."""
+def storie_dell_anno(
+    client: Normattiva, cartella: Path, denominazione: str, anno: int, atti: dict[str, Atto]
+) -> tuple[list[Storia], list[str]]:
+    """Le storie degli atti di un anno, e gli URN rimasti senza export.
+
+    Prima un export per l'anno intero; se non si conclude, uno per mese; se un
+    mese non si conclude, uno per atto. Un atto che non si esporta nemmeno da
+    solo resta senza storia: lo stato si prende dalla classe della ricerca.
+    """
     nome = f"{denominazione.replace(' ', '_')}_{anno}"
     try:
-        return esporta(client, cartella, nome, denominazione=denominazione, anno=anno)
-    except RuntimeError as errore:
-        logger.warning("%s; riprovo mese per mese", errore)
+        return esporta(client, cartella, nome, ATTESA_ANNO, tentativi=1, denominazione=denominazione, anno=anno), []
+    except ExportNonRiuscito as errore:
+        logger.warning("%s; divido per mese", errore)
     storie: list[Storia] = []
+    mancanti: list[str] = []
     for mese in range(1, 13):
-        storie += esporta(client, cartella, f"{nome}_{mese:02d}", denominazione=denominazione, anno=anno, mese=mese)
-    return storie
+        del_mese = [a for a in atti.values() if a.data.month == mese]
+        if not del_mese:
+            continue
+        try:
+            storie += esporta(
+                client, cartella, f"{nome}_{mese:02d}", ATTESA_MESE, denominazione=denominazione, anno=anno, mese=mese
+            )
+            continue
+        except ExportNonRiuscito as errore:
+            logger.warning("%s; divido per atto", errore)
+        for atto in del_mese:
+            try:
+                storie += esporta(
+                    client, cartella, f"{nome}_{atto.numero}", ATTESA_ATTO, tentativi=1,
+                    denominazione=denominazione, anno=anno, mese=mese, giorno=atto.data.day, numero=atto.numero,
+                )
+            except ExportNonRiuscito as errore:
+                logger.warning("%s; l'atto resta senza storia", errore)
+                mancanti.append(atto.urn)
+    return storie, mancanti
 
 
 @dataclass
@@ -139,8 +174,10 @@ def estrai(client: Normattiva, anni: Iterable[int], uscita: Path, denominazioni:
                 atti = catalogo(client, denominazione, anno)
                 if not atti:
                     continue
-                storie = storie_dell_anno(client, Path(temporanea), denominazione, anno)
+                storie, mancanti = storie_dell_anno(client, Path(temporanea), denominazione, anno, atti)
                 uniti, conti = unisci(atti, storie, abrogati_per_classe(client, denominazione, anno))
+                if mancanti:
+                    rapporto.aggiungi(f"- {anno} {denominazione}: export non riuscito per {', '.join(mancanti)}")
                 righe += uniti
                 rapporto.aggiungi(
                     f"- {anno} {denominazione}: {len(atti)} atti, export {len(storie)}, "

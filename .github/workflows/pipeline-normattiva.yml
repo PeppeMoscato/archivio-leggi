@@ -37,7 +37,7 @@ jobs:
   estrai:
     needs: anni
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 330
     strategy:
       fail-fast: false
       max-parallel: 4  # Normattiva non pubblica quote: restiamo prudenti

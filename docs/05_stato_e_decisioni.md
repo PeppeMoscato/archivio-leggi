@@ -4,7 +4,7 @@ Ultimo aggiornamento: 27/10/2026
 Aggiornare a fine di ogni sessione di lavoro.
 
 ## Fase attuale
-Fase 1 — Archivio. Schema dati v1.1 approvato e scritto. Task 1.1 in revisione (PR #2): pipeline Normattiva → Postgres (`ingest/archivio/`), eseguita dal workflow "Pipeline Normattiva" su GitHub Actions, che scrive su Neon tramite il secret `DATABASE_URL`. Prossimo passo: unire la PR e verificare i dati caricati, poi Task 1.2 (iter da Camera e Senato).
+Fase 1 — Archivio. Schema dati v1.1 approvato e scritto. Task 1.1 in revisione (PR #2): pipeline Normattiva → Postgres (`ingest/archivio/`), eseguita dal workflow "Pipeline Normattiva" su GitHub Actions, che scrive su Neon tramite il secret `DATABASE_URL`. Su Neon c'è già un primo caricamento completo (8.927 atti, 42.601 relazioni) fatto prima della correzione sui D.L. decaduti. Prossimo passo: unire la PR, rilanciare il workflow a mano (anni `1990-`) per aggiornare Neon, poi Task 1.2 (iter da Camera e Senato).
 
 ## Decisioni prese
 | Data | Decisione | Motivo |
@@ -28,6 +28,8 @@ Fase 1 — Archivio. Schema dati v1.1 approvato e scritto. Task 1.1 in revisione
 | 2026-10-27 | Pipeline in due fasi: `estrai` (un job per anno, catalogo dalla ricerca avanzata + storia dall'export multivigente JSON) e `carica` (un job unico) | Gli export annuali sono lenti e indipendenti, quindi vanno in parallelo; il caricamento ha bisogno del catalogo completo per risolvere i riferimenti in Gazzetta senza chiamare l'API |
 | 2026-10-27 | Un export che non si conclude si divide per mese e poi per atto; un file vuoto nell'export non blocca l'anno | Nella prima esecuzione completa alcuni export (D.L. 2008 e 2010) sono rimasti in lavorazione per ore e diversi archivi contenevano file JSON vuoti |
 | 2026-10-27 | Stato "decaduta": dalla frase "Decreto-Legge decaduto per mancata conversione" nel titolo quando c'è; altrimenti D.L. abrogato, senza legge di conversione, con il testo originale in vigore al massimo 60 giorni. Data = fine vigenza del testo originale + 1 giorno | La sonda del mattino mostrava la frase nel titolo dell'export, l'esecuzione completa del pomeriggio no (0 decaduti su 1.416 D.L. abrogati): serve una regola che non dipenda da quel testo. Il termine di 60 giorni viene dall'art. 77 della Costituzione |
+| 2026-10-27 | Relazioni `converte` anche dal titolo della legge di conversione ("Conversione in legge ... del decreto-legge ...") | Le note dei D.L. citano la conversione di rado: nella prova sul 1995, 7 conversioni dalle note contro 58 con i titoli |
+| 2026-10-27 | La pipeline scrive su Neon solo se lanciata a mano; le pull request provano un anno (1995) su un Postgres temporaneo | Un'esecuzione completa dura circa due ore e ogni push sulla PR la farebbe ripartire |
 | 2026-10-27 | Relazioni ricavate dalle note di aggiornamento; l'atto che dispone si risale dal riferimento in Gazzetta (catalogo, poi cache `gazzetta_urn`, poi API) | Le note non nominano l'atto che dispone; ogni relazione conserva la nota originale per verificare la classificazione |
 | 2026-10-27 | Tabella `governo` compilata a mano (`ingest/archivio/governi.csv`, fonte senato.it); governo assegnato per data di emanazione, il giorno del giuramento va al nuovo governo | 22 governi dal 1989, nessuna fonte strutturata da interrogare |
 
@@ -76,4 +78,4 @@ Fase 1 — Archivio. Schema dati v1.1 approvato e scritto. Task 1.1 in revisione
 - 2026-10-27: scelto Neon, definita la lista delle 30 leggi, compilata la scheda di esempio sulla Legge Sirchia.
 - 2026-10-27: annotata l'idea del carosello TikTok "pagella politica" per dopo l'MVP.
 - 2026-10-27: revisione della documentazione (vedi `docs/revisioni/`); creato il repository; deciso il perimetro iniziale degli atti; Task 0.2 completato (circa 8.900 atti nel perimetro dal 1990; proposte per lo schema v1.1).
-- 2026-10-27: Task 1.1. Schema v1.1 scritto; pipeline Normattiva → Postgres con workflow su GitHub Actions; prima esecuzione completa: corretti file vuoti negli export ed export bloccati.
+- 2026-10-27: Task 1.1. Schema v1.1 scritto; pipeline Normattiva → Postgres con workflow su GitHub Actions. Prima esecuzione completa: corretti file vuoti negli export ed export bloccati. Seconda esecuzione: 8.927 atti su Neon (uguale al totale della ricerca Normattiva), 42.601 relazioni, 471 pronunce della Consulta; un solo atto senza export (D.L. 200/2008). Corretti poi i D.L. decaduti (0 → 233 su 294 nel 1995) e le conversioni dai titoli.

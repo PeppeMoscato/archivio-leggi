@@ -1,0 +1,213 @@
+name: Pipeline Camera
+
+# dati.camera.it → Postgres (Task 1.2, parte Camera): votazioni d'Aula con il voto di ogni deputato (XIII-XIX),
+# iter dai lavori preparatori (X-XII), deputati e gruppi. Le votazioni si attaccano alle fasi Camera degli iter del
+# Senato: su Neon va lanciata dopo la Pipeline Senato.
+# Lanciato a mano scrive su Neon solo con "scrivi_su_neon" spuntato e il secret DATABASE_URL; altrimenti, e sulle pull
+# request, usa un Postgres temporaneo (con Normattiva e Senato di prova) e pubblica il dump come artifact.
+on:
+  workflow_dispatch:
+    inputs:
+      legislature:
+        description: "Legislature da estrarre: 15, 10-19 (votazioni dalla XIII, iter della Camera per X-XII)"
+        default: "10-19"
+      scrivi_su_neon:
+        description: "Scrivi su Neon (secret DATABASE_URL), dopo la Pipeline Senato"
+        type: boolean
+        default: false
+  pull_request:
+    paths:
+      - "ingest/archivio/camera.py"
+      - "ingest/archivio/parlamento.py"
+      - "ingest/archivio/schema.sql"
+      - ".github/workflows/pipeline-camera.yml"
+
+concurrency:
+  group: pipeline-camera-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  legislature:
+    runs-on: ubuntu-latest
+    outputs:
+      elenco: ${{ steps.elenco.outputs.elenco }}
+    steps:
+      - id: elenco
+        env:
+          # Sulle pull request: la XII (1994-1996, iter della Camera) e la XV (2006-2008, la più piccola con i voti).
+          LEGISLATURE: ${{ inputs.legislature || '12,15' }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os
+          elenco = []
+          for parte in os.environ["LEGISLATURE"].split(","):
+              inizio, _, fine = parte.strip().partition("-")
+              elenco += range(int(inizio), int(fine or inizio) + 1)
+          print("elenco=" + json.dumps(elenco))
+          PY
+
+  estrai:
+    needs: legislature
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      max-parallel: 2  # la Camera non pubblica quote: restiamo prudenti
+      matrix:
+        legislatura: ${{ fromJSON(needs.legislature.outputs.elenco) }}
+    defaults:
+      run:
+        working-directory: ingest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - run: python -m archivio camera-estrai --legislature ${{ matrix.legislatura }} --uscita dati
+      - uses: actions/upload-artifact@v4
+        with:
+          name: camera-${{ matrix.legislatura }}
+          path: ingest/dati/camera_${{ matrix.legislatura }}.json
+          retention-days: 30
+
+  persone:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: ingest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - run: python -m archivio camera-persone --uscita dati
+      - uses: actions/upload-artifact@v4
+        with:
+          name: camera-persone
+          path: ingest/dati/camera_persone.json
+          retention-days: 30
+
+  # Solo per le prove: quante votazioni e quanti voti porterebbero tutte le legislature (lo spazio su Neon).
+  stima:
+    if: ${{ !inputs.scrivi_su_neon }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: ingest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - run: python -m archivio camera-stima --legislature 13-19
+
+  # Solo per le prove: leggi da Normattiva e iter del Senato per collegare le votazioni nel Postgres temporaneo.
+  prova:
+    if: ${{ !inputs.scrivi_su_neon }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: ingest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - run: python -m archivio senato-estrai --legislature 15 --uscita senato
+      - run: python -m archivio senato-persone --uscita senato
+      - run: python -m archivio estrai --anni 1994-1996 2006-2008 --tipi LEGGE "LEGGE COSTITUZIONALE" --uscita normattiva
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prova-camera
+          path: |
+            ingest/senato/*.json
+            ingest/normattiva/atti_*.jsonl
+          retention-days: 7
+
+  carica:
+    needs: [estrai, persone, prova]
+    if: ${{ !cancelled() && needs.persone.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: archivio
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      LOCALE: postgresql://postgres:postgres@localhost:5432/archivio
+      NEON: ${{ github.event_name == 'workflow_dispatch' && inputs.scrivi_su_neon && secrets.DATABASE_URL || '' }}
+    defaults:
+      run:
+        working-directory: ingest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: camera-*
+          path: ingest/dati
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        if: env.NEON == ''
+        continue-on-error: true
+        with:
+          name: prova-camera
+          path: ingest
+      - name: Normattiva e Senato di prova
+        if: env.NEON == ''
+        run: |
+          if ls normattiva/atti_*.jsonl > /dev/null 2>&1; then
+            DATABASE_URL="$LOCALE" python -m archivio carica --da normattiva --senza-api
+          else
+            echo "Nessuna legge di prova da Normattiva: gli iter restano senza URN" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+          if ls senato/senato_persone.json > /dev/null 2>&1; then
+            DATABASE_URL="$LOCALE" python -m archivio senato-carica --da senato
+          else
+            echo "Nessun iter di prova dal Senato: le votazioni della Camera non si collegano" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Carica
+        run: |
+          if [ -n "$NEON" ]; then
+            echo "Destinazione: Neon (secret DATABASE_URL)" | tee -a "$GITHUB_STEP_SUMMARY"
+            export DATABASE_URL="$NEON"
+          else
+            echo "Destinazione: Postgres temporaneo del job" | tee -a "$GITHUB_STEP_SUMMARY"
+            export DATABASE_URL="$LOCALE"
+          fi
+          python -m archivio camera-carica --da dati
+      - name: Spazio per legislatura nel Postgres temporaneo
+        if: env.NEON == ''
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -d archivio -c "
+            SELECT ramo, legislatura, count(*) AS votazioni,
+                   sum(cardinality(voti_favorevoli) + cardinality(voti_contrari) + cardinality(voti_astenuti)) AS voti,
+                   pg_size_pretty(sum(pg_column_size(votazione.*))::bigint) AS spazio_righe
+            FROM votazione GROUP BY ramo, legislatura ORDER BY ramo, legislatura" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Dump del Postgres temporaneo
+        if: env.NEON == ''
+        run: |
+          PGPASSWORD=postgres pg_dump -h localhost -U postgres -d archivio --no-owner | gzip > camera.sql.gz
+          ls -lh camera.sql.gz
+      - uses: actions/upload-artifact@v4
+        if: env.NEON == ''
+        with:
+          name: camera-db
+          path: ingest/camera.sql.gz
+          retention-days: 30

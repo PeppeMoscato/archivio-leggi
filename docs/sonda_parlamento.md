@@ -10,6 +10,8 @@ Esecuzioni del 27/10/2026: [run 40578550705](https://github.com/PeppeMoscato/arc
 
 Fra le 20:29 e le 20:42 del 27/10/2026 l'endpoint ha risposto **502 Bad Gateway** a ogni richiesta, anche a una query banale (`SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 3`), sia in HTTPS sia in HTTP. È un problema del server della Camera, non della query. Da riprovare: finché non risponde, i voti dei deputati non sono verificati.
 
+Alle 21:10 dello stesso giorno l'endpoint è tornato a rispondere ([run 40584430068](https://github.com/PeppeMoscato/archivio-leggi/actions/runs/40584430068), job `sonda (camera)`): 22 classi esplorate (atti, votazioni, voti, deputati, gruppi, governi, membri del governo); due query in 504. La query mirata sui voti individuali non ha restituito righe: va riscritta prima di concludere qualcosa. L'analisi è il primo passo del task Camera.
+
 ## 2. Senato (dati.senato.it)
 
 Endpoint Virtuoso, risposte in 1-4 secondi. Limiti del motore: niente `SAMPLE` né `BIND`; i confronti con una stringa vanno fatti con `FILTER(STR(?x) = "...")`.

@@ -7,3 +7,5 @@ __pycache__/
 .env
 .DS_Store
 ingest/cache/
+ingest/dati/
+ingest/archivio.sql.gz

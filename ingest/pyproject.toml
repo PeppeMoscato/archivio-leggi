@@ -5,6 +5,7 @@ description = "Ingestione dei dati di Archivio Leggi (Normattiva, Camera, Senato
 requires-python = ">=3.12"
 dependencies = [
     "normattiva-sdk==0.1.0",
+    "psycopg[binary]>=3.2,<4",
 ]
 
 [project.optional-dependencies]
@@ -12,8 +13,15 @@ dev = ["pytest>=8"]
 
 [tool.setuptools]
 py-modules = ["spike_normattiva"]
+packages = ["archivio"]
+
+[tool.setuptools.package-data]
+archivio = ["schema.sql", "governi.csv"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["rete: prove che interrogano i servizi reali (escluse di default)"]
+markers = [
+    "rete: prove che interrogano i servizi reali (escluse di default)",
+    "db: prove che scrivono in un Postgres vero (serve TEST_DATABASE_URL, altrimenti saltate)",
+]
 addopts = "-m 'not rete'"

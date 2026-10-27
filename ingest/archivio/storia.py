@@ -34,7 +34,9 @@ logger = logging.getLogger(__name__)
 _VERSIONE = re.compile(r"_(?:VIGENZA_(\d{4}-\d{2}-\d{2})|ORIGINALE)_V(\d+)\.json$", re.I)
 # Nel titolo dell'export: "Entrata in vigore del provvedimento: 22/1/2004", "... del decreto: 8/1/1995."
 _ENTRATA_IN_VIGORE = re.compile(r"entrata\s+in\s+vigore\s+de\w*\s+\w+\s*:\s*(\d{1,2})/(\d{1,2})/(\d{4})", re.I)
-_DECADUTO = re.compile(r"decadut\w*\s+per\s+mancata\s+conversione", re.I)
+_DECADUTO = re.compile(r"decadut\w*\W+per\W+mancata\W+conversione", re.I)
+# Caratteri invisibili che a volte spezzano le parole nei titoli.
+_INVISIBILI = dict.fromkeys(map(ord, "\u00ad\u200b\u200c\u200d\ufeff"))
 
 
 @dataclass
@@ -122,6 +124,10 @@ def entrata_in_vigore_dichiarata(titolo: str) -> date | None:
         return None
 
 
+def decaduto(*titoli: str) -> bool:
+    return any(_DECADUTO.search(titolo.translate(_INVISIBILI)) for titolo in titoli)
+
+
 def _documento(archivio: zipfile.ZipFile, nome: str) -> dict[str, Any] | None:
     """Il JSON di una versione, o None se il file è vuoto o illeggibile.
 
@@ -138,6 +144,7 @@ def _documento(archivio: zipfile.ZipFile, nome: str) -> dict[str, Any] | None:
 
 def leggi_storie(percorso: Path) -> Iterator[Storia]:
     """Una `Storia` per ogni atto contenuto nell'archivio di export."""
+    sospetti = 0
     with zipfile.ZipFile(percorso) as archivio:
         per_atto: dict[str, list[tuple[int, date | None, str]]] = {}
         for nome in archivio.namelist():
@@ -169,13 +176,20 @@ def leggi_storie(percorso: Path) -> Iterator[Storia]:
             fini = [fine for _, fine in finestre]
             datate = [vigenza for _, vigenza, _ in file if vigenza is not None]
             titolo = str(metadati.get("titoloDoc") or "")
+            titolo_originale = str(((documento_originale or {}).get("metadati") or {}).get("titoloDoc") or "")
+            abrogato = _abrogato(metadati.get("abrogato"))
+            tipo_doc = str(metadati.get("tipoDoc") or "").strip() or None
+            if abrogato and tipo_doc == "DECRETO-LEGGE" and not decaduto(titolo, titolo_originale) and sospetti < 3:
+                # Controllo sul campo: se nessun D.L. abrogato risulta decaduto, qui si vede perché.
+                sospetti += 1
+                logger.info("D.L. abrogato senza decadenza nel titolo: %s %r", urn, titolo[-160:])
             yield Storia(
                 urn=chiave_urn(urn),
-                tipo_doc=str(metadati.get("tipoDoc") or "").strip() or None,
+                tipo_doc=tipo_doc,
                 numero=str(metadati.get("numDoc") or "").strip() or None,
                 data=leggi_data(metadati.get("dataDoc")),
-                abrogato=_abrogato(metadati.get("abrogato")),
-                decaduto=bool(_DECADUTO.search(titolo)),
+                abrogato=abrogato,
+                decaduto=decaduto(titolo, titolo_originale),
                 versioni=len(file),
                 data_ultima_versione=max(datate) if datate else None,
                 # Prima la data scritta da Normattiva nel titolo, poi la vigenza più vecchia degli articoli.

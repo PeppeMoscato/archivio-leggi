@@ -1,7 +1,8 @@
 name: Pipeline Normattiva
 
 # Normattiva → Postgres (Task 1.1). Un job di estrazione per anno, poi un caricamento unico.
-# Con il secret DATABASE_URL scrive su Neon; senza, usa un Postgres temporaneo e pubblica il dump come artifact.
+# Lanciato a mano (Actions → Run workflow) scrive su Neon se c'è il secret DATABASE_URL; sulle pull request, e senza secret,
+# usa un Postgres temporaneo e pubblica il dump come artifact.
 on:
   workflow_dispatch:
     inputs:
@@ -25,7 +26,8 @@ jobs:
     steps:
       - id: elenco
         env:
-          ANNI: ${{ inputs.anni || '1990-' }}
+          # Sulle pull request basta un anno di prova (1995: tanti D.L. decaduti); l'archivio completo si lancia a mano.
+          ANNI: ${{ inputs.anni || '1995' }}
         run: |
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import datetime, json, os
@@ -71,10 +73,11 @@ jobs:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: archivio
         ports: ["5432:5432"]
-        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       LOCALE: postgresql://postgres:postgres@localhost:5432/archivio
-      NEON: ${{ secrets.DATABASE_URL }}
+      # Su Neon scrive solo l'esecuzione lanciata a mano; le prove delle pull request restano nel Postgres del job.
+      NEON: ${{ github.event_name == 'workflow_dispatch' && secrets.DATABASE_URL || '' }}
     defaults:
       run:
         working-directory: ingest

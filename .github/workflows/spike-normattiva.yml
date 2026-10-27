@@ -1,0 +1,32 @@
+name: Spike Normattiva
+
+# Interroga l'API reale di Normattiva e pubblica il report nel riepilogo del job.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "ingest/spike_normattiva.py"
+      - ".github/workflows/spike-normattiva.yml"
+
+jobs:
+  spike:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ingest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - run: pytest -q -m rete
+        continue-on-error: true
+      - run: python spike_normattiva.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: spike-normattiva
+          path: ingest/samples/risultati.json
+          if-no-files-found: warn

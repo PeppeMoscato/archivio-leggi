@@ -1,0 +1,19 @@
+[project]
+name = "archivio-leggi-ingest"
+version = "0.1.0"
+description = "Ingestione dei dati di Archivio Leggi (Normattiva, Camera, Senato, Istat)"
+requires-python = ">=3.12"
+dependencies = [
+    "normattiva-sdk==0.1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.setuptools]
+py-modules = ["spike_normattiva"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["rete: prove che interrogano i servizi reali (escluse di default)"]
+addopts = "-m 'not rete'"

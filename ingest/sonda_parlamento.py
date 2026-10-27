@@ -67,39 +67,88 @@ CLASSI_UTILI = re.compile(
 # (OCD per la Camera, OSR per il Senato) e vanno confermati: per questo le query
 # generiche qui sopra girano prima.
 QUERY_MIRATE: dict[str, dict[str, str]] = {
+    # Seconda tornata (Task 1.2, parte Camera): la prima esplorazione è in docs/sonda_parlamento.md.
     "camera": {
-        "endpoint vivo (una tripla qualsiasi)": """
-SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 3""",
-        "atti per legislatura": """
-SELECT ?leg (COUNT(?a) AS ?n) WHERE { ?a a ocd:atto ; ocd:rif_leg ?leg } GROUP BY ?leg ORDER BY ?leg""",
-        "votazioni per legislatura": """
-SELECT ?leg (COUNT(?v) AS ?n) WHERE { ?v a ocd:votazione ; ocd:rif_leg ?leg } GROUP BY ?leg ORDER BY ?leg""",
-        "votazioni finali per legislatura": """
-SELECT ?leg (COUNT(?v) AS ?n) WHERE { ?v a ocd:votazione ; ocd:rif_leg ?leg ; ocd:votazioneFinale ?f FILTER(STR(?f) IN ("1", "true")) }
-GROUP BY ?leg ORDER BY ?leg""",
-        "voti individuali per legislatura": """
-SELECT ?leg (COUNT(?x) AS ?n) WHERE { ?x a ocd:voto ; ocd:rif_leg ?leg } GROUP BY ?leg ORDER BY ?leg""",
-        "valori di ocd:iniziativa": """
-SELECT ?i (COUNT(*) AS ?n) WHERE { ?a a ocd:atto ; ocd:iniziativa ?i } GROUP BY ?i ORDER BY DESC(?n) LIMIT 30""",
-        "valori di dc:type nei voti": """
-SELECT ?t (COUNT(*) AS ?n) WHERE { ?x a ocd:voto ; dc:type ?t } GROUP BY ?t ORDER BY DESC(?n) LIMIT 30""",
-        "valori di dc:type negli atti": """
-SELECT ?t (COUNT(*) AS ?n) WHERE { ?a a ocd:atto ; dc:type ?t } GROUP BY ?t ORDER BY DESC(?n) LIMIT 30""",
-        "stati dell'iter": """
-SELECT ?t (COUNT(*) AS ?n) WHERE { ?a a ocd:atto ; ocd:rif_statoIter ?s . ?s dc:title ?t } GROUP BY ?t ORDER BY DESC(?n) LIMIT 40""",
-        "collegamenti a Normattiva": """
-SELECT ?s ?p ?o WHERE { ?s ?p ?o FILTER(isIRI(?o) && CONTAINS(STR(?o), "normattiva")) } LIMIT 20""",
-        "letterali con urn:nir": """
-SELECT ?s ?p ?o WHERE { ?s ?p ?o FILTER(isLiteral(?o) && CONTAINS(STR(?o), "urn:nir")) } LIMIT 20""",
-        "votazioni con fiducia": """
-SELECT ?p (COUNT(?v) AS ?n) WHERE { ?v a ocd:votazione ; ?p ?o FILTER(CONTAINS(LCASE(STR(?p)), "fiducia")) } GROUP BY ?p""",
-        "votazioni con 'fiducia' nel titolo": """
-SELECT ?v ?t ?d WHERE { ?v a ocd:votazione ; dc:title ?t FILTER(CONTAINS(LCASE(STR(?t)), "fiducia")) OPTIONAL { ?v dc:date ?d } } LIMIT 10""",
-        "atti della Legge Sirchia (L. 3/2003)": """
-SELECT ?a ?p ?o WHERE { ?a a ocd:atto ; dc:title ?t ; ?p ?o
-FILTER(CONTAINS(LCASE(STR(?t)), "disposizioni ordinamentali in materia di pubblica amministrazione")) } LIMIT 200""",
-        "governi": """
-SELECT ?g ?p ?o WHERE { ?g a ocd:governo ; ?p ?o } LIMIT 300""",
+        "leggi per legislatura": """
+SELECT ?leg (COUNT(?l) AS ?n) WHERE { ?l a ocd:legge ; ocd:rif_leg ?leg } GROUP BY ?leg ORDER BY ?leg""",
+        "tipi di legge": """
+SELECT ?t (COUNT(*) AS ?n) WHERE { ?l a ocd:legge ; dc:type ?t } GROUP BY ?t ORDER BY DESC(?n)""",
+        "proprietà dei lavori preparatori": """
+SELECT ?p (COUNT(*) AS ?n) WHERE { { SELECT ?lp WHERE { ?l a ocd:legge ; ocd:lavoriPreparatori ?lp } LIMIT 2000 } ?lp ?p ?o } GROUP BY ?p ORDER BY DESC(?n)""",
+        "Legge Sirchia (L. 3/2003) con i lavori preparatori": """
+SELECT ?l ?p ?o ?p2 ?o2 WHERE { ?l a ocd:legge ; ocd:lex <http://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:legge:2003-01-16;3> ; ?p ?o
+OPTIONAL { ?o ?p2 ?o2 FILTER(isBlank(?o)) } }""",
+        "L. 241/1990 con i lavori preparatori": """
+SELECT ?l ?p ?o ?p2 ?o2 WHERE { ?l a ocd:legge ; ocd:lex <http://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:legge:1990-08-07;241> ; ?p ?o
+OPTIONAL { ?o ?p2 ?o2 FILTER(isBlank(?o)) } }""",
+        "D.L. 4/2019 (reddito di cittadinanza) e legge di conversione": """
+SELECT ?l ?p ?o ?p2 ?o2 WHERE { ?l a ocd:legge ; ocd:lex ?x ; ?p ?o FILTER(CONTAINS(STR(?x), "2019-03-28;26"))
+OPTIONAL { ?o ?p2 ?o2 FILTER(isBlank(?o)) } }""",
+        "atto ac14_2122-bis (tutte le triple)": """
+SELECT ?p ?o WHERE { <http://dati.camera.it/ocd/attocamera.rdf/ac14_2122-bis> ?p ?o }""",
+        "stati dell'iter di ac14_2122-bis": """
+SELECT ?s ?t ?d WHERE { <http://dati.camera.it/ocd/attocamera.rdf/ac14_2122-bis> ocd:rif_statoIter ?s . ?s dc:title ?t OPTIONAL { ?s dc:date ?d } }""",
+        "atti con uno stato 'Legge' per legislatura": """
+SELECT ?leg (COUNT(DISTINCT ?a) AS ?n) WHERE { ?a a ocd:atto ; ocd:rif_leg ?leg ; ocd:rif_statoIter ?s . ?s dc:title ?t
+FILTER(CONTAINS(STR(?t), "Legge") || CONTAINS(STR(?t), "legge")) } GROUP BY ?leg ORDER BY ?leg""",
+        "valori di ocd:rif_natura": """
+SELECT ?n (COUNT(*) AS ?c) WHERE { ?a a ocd:atto ; ocd:rif_natura ?x . ?x dc:title ?n } GROUP BY ?n ORDER BY DESC(?c)""",
+        "votazioni per tipo (dc:type)": """
+SELECT ?t (COUNT(*) AS ?n) WHERE { ?v a ocd:votazione ; dc:type ?t } GROUP BY ?t ORDER BY DESC(?n) LIMIT 60""",
+        "votazioni con richiestaFiducia = 1 per legislatura": """
+SELECT ?leg (COUNT(?v) AS ?n) WHERE { ?v a ocd:votazione ; ocd:rif_leg ?leg ; ocd:richiestaFiducia ?f FILTER(STR(?f) = "1") } GROUP BY ?leg ORDER BY ?leg""",
+        "votazioni con richiestaFiducia = 1 (campione)": """
+SELECT ?v ?t ?d ?tipo WHERE { ?v a ocd:votazione ; ocd:richiestaFiducia ?f ; dc:title ?t ; dc:description ?d ; dc:type ?tipo FILTER(STR(?f) = "1") } LIMIT 30""",
+        "votazioni 'fiducia' nel titolo per legislatura": """
+SELECT ?leg (COUNT(?v) AS ?n) WHERE { ?v a ocd:votazione ; ocd:rif_leg ?leg ; dc:title ?t FILTER(CONTAINS(LCASE(STR(?t)), "fiducia")) } GROUP BY ?leg ORDER BY ?leg""",
+        "votazioni con rif_attoCamera per legislatura": """
+SELECT ?leg (COUNT(?v) AS ?n) WHERE { ?v a ocd:votazione ; ocd:rif_leg ?leg ; ocd:rif_attoCamera ?a } GROUP BY ?leg ORDER BY ?leg""",
+        "votazioni della XIII senza rif_attoCamera (campione)": """
+SELECT ?t ?d ?tipo WHERE { ?v a ocd:votazione ; ocd:rif_leg <http://dati.camera.it/ocd/legislatura.rdf/repubblica_13> ; dc:title ?t ; dc:description ?d ; dc:type ?tipo
+OPTIONAL { ?v ocd:rif_attoCamera ?a } FILTER(!BOUND(?a)) } LIMIT 40""",
+        "votazioni su ac14_2122-bis e ac14_2122-bis-b": """
+SELECT ?v ?t ?d ?tipo ?fin WHERE { ?v ocd:rif_attoCamera ?a ; dc:title ?t ; dc:description ?d ; dc:type ?tipo ; ocd:votazioneFinale ?fin
+FILTER(?a IN (<http://dati.camera.it/ocd/attocamera.rdf/ac14_2122-bis>, <http://dati.camera.it/ocd/attocamera.rdf/ac14_2122-bis-b>)) }""",
+        "voti di una votazione per tipo (vs17_487_077)": """
+SELECT ?t (COUNT(*) AS ?n) WHERE { ?x ocd:rif_votazione <http://dati.camera.it/ocd/votazione.rdf/vs17_487_077> ; dc:type ?t } GROUP BY ?t""",
+        "voti di due votazioni con FILTER IN": """
+SELECT ?v ?t (COUNT(*) AS ?n) WHERE { ?x ocd:rif_votazione ?v ; dc:type ?t
+FILTER(?v IN (<http://dati.camera.it/ocd/votazione.rdf/vs17_487_077>, <http://dati.camera.it/ocd/votazione.rdf/vs19_376_012>)) } GROUP BY ?v ?t""",
+        "voti di due votazioni con VALUES": """
+SELECT ?v ?t (COUNT(*) AS ?n) WHERE { VALUES ?v { <http://dati.camera.it/ocd/votazione.rdf/vs17_487_077> <http://dati.camera.it/ocd/votazione.rdf/vs19_376_012> }
+?x ocd:rif_votazione ?v ; dc:type ?t } GROUP BY ?v ?t""",
+        "voti di 15 votazioni della XV con FILTER IN (righe)": """
+SELECT ?v ?d ?t WHERE { ?x ocd:rif_votazione ?v ; ocd:rif_deputato ?d ; dc:type ?t
+FILTER(?v IN (<http://dati.camera.it/ocd/votazione.rdf/vs15_010_001>, <http://dati.camera.it/ocd/votazione.rdf/vs15_010_002>,
+<http://dati.camera.it/ocd/votazione.rdf/vs15_010_003>, <http://dati.camera.it/ocd/votazione.rdf/vs15_010_004>, <http://dati.camera.it/ocd/votazione.rdf/vs15_010_005>,
+<http://dati.camera.it/ocd/votazione.rdf/vs15_010_006>, <http://dati.camera.it/ocd/votazione.rdf/vs15_010_007>, <http://dati.camera.it/ocd/votazione.rdf/vs15_010_008>,
+<http://dati.camera.it/ocd/votazione.rdf/vs15_010_009>, <http://dati.camera.it/ocd/votazione.rdf/vs15_010_010>, <http://dati.camera.it/ocd/votazione.rdf/vs15_020_001>,
+<http://dati.camera.it/ocd/votazione.rdf/vs15_020_002>, <http://dati.camera.it/ocd/votazione.rdf/vs15_020_003>, <http://dati.camera.it/ocd/votazione.rdf/vs15_020_004>,
+<http://dati.camera.it/ocd/votazione.rdf/vs15_020_005>)) FILTER(STR(?t) != "Non ha votato") } LIMIT 20000""",
+        "voti per legislatura e tipo (dall'IRI del voto)": """
+SELECT ?leg ?t (COUNT(*) AS ?n) WHERE { ?x a ocd:voto ; dc:type ?t BIND(SUBSTR(STR(?x), 38, 2) AS ?leg) } GROUP BY ?leg ?t ORDER BY ?leg ?t""",
+        "limite di righe per risposta (60.000 voti chiesti)": """
+SELECT ?x WHERE { ?x a ocd:voto } LIMIT 60000""",
+        "paginazione: OFFSET 50000 con ORDER BY": """
+SELECT ?x WHERE { ?x a ocd:voto } ORDER BY ?x OFFSET 50000 LIMIT 5""",
+        "deputato d305578_17 (tutte le triple)": """
+SELECT ?p ?o WHERE { <http://dati.camera.it/ocd/deputato.rdf/d305578_17> ?p ?o }""",
+        "adesioni ai gruppi: proprietà": """
+SELECT ?p (COUNT(*) AS ?n) WHERE { { SELECT ?a WHERE { ?d a ocd:deputato ; ocd:rif_leg <http://dati.camera.it/ocd/legislatura.rdf/repubblica_17> ; ocd:aderisce ?a } LIMIT 2000 } ?a ?p ?o }
+GROUP BY ?p ORDER BY DESC(?n)""",
+        "adesioni di d305578_17": """
+SELECT ?a ?p ?o WHERE { <http://dati.camera.it/ocd/deputato.rdf/d305578_17> ocd:aderisce ?a . ?a ?p ?o }""",
+        "gruppi per legislatura": """
+SELECT ?leg (COUNT(?g) AS ?n) WHERE { ?g a ocd:gruppoParlamentare ; ocd:rif_leg ?leg } GROUP BY ?leg ORDER BY ?leg""",
+        "denominazioni dei gruppi: proprietà": """
+SELECT ?p (COUNT(*) AS ?n) WHERE { ?g a ocd:gruppoParlamentare ; ocd:denominazione ?d . ?d ?p ?o } GROUP BY ?p ORDER BY DESC(?n)""",
+        "denominazioni dei gruppi (campione)": """
+SELECT ?g ?d ?p ?o WHERE { ?g a ocd:gruppoParlamentare ; ocd:denominazione ?d . ?d ?p ?o } LIMIT 30""",
+        "gruppi che diventano altri gruppi": """
+SELECT ?g ?t ?nuovo WHERE { ?g a ocd:gruppoParlamentare ; dc:title ?t ; ocd:diventa ?nuovo } LIMIT 20""",
+        "governi dal 1987": """
+SELECT ?g ?t ?inizio ?fine WHERE { ?g a ocd:governo ; dc:title ?t ; ocd:startDate ?inizio OPTIONAL { ?g ocd:endDate ?fine } FILTER(STR(?inizio) >= "1987") }
+ORDER BY ?inizio""",
     },
     "senato": {
         "limite di righe per risposta (60.000 voti chiesti)": """

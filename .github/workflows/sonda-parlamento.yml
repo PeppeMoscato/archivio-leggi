@@ -4,6 +4,10 @@ name: Sonda Camera e Senato
 # nel riepilogo del job (Task 1.2: schema v1.2 per iter e votazioni).
 on:
   workflow_dispatch:
+    inputs:
+      rami:
+        description: 'Rami da sondare, JSON: ["camera"], ["camera-mirate", "senato-mirate"]'
+        default: '["camera-mirate"]'
   pull_request:
     paths:
       - "ingest/sonda_parlamento.py"
@@ -16,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ramo: [camera, senato-mirate]
+        ramo: ${{ fromJSON(inputs.rami || '["camera-mirate"]') }}
     defaults:
       run:
         working-directory: ingest

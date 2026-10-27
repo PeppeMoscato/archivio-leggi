@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ramo: [camera, senato]
+        ramo: [camera, senato-mirate]
     defaults:
       run:
         working-directory: ingest

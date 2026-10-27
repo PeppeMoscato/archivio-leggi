@@ -4,7 +4,7 @@ Ultimo aggiornamento: 27/10/2026
 Aggiornare a fine di ogni sessione di lavoro.
 
 ## Fase attuale
-Fase 0 — Setup. Repository creato (https://github.com/PeppeMoscato/archivio-leggi). Task 0.2 completato: l'API di Normattiva funziona (da GitHub Actions) e restituisce stato, versioni e modifiche. Prossimo passo: approvare lo schema v1.1 proposto in `docs/spike_normattiva.md`, poi Task 1.1.
+Fase 1 — Archivio. Schema dati v1.1 approvato e scritto. Task 1.1 in revisione (PR #2): pipeline Normattiva → Postgres (`ingest/archivio/`), eseguita dal workflow "Pipeline Normattiva" su GitHub Actions, che scrive su Neon tramite il secret `DATABASE_URL`. Prossimo passo: unire la PR e verificare i dati caricati, poi Task 1.2 (iter da Camera e Senato).
 
 ## Decisioni prese
 | Data | Decisione | Motivo |
@@ -24,13 +24,20 @@ Fase 0 — Setup. Repository creato (https://github.com/PeppeMoscato/archivio-le
 | 2026-10-27 | I documenti di progetto vivono in `docs/` del repository; la cartella del Progetto Claude ne è una copia | Una sola fonte di verità, versionata con il codice |
 | 2026-10-27 | Client Normattiva: `normattiva-sdk` (PyPI, MIT, non ufficiale, versione 0.1.0 alpha) | Copre tutta l'API open data; confermato dallo spike su 5 leggi MVP |
 | 2026-10-27 | Le chiamate a Normattiva, Camera, Senato e Istat girano su GitHub Actions | Dal container cloud di Claude Code quei domini sono bloccati |
+| 2026-10-27 | Schema dati v1.1 approvato (proposte dello spike) | Tabelle `governo` e `pronuncia_costituzionale`, stato vigente / abrogata / decaduta, relazioni con articoli e nota originale. Dettagli in `docs/01_schema_dati.md` |
+| 2026-10-27 | Pipeline in due fasi: `estrai` (un job per anno, catalogo dalla ricerca avanzata + storia dall'export multivigente JSON) e `carica` (un job unico) | Gli export annuali sono lenti e indipendenti, quindi vanno in parallelo; il caricamento ha bisogno del catalogo completo per risolvere i riferimenti in Gazzetta senza chiamare l'API |
+| 2026-10-27 | Un export che non si conclude si divide per mese e poi per atto; un file vuoto nell'export non blocca l'anno | Nella prima esecuzione completa alcuni export (D.L. 2008 e 2010) sono rimasti in lavorazione per ore e diversi archivi contenevano file JSON vuoti |
+| 2026-10-27 | Stato "decaduta" dal titolo dell'export ("Decreto-Legge decaduto per mancata conversione"); data = fine vigenza degli articoli originali + 1 giorno | È l'unico segnale esplicito di Normattiva; se l'export manca, un D.L. abrogato senza legge di conversione si considera decaduto |
+| 2026-10-27 | Relazioni ricavate dalle note di aggiornamento; l'atto che dispone si risale dal riferimento in Gazzetta (catalogo, poi cache `gazzetta_urn`, poi API) | Le note non nominano l'atto che dispone; ogni relazione conserva la nota originale per verificare la classificazione |
+| 2026-10-27 | Tabella `governo` compilata a mano (`ingest/archivio/governi.csv`, fonte senato.it); governo assegnato per data di emanazione, il giorno del giuramento va al nuovo governo | 22 governi dal 1989, nessuna fonte strutturata da interrogare |
 
 ## Ancora da decidere
-- Schema v1.1, dopo lo spike: `data_entrata_vigore`, `governo`, relazioni `converte` e `delega`, valori di `stato`. Dettagli in `docs/revisioni/2026-10-27_revisione_documentazione.md`.
+- Relazioni `delega` e `attua` (decreti legislativi ↔ leggi delega): le note di aggiornamento non le descrivono, serve un'altra fonte o il testo dell'atto.
+- Numero delle sentenze della Corte costituzionale: le note non lo riportano; si può risalire dal riferimento in Gazzetta.
 - Prima della Fase 2: schede su un singolo articolo, un verdetto per obiettivo, dove vive la scheda (file nel repo o database) e come si approva.
 - Effetti a breve, medio e lungo periodo: il metodo oggi chiede "almeno 3 anni". Valutare un verdetto per orizzonte temporale (es. 1-2 anni, 3-5 anni, 10+ anni).
 - Gerarchia delle fonti: la stampa non può essere l'unica fonte di un numero.
-- Dove gira la pipeline di aggiornamento (proposta: GitHub Actions con cron settimanale).
+- Aggiornamento periodico: proposta GitHub Actions con cron settimanale che riesporta solo gli atti aggiornati (l'API ha un elenco degli atti modificati di recente).
 - Licenza del codice del repository.
 - Da rivedere al primo deploy: se il traffico supera il piano Free di Neon, passare al piano Launch (a consumo).
 
@@ -39,13 +46,14 @@ Fase 0 — Setup. Repository creato (https://github.com/PeppeMoscato/archivio-le
 - [ ] Creare Progetto Claude e caricare la knowledge
 - [x] Creare repo GitHub `archivio-leggi`
 - [x] Task 0.2: `CLAUDE.md`, `docs/`, spike Normattiva (risultati in `docs/spike_normattiva.md`)
-- [ ] Schema v1.1 sui risultati dello spike
+- [x] Schema v1.1 sui risultati dello spike
 - [x] Compilare `04_scheda_esempio.md` su una legge vera (Legge Sirchia; resta la revisione a mano)
 - [x] Scegliere le 30 leggi dell'MVP (`06_leggi_mvp.md`)
 - [ ] Rileggere e approvare la scheda di esempio
 
 ### Fase 1 — Archivio
-- [ ] Pipeline Normattiva → Postgres (leggi dal 1990, stato, modifiche, abrogazioni)
+- [ ] Pipeline Normattiva → Postgres (leggi dal 1990, stato, modifiche, abrogazioni) — Task 1.1, PR #2 in revisione
+- [ ] Aggiornamento settimanale incrementale della pipeline
 - [ ] Ingestione iter da Camera e Senato (SPARQL)
 - [ ] API FastAPI: ricerca e dettaglio legge
 - [ ] Frontend: ricerca e pagina legge con timeline delle modifiche
@@ -68,3 +76,4 @@ Fase 0 — Setup. Repository creato (https://github.com/PeppeMoscato/archivio-le
 - 2026-10-27: scelto Neon, definita la lista delle 30 leggi, compilata la scheda di esempio sulla Legge Sirchia.
 - 2026-10-27: annotata l'idea del carosello TikTok "pagella politica" per dopo l'MVP.
 - 2026-10-27: revisione della documentazione (vedi `docs/revisioni/`); creato il repository; deciso il perimetro iniziale degli atti; Task 0.2 completato (circa 8.900 atti nel perimetro dal 1990; proposte per lo schema v1.1).
+- 2026-10-27: Task 1.1. Schema v1.1 scritto; pipeline Normattiva → Postgres con workflow su GitHub Actions; prima esecuzione completa: corretti file vuoti negli export ed export bloccati.

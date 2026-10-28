@@ -1,10 +1,10 @@
 # Stato del progetto e decisioni
 
-Ultimo aggiornamento: 27/10/2026
+Ultimo aggiornamento: 28/10/2026
 Aggiornare a fine di ogni sessione di lavoro.
 
 ## Fase attuale
-Fase 1 — Archivio. Schema dati v1.1 approvato e scritto. Task 1.1 in revisione (PR #2): pipeline Normattiva → Postgres (`ingest/archivio/`), eseguita dal workflow "Pipeline Normattiva" su GitHub Actions, che scrive su Neon tramite il secret `DATABASE_URL`. Su Neon c'è già un primo caricamento completo (8.927 atti, 42.601 relazioni) fatto prima della correzione sui D.L. decaduti. Prossimo passo: unire la PR, rilanciare il workflow a mano (anni `1990-`) per aggiornare Neon, poi Task 1.2 (iter da Camera e Senato).
+Fase 1 — Archivio. Task 1.1 completato: l'archivio Normattiva è su Neon (8.927 atti dal 1990, 43.726 relazioni, 471 pronunce della Consulta), caricato dal workflow "Pipeline Normattiva" (Actions → Run workflow) con il secret `DATABASE_URL`. In corso il Task 1.2 (iter da Camera e Senato).
 
 ## Decisioni prese
 | Data | Decisione | Motivo |
@@ -39,6 +39,7 @@ Fase 1 — Archivio. Schema dati v1.1 approvato e scritto. Task 1.1 in revisione
 - Prima della Fase 2: schede su un singolo articolo, un verdetto per obiettivo, dove vive la scheda (file nel repo o database) e come si approva.
 - Effetti a breve, medio e lungo periodo: il metodo oggi chiede "almeno 3 anni". Valutare un verdetto per orizzonte temporale (es. 1-2 anni, 3-5 anni, 10+ anni).
 - Gerarchia delle fonti: la stampa non può essere l'unica fonte di un numero.
+- Relazioni `converte` doppie: le 2.477 relazioni sono più dei 1.147 D.L. convertiti, perché la stessa conversione può arrivare da più note e dal titolo della legge. Non tocca lo stato; da ripulire prima di mostrarle nella timeline.
 - Aggiornamento periodico: proposta GitHub Actions con cron settimanale che riesporta solo gli atti aggiornati (l'API ha un elenco degli atti modificati di recente).
 - Licenza del codice del repository.
 - Da rivedere al primo deploy: se il traffico supera il piano Free di Neon, passare al piano Launch (a consumo).
@@ -54,7 +55,7 @@ Fase 1 — Archivio. Schema dati v1.1 approvato e scritto. Task 1.1 in revisione
 - [ ] Rileggere e approvare la scheda di esempio
 
 ### Fase 1 — Archivio
-- [ ] Pipeline Normattiva → Postgres (leggi dal 1990, stato, modifiche, abrogazioni) — Task 1.1, PR #2 in revisione
+- [x] Pipeline Normattiva → Postgres (leggi dal 1990, stato, modifiche, abrogazioni) — Task 1.1, PR #2
 - [ ] Aggiornamento settimanale incrementale della pipeline
 - [ ] Ingestione iter da Camera e Senato (SPARQL)
 - [ ] API FastAPI: ricerca e dettaglio legge
@@ -79,3 +80,4 @@ Fase 1 — Archivio. Schema dati v1.1 approvato e scritto. Task 1.1 in revisione
 - 2026-10-27: annotata l'idea del carosello TikTok "pagella politica" per dopo l'MVP.
 - 2026-10-27: revisione della documentazione (vedi `docs/revisioni/`); creato il repository; deciso il perimetro iniziale degli atti; Task 0.2 completato (circa 8.900 atti nel perimetro dal 1990; proposte per lo schema v1.1).
 - 2026-10-27: Task 1.1. Schema v1.1 scritto; pipeline Normattiva → Postgres con workflow su GitHub Actions. Prima esecuzione completa: corretti file vuoti negli export ed export bloccati. Seconda esecuzione: 8.927 atti su Neon (uguale al totale della ricerca Normattiva), 42.601 relazioni, 471 pronunce della Consulta; un solo atto senza export (D.L. 200/2008). Corretti poi i D.L. decaduti (0 → 233 su 294 nel 1995) e le conversioni dai titoli.
+- 2026-10-27: Task 1.1 chiuso. PR #2 unita; esecuzione completa su Neon ([run 40568695190](https://github.com/PeppeMoscato/archivio-leggi/actions/runs/40568695190), circa 1 h 35 min): 8.927 atti; D.L. 1.047 vigenti, 1.316 decaduti, 100 abrogati; leggi 4.066 vigenti e 269 abrogate; D.Lgs. 1.810 vigenti e 291 abrogati; 28 leggi costituzionali. Relazioni 43.726 (modifica 32.710, abroga_parziale 6.850, converte 2.477 di cui 1.125 dai titoli, abroga 1.689); 740 senza atto di origine risolto. Nessuna chiamata API per i riferimenti: bastava la cache `gazzetta_urn`.

@@ -36,9 +36,15 @@ DATABASE_URL=... python -m archivio carica --da dati       # relazioni, stato, g
 python -m archivio senato-estrai --legislature 15 --uscita dati   # iter, fasi, firmatari, votazioni, un JSON per legislatura
 python -m archivio senato-persone --uscita dati                   # senatori, gruppi, adesioni
 DATABASE_URL=... python -m archivio senato-carica --da dati
+
+# Pipeline Camera → Postgres (Task 1.2, dopo il Senato)
+python -m archivio camera-estrai --legislature 15 --uscita dati   # votazioni (XIII-XIX) o iter dai lavori preparatori (X-XII)
+python -m archivio camera-persone --uscita dati                   # deputati, gruppi, adesioni, governi
+python -m archivio camera-stima --legislature 13-19               # votazioni e voti da caricare, senza scaricare i voti
+DATABASE_URL=... python -m archivio camera-carica --da dati
 ```
 - Normattiva non è raggiungibile dal container di Claude Code: la pipeline gira sul workflow "Pipeline Normattiva" (Actions → Run workflow, campo `anni`). Con il secret `DATABASE_URL` scrive su Neon, altrimenti pubblica il dump `archivio-db` come artifact.
-- dati.senato.it e dati.camera.it non sono raggiungibili dal container: il Senato gira sul workflow "Pipeline Senato" (campo `legislature`); scrive su Neon solo con `scrivi_su_neon` spuntato.
+- dati.senato.it e dati.camera.it non sono raggiungibili dal container: il Senato gira sul workflow "Pipeline Senato", la Camera su "Pipeline Camera" (campo `legislature`); scrivono su Neon solo con `scrivi_su_neon` spuntato. Su Neon la Camera va caricata dopo il Senato.
 - La DDL è `ingest/archivio/schema.sql`: va tenuta allineata a `docs/01_schema_dati.md`.
 
 ## Fonti e licenze

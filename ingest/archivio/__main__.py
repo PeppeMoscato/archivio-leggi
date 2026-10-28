@@ -1,7 +1,11 @@
-"""Riga di comando della pipeline Normattiva → Postgres.
+"""Riga di comando delle pipeline Normattiva e Senato → Postgres.
 
     python -m archivio estrai --anni 2003 2004 --uscita dati/
     python -m archivio carica --da dati/            # DATABASE_URL nell'ambiente
+
+    python -m archivio senato-estrai --legislature 13-19 --uscita dati/
+    python -m archivio senato-persone --uscita dati/
+    python -m archivio senato-carica --da dati/     # DATABASE_URL nell'ambiente
 
 Il rapporto finisce su stdout e, su GitHub Actions, nel riepilogo del job.
 """
@@ -17,8 +21,8 @@ from pathlib import Path
 
 from normattiva import Normattiva
 
-from archivio import db
-from archivio.pipeline import PERIMETRO, carica, estrai, leggi_atti
+from archivio import db, parlamento, senato
+from archivio.pipeline import PERIMETRO, Rapporto, carica, estrai, leggi_atti
 
 USER_AGENT = "archivio-leggi pipeline (+https://github.com/PeppeMoscato/archivio-leggi)"
 
@@ -48,6 +52,13 @@ def main(argomenti: list[str] | None = None) -> int:
     p_carica = comandi.add_parser("carica", help="dai JSONL al database")
     p_carica.add_argument("--da", type=Path, required=True)
     p_carica.add_argument("--senza-api", action="store_true", help="non chiamare Normattiva per i riferimenti")
+    p_senato = comandi.add_parser("senato-estrai", help="iter e votazioni da dati.senato.it, un JSON per legislatura")
+    p_senato.add_argument("--legislature", nargs="+", required=True, help="es. 15, 13-19")
+    p_senato.add_argument("--uscita", type=Path, required=True)
+    p_persone = comandi.add_parser("senato-persone", help="senatori, gruppi e adesioni da dati.senato.it")
+    p_persone.add_argument("--uscita", type=Path, required=True)
+    p_senato_carica = comandi.add_parser("senato-carica", help="dai JSON del Senato al database")
+    p_senato_carica.add_argument("--da", type=Path, required=True)
     opzioni = parser.parse_args(argomenti)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -57,11 +68,37 @@ def main(argomenti: list[str] | None = None) -> int:
             rapporto = estrai(client, elenco, opzioni.uscita, opzioni.tipi)
         pubblica(f"Estrazione {elenco[0]}–{elenco[-1]}", rapporto.testo())
         return 0
+    if opzioni.comando == "senato-estrai":
+        rapporto = Rapporto()
+        client = senato.client()
+        for leg in sorted({n for testo in opzioni.legislature for n in anni(testo)}):
+            dati = senato.estrai_legislatura(client, leg)
+            senato.scrivi(opzioni.uscita / f"senato_{leg}.json", dati)
+            rapporto.aggiungi(
+                f"Legislatura {leg}: {len(dati.fasi)} fasi, {len(dati.iniziative)} firmatari, {len(dati.votazioni)} votazioni "
+                f"({sum(len(e) for v in dati.votazioni for e in v.voti.values())} voti individuali), "
+                f"{dati.votazioni_scartate} su altri ddl o non collegate"
+            )
+        pubblica("Estrazione Senato", rapporto.testo())
+        return 0
+    if opzioni.comando == "senato-persone":
+        persone = senato.estrai_persone(senato.client())
+        senato.scrivi(opzioni.uscita / "senato_persone.json", persone)
+        pubblica(
+            "Senatori e gruppi",
+            f"Senatori: {len(persone.senatori)}; adesioni: {len(persone.adesioni)}; denominazioni: {len(persone.denominazioni)}\n",
+        )
+        return 0
 
     dsn = os.environ.get("DATABASE_URL")
     if not dsn:
         print("DATABASE_URL non impostata", file=sys.stderr)
         return 2
+    if opzioni.comando == "senato-carica":
+        with db.connetti(dsn) as conn:
+            rapporto = parlamento.carica_senato(conn, opzioni.da)
+        pubblica("Caricamento Senato", rapporto.testo())
+        return 0
     atti = leggi_atti(opzioni.da)
     with db.connetti(dsn) as conn:
         if opzioni.senza_api:

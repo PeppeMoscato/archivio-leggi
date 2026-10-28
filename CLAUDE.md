@@ -31,8 +31,14 @@ python spike_normattiva.py   # spike: scrive samples/ e stampa il report
 # Pipeline Normattiva → Postgres (Task 1.1)
 python -m archivio estrai --anni 2003 --uscita dati        # catalogo + export, un JSONL per anno
 DATABASE_URL=... python -m archivio carica --da dati       # relazioni, stato, governo → database
+
+# Pipeline Senato → Postgres (Task 1.2)
+python -m archivio senato-estrai --legislature 15 --uscita dati   # iter, fasi, firmatari, votazioni, un JSON per legislatura
+python -m archivio senato-persone --uscita dati                   # senatori, gruppi, adesioni
+DATABASE_URL=... python -m archivio senato-carica --da dati
 ```
 - Normattiva non è raggiungibile dal container di Claude Code: la pipeline gira sul workflow "Pipeline Normattiva" (Actions → Run workflow, campo `anni`). Con il secret `DATABASE_URL` scrive su Neon, altrimenti pubblica il dump `archivio-db` come artifact.
+- dati.senato.it e dati.camera.it non sono raggiungibili dal container: il Senato gira sul workflow "Pipeline Senato" (campo `legislature`); scrive su Neon solo con `scrivi_su_neon` spuntato.
 - La DDL è `ingest/archivio/schema.sql`: va tenuta allineata a `docs/01_schema_dati.md`.
 
 ## Fonti e licenze

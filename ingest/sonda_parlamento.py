@@ -68,6 +68,8 @@ CLASSI_UTILI = re.compile(
 # generiche qui sopra girano prima.
 QUERY_MIRATE: dict[str, dict[str, str]] = {
     "camera": {
+        "endpoint vivo (una tripla qualsiasi)": """
+SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 3""",
         "atti per legislatura": """
 SELECT ?leg (COUNT(?a) AS ?n) WHERE { ?a a ocd:atto ; ocd:rif_leg ?leg } GROUP BY ?leg ORDER BY ?leg""",
         "votazioni per legislatura": """
@@ -100,54 +102,30 @@ FILTER(CONTAINS(LCASE(STR(?t)), "disposizioni ordinamentali in materia di pubbli
 SELECT ?g ?p ?o WHERE { ?g a ocd:governo ; ?p ?o } LIMIT 300""",
     },
     "senato": {
-        "ddl per legislatura": """
-SELECT ?leg (COUNT(?d) AS ?n) WHERE { ?d a osr:Ddl ; osr:legislatura ?leg } GROUP BY ?leg ORDER BY ?leg""",
-        "ddl diventati legge, per legislatura, ramo e natura": """
-SELECT ?leg ?ramo ?natura (COUNT(?d) AS ?n) WHERE { ?d a osr:Ddl ; osr:legislatura ?leg ; osr:ramo ?ramo ; osr:natura ?natura ; osr:numeroLegge ?l }
-GROUP BY ?leg ?ramo ?natura ORDER BY ?leg ?ramo ?natura""",
-        "proprietà dei ddl diventati legge": """
-SELECT ?p (COUNT(*) AS ?n) WHERE { ?d a osr:Ddl ; osr:numeroLegge ?l ; ?p ?o } GROUP BY ?p ORDER BY DESC(?n)""",
-        "un ddl diventato legge nel 2019 (tutte le proprietà letterali)": """
-SELECT ?d ?p ?o WHERE { ?d a osr:Ddl ; osr:legislatura 18 ; osr:numeroLegge ?l ; ?p ?o FILTER(isLiteral(?o)) } LIMIT 60""",
-        "votazioni per legislatura": """
-SELECT ?leg (COUNT(?v) AS ?n) WHERE { ?v a osr:Votazione ; osr:legislatura ?leg } GROUP BY ?leg ORDER BY ?leg""",
-        "proprietà delle votazioni elettroniche": """
-SELECT ?p (COUNT(*) AS ?n) WHERE { { SELECT ?v WHERE { ?v a osr:Votazione ; osr:tipoVotazione "elettronica" } LIMIT 3000 } ?v ?p ?o }
-GROUP BY ?p ORDER BY DESC(?n)""",
-        "una votazione elettronica approvata (proprietà letterali e collegamenti non senatori)": """
-SELECT ?v ?p ?o WHERE { { SELECT ?v WHERE { ?v a osr:Votazione ; osr:tipoVotazione "elettronica" ; osr:esito "approvato" ; osr:legislatura 18 } LIMIT 2 }
-?v ?p ?o FILTER(!STRSTARTS(STR(?o), "http://dati.senato.it/senatore/")) }""",
-        "etichette più frequenti delle votazioni": """
-SELECT ?l (COUNT(*) AS ?n) WHERE { ?v a osr:Votazione ; rdfs:label ?l } GROUP BY ?l ORDER BY DESC(?n) LIMIT 60""",
-        "votazioni con 'fiducia' nell'etichetta, per legislatura": """
-SELECT ?leg (COUNT(?v) AS ?n) WHERE { ?v a osr:Votazione ; osr:legislatura ?leg ; rdfs:label ?l FILTER(CONTAINS(LCASE(STR(?l)), "fiducia")) }
-GROUP BY ?leg ORDER BY ?leg""",
-        "esempi di votazioni con 'fiducia' nell'etichetta": """
-SELECT ?v ?l WHERE { ?v a osr:Votazione ; osr:legislatura 18 ; rdfs:label ?l FILTER(CONTAINS(LCASE(STR(?l)), "fiducia")) } LIMIT 10""",
-        "classi degli oggetti collegati alle votazioni": """
-SELECT ?p ?c (COUNT(*) AS ?n) WHERE { { SELECT ?v WHERE { ?v a osr:Votazione } LIMIT 5000 } ?v ?p ?o . ?o a ?c }
-GROUP BY ?p ?c ORDER BY DESC(?n)""",
-        "classi che puntano alle votazioni": """
-SELECT ?c ?p (COUNT(*) AS ?n) WHERE { { SELECT ?v WHERE { ?v a osr:Votazione } LIMIT 5000 } ?s ?p ?v . ?s a ?c }
-GROUP BY ?c ?p ORDER BY DESC(?n)""",
-        "iter della Legge Sirchia (tutte le fasi)": """
-SELECT ?iter ?fase ?ramo ?numero ?stato ?dataStato ?legge ?natura WHERE {
-  <http://dati.senato.it/ddl/16542> osr:idDdl ?id . ?iter a osr:IterDdl ; osr:idDdl ?id ; osr:fase ?f . ?f osr:ddl ?fase .
-  ?fase osr:ramo ?ramo ; osr:numeroFase ?numero ; osr:statoDdl ?stato ; osr:dataStatoDdl ?dataStato
-  OPTIONAL { ?fase osr:numeroLegge ?legge } OPTIONAL { ?fase osr:natura ?natura } }""",
-        "proprietà dei ddl della Legge Sirchia (fasi del Senato)": """
-SELECT ?d ?p ?o WHERE { ?d a osr:Ddl ; osr:idDdl 15167 ; osr:ramo "S" ; ?p ?o FILTER(?p != osr:classificazione && ?p != osr:assegnazione) }""",
-        "iniziative della Legge Sirchia": """
-SELECT ?i ?p ?o WHERE { <http://dati.senato.it/ddl/16542> osr:iniziativa ?i . ?i ?p ?o }""",
-        "oggetti che puntano ai ddl della Legge Sirchia": """
-SELECT ?s ?c ?p WHERE { ?d osr:idDdl 15167 . ?s ?p ?d . OPTIONAL { ?s a ?c } } LIMIT 100""",
-        "valori di osr:tipoIniziativa": """
-SELECT ?x (COUNT(*) AS ?n) WHERE { ?i a osr:Iniziativa ; osr:tipoIniziativa ?x } GROUP BY ?x ORDER BY DESC(?n)""",
-        "gruppi parlamentari (esempi)": """
-SELECT ?g ?p ?o WHERE { { SELECT ?g WHERE { ?g a ocd:gruppoParlamentare } LIMIT 6 } ?g ?p ?o }""",
-        "voti individuali nelle votazioni elettroniche approvate della XVIII": """
-SELECT ?p (COUNT(*) AS ?n) WHERE { ?v a osr:Votazione ; osr:legislatura 18 ; osr:tipoVotazione "elettronica" ; ?p ?s .
-FILTER(STRSTARTS(STR(?s), "http://dati.senato.it/senatore/")) } GROUP BY ?p ORDER BY DESC(?n)""",
+        "limite di righe per risposta (60.000 voti chiesti)": """
+SELECT ?v ?s WHERE { ?v a osr:Votazione ; osr:legislatura 18 ; osr:contrario ?s } LIMIT 60000""",
+        "paginazione: OFFSET 50000 con ORDER BY": """
+SELECT ?v ?s WHERE { ?v a osr:Votazione ; osr:legislatura 18 ; osr:contrario ?s } ORDER BY ?v ?s OFFSET 50000 LIMIT 5""",
+        "voti di due votazioni con FILTER IN": """
+SELECT ?v ?p (COUNT(*) AS ?n) WHERE { ?v ?p ?s FILTER(?v IN (<http://dati.senato.it/votazione/18-105-16>, <http://dati.senato.it/votazione/18-104-2>)) FILTER(?p IN (osr:favorevole, osr:contrario, osr:astenuto)) } GROUP BY ?v ?p""",
+        "voti di due votazioni con VALUES": """
+SELECT ?v ?p (COUNT(*) AS ?n) WHERE { VALUES ?v { <http://dati.senato.it/votazione/18-105-16> <http://dati.senato.it/votazione/18-104-2> } ?v ?p ?s FILTER(?p = osr:favorevole || ?p = osr:contrario || ?p = osr:astenuto) } GROUP BY ?v ?p""",
+        "voti di due votazioni con OR": """
+SELECT ?v ?p (COUNT(*) AS ?n) WHERE { ?v ?p ?s FILTER(?v = <http://dati.senato.it/votazione/18-105-16> || ?v = <http://dati.senato.it/votazione/18-104-2>) FILTER(?p = osr:favorevole || ?p = osr:contrario || ?p = osr:astenuto) } GROUP BY ?v ?p""",
+        "voti di due votazioni con UNION": """
+SELECT ?v ?p (COUNT(*) AS ?n) WHERE { { ?v ?p ?s FILTER(?v = <http://dati.senato.it/votazione/18-105-16>) } UNION { ?v ?p ?s FILTER(?v = <http://dati.senato.it/votazione/18-104-2>) }
+FILTER(?p = osr:favorevole || ?p = osr:contrario || ?p = osr:astenuto) } GROUP BY ?v ?p""",
+        "fasi con lo stesso idDdl della Legge Sirchia": """
+SELECT ?fase ?ramo ?numero ?progr ?compatto WHERE { ?fase a osr:Ddl ; osr:idDdl 15167 ; osr:ramo ?ramo ; osr:numeroFase ?numero ;
+osr:progressivoIter ?progr ; osr:numeroFaseCompatto ?compatto }""",
+        "iter con fasi in più legislature": """
+SELECT (COUNT(*) AS ?n) WHERE { { SELECT ?id (COUNT(DISTINCT ?leg) AS ?l) WHERE { ?f a osr:Ddl ; osr:idDdl ?id ; osr:legislatura ?leg } GROUP BY ?id } FILTER(?l > 1) }""",
+        "votazioni per tipo nella XIII": """
+SELECT ?t (COUNT(*) AS ?n) WHERE { ?v a osr:Votazione ; osr:legislatura 13 ; osr:tipoVotazione ?t } GROUP BY ?t""",
+        "etichette di votazioni della XIII senza oggetto (campione)": """
+SELECT ?l WHERE { ?v a osr:Votazione ; osr:legislatura 13 ; rdfs:label ?l OPTIONAL { ?v osr:oggetto ?o } FILTER(!BOUND(?o)) } LIMIT 40""",
+        "collegamento iniziativa → senatore (proprietà)": """
+SELECT ?p (COUNT(*) AS ?n) WHERE { ?i a osr:Iniziativa ; ?p ?x FILTER(STRSTARTS(STR(?x), "http://dati.senato.it/senatore/")) } GROUP BY ?p""",
     },
 }
 

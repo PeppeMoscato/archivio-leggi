@@ -16,6 +16,8 @@ from pathlib import Path
 
 FONTE_URL = "https://www.senato.it/legislature/repubblica/governi-della-repubblica"
 FILE = Path(__file__).with_name("governi.csv")
+# Partiti di ogni governo: nessuna fonte strutturata, si compila a mano con la fonte di ogni riga.
+FILE_PARTITI = Path(__file__).with_name("governi_partiti.csv")
 
 
 @dataclass(frozen=True)
@@ -43,3 +45,16 @@ def governo_alla_data(governi: list[Governo], giorno: date) -> str | None:
         if governo.inizio <= giorno and (governo.fine is None or giorno < governo.fine):
             return governo.id
     return None
+
+
+@dataclass(frozen=True)
+class PartitoGoverno:
+    governo_id: str
+    partito: str
+    ruolo: str  # governo / appoggio esterno
+    fonte_url: str
+
+
+def carica_partiti(percorso: Path = FILE_PARTITI) -> list[PartitoGoverno]:
+    with percorso.open(encoding="utf-8") as file:
+        return [PartitoGoverno(r["governo_id"], r["partito"], r["ruolo"], r["fonte_url"]) for r in csv.DictReader(file)]

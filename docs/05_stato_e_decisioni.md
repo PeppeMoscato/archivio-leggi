@@ -4,7 +4,7 @@ Ultimo aggiornamento: 28/10/2026
 Aggiornare a fine di ogni sessione di lavoro.
 
 ## Fase attuale
-Fase 1 — Archivio. Task 1.1 completato: l'archivio Normattiva è su Neon (8.927 atti dal 1990, 43.726 relazioni, 471 pronunce della Consulta), caricato dal workflow "Pipeline Normattiva" (Actions → Run workflow) con il secret `DATABASE_URL`. In corso il Task 1.2 (iter da Camera e Senato).
+Fase 1 — Archivio. Schema dati v1.2 approvato e scritto. Task 1.1 completato: l'archivio Normattiva è su Neon (8.927 atti dal 1990, 43.726 relazioni, 471 pronunce della Consulta), caricato dal workflow "Pipeline Normattiva" (Actions → Run workflow) con il secret `DATABASE_URL`. Task 1.2, parte Senato, in revisione (PR #4): pipeline dati.senato.it → Postgres (`ingest/archivio/senato.py`, `parlamento.py`), workflow "Pipeline Senato", che scrive su Neon solo se lanciato a mano con `scrivi_su_neon`. Prossimi passi: unire la PR #4, lanciare la Pipeline Senato su Neon (legislature `13-19`), poi la Camera e la tabella dei partiti dei governi.
 
 ## Decisioni prese
 | Data | Decisione | Motivo |
@@ -32,6 +32,14 @@ Fase 1 — Archivio. Task 1.1 completato: l'archivio Normattiva è su Neon (8.92
 | 2026-10-27 | La pipeline scrive su Neon solo se lanciata a mano; le pull request provano un anno (1995) su un Postgres temporaneo | Un'esecuzione completa dura circa due ore e ogni push sulla PR la farebbe ripartire |
 | 2026-10-27 | Relazioni ricavate dalle note di aggiornamento; l'atto che dispone si risale dal riferimento in Gazzetta (catalogo, poi cache `gazzetta_urn`, poi API) | Le note non nominano l'atto che dispone; ogni relazione conserva la nota originale per verificare la classificazione |
 | 2026-10-27 | Tabella `governo` compilata a mano (`ingest/archivio/governi.csv`, fonte senato.it); governo assegnato per data di emanazione, il giorno del giuramento va al nuovo governo | 22 governi dal 1989, nessuna fonte strutturata da interrogare |
+| 2026-10-27 | Schema dati v1.2: iter → fasi → votazioni, firmatari, parlamentari, gruppi con denominazioni e adesioni, partiti dei governi; vista `voto_gruppo` | La sonda su Camera e Senato (`docs/sonda_parlamento.md`) mostra iter in più letture, voti nominali e gruppi che cambiano nome: una riga `iter` con i voti non basta |
+| 2026-10-27 | Tutte le votazioni d'Aula sui ddl diventati legge (non solo finali e fiducia), tranne le verifiche del numero legale | Richiesta dell'autore: tutte le informazioni politiche disponibili. Al Senato stanno nel piano Free (stima circa 60 MB) |
+| 2026-10-27 | Voti dei singoli come array di `parlamentare.id` numerici, non una riga per voto | Oltre 10 milioni di righe (più di mezzo GB) contro qualche decina di MB |
+| 2026-10-27 | Senato prima della Camera | dati.camera.it ha risposto 502 a ogni richiesta il 27/10/2026; il Senato ha anche le letture alla Camera degli iter |
+| 2026-10-27 | Estrazione dal Senato per chiave (filtro `>=` sull'ultima chiave), voti dei singoli a gruppi di 25 votazioni | Virtuoso tronca le risposte a 10.000 righe, va in errore con OFFSET grandi e non ha VALUES |
+| 2026-10-27 | Iter collegati alle leggi di Normattiva per tipo, numero e data (poi anno) della legge; votazioni collegate alla fase dall'oggetto della trattazione, se manca dal numero del ddl nell'etichetta | La fonte dà numero e data della legge ma non l'URN; per le legislature più vecchie l'oggetto della trattazione spesso manca |
+| 2026-10-27 | La Pipeline Senato scrive su Neon solo se lanciata a mano con `scrivi_su_neon` | Il caricamento Normattiva su Neon era in corso: niente scritture per sbaglio |
+| 2026-10-27 | Partiti dei governi compilati a mano (`ingest/archivio/governi_partiti.csv`, una fonte per riga) | Nessuna fonte strutturata; i siti utili (storia.camera.it, governo.it) non sono raggiungibili dal container |
 
 ## Ancora da decidere
 - Relazioni `delega` e `attua` (decreti legislativi ↔ leggi delega): le note di aggiornamento non le descrivono, serve un'altra fonte o il testo dell'atto.
@@ -42,6 +50,9 @@ Fase 1 — Archivio. Task 1.1 completato: l'archivio Normattiva è su Neon (8.92
 - Relazioni `converte` doppie: le 2.477 relazioni sono più dei 1.147 D.L. convertiti, perché la stessa conversione può arrivare da più note e dal titolo della legge. Non tocca lo stato; da ripulire prima di mostrarle nella timeline.
 - Aggiornamento periodico: proposta GitHub Actions con cron settimanale che riesporta solo gli atti aggiornati (l'API ha un elenco degli atti modificati di recente).
 - Licenza del codice del repository.
+- Partiti di ciascun governo: compilare `governi_partiti.csv` (22 governi) con la fonte.
+- Questioni di fiducia prima del 2013: il Senato non le distingue nelle etichette; serve un'altra fonte (resoconti o Camera).
+- Leggi 1990-1996: il Senato non ha dati strutturati prima della XIII legislatura; verificare la Camera.
 - Da rivedere al primo deploy: se il traffico supera il piano Free di Neon, passare al piano Launch (a consumo).
 
 ## Roadmap
@@ -57,7 +68,7 @@ Fase 1 — Archivio. Task 1.1 completato: l'archivio Normattiva è su Neon (8.92
 ### Fase 1 — Archivio
 - [x] Pipeline Normattiva → Postgres (leggi dal 1990, stato, modifiche, abrogazioni) — Task 1.1, PR #2
 - [ ] Aggiornamento settimanale incrementale della pipeline
-- [ ] Ingestione iter da Camera e Senato (SPARQL)
+- [ ] Ingestione iter da Camera e Senato (SPARQL) — Task 1.2: Senato in revisione (PR #4), Camera in PR #5
 - [ ] API FastAPI: ricerca e dettaglio legge
 - [ ] Frontend: ricerca e pagina legge con timeline delle modifiche
 
@@ -81,3 +92,4 @@ Fase 1 — Archivio. Task 1.1 completato: l'archivio Normattiva è su Neon (8.92
 - 2026-10-27: revisione della documentazione (vedi `docs/revisioni/`); creato il repository; deciso il perimetro iniziale degli atti; Task 0.2 completato (circa 8.900 atti nel perimetro dal 1990; proposte per lo schema v1.1).
 - 2026-10-27: Task 1.1. Schema v1.1 scritto; pipeline Normattiva → Postgres con workflow su GitHub Actions. Prima esecuzione completa: corretti file vuoti negli export ed export bloccati. Seconda esecuzione: 8.927 atti su Neon (uguale al totale della ricerca Normattiva), 42.601 relazioni, 471 pronunce della Consulta; un solo atto senza export (D.L. 200/2008). Corretti poi i D.L. decaduti (0 → 233 su 294 nel 1995) e le conversioni dai titoli.
 - 2026-10-27: Task 1.1 chiuso. PR #2 unita; esecuzione completa su Neon ([run 40568695190](https://github.com/PeppeMoscato/archivio-leggi/actions/runs/40568695190), circa 1 h 35 min): 8.927 atti; D.L. 1.047 vigenti, 1.316 decaduti, 100 abrogati; leggi 4.066 vigenti e 269 abrogate; D.Lgs. 1.810 vigenti e 291 abrogati; 28 leggi costituzionali. Relazioni 43.726 (modifica 32.710, abroga_parziale 6.850, converte 2.477 di cui 1.125 dai titoli, abroga 1.689); 740 senza atto di origine risolto. Nessuna chiamata API per i riferimenti: bastava la cache `gazzetta_urn`.
+- 2026-10-27: Task 1.2, parte Senato. Sonda su Camera (502) e Senato; schema v1.2 approvato con tutte le votazioni d'Aula; pipeline dati.senato.it → Postgres con workflow "Pipeline Senato" (prova sulla XV legislatura in un Postgres temporaneo: 112 iter diventati legge, tutti collegati alla legge di Normattiva; 1.273 votazioni con 370.149 voti individuali, 46 finali; 722 votazioni su altri ddl o non collegate; tabella `votazione` 2 MB, quindi circa 70 MB per tutto il Senato; estrazione 10 minuti, circa 6 ore di job per le legislature XIII-XIX).

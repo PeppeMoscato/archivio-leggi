@@ -1,0 +1,176 @@
+name: Pipeline Senato
+
+# dati.senato.it → Postgres (Task 1.2): iter, fasi, firmatari, votazioni d'Aula con i voti di ogni senatore, gruppi.
+# Un job di estrazione per legislatura più uno per senatori e gruppi, poi un caricamento unico.
+# Lanciato a mano scrive su Neon solo con "scrivi_su_neon" spuntato e il secret DATABASE_URL; altrimenti, e sulle pull
+# request, usa un Postgres temporaneo e pubblica il dump come artifact.
+on:
+  workflow_dispatch:
+    inputs:
+      legislature:
+        description: "Legislature da estrarre: 15, 13-19 (il Senato ha dati dalla XIII)"
+        default: "13-19"
+      scrivi_su_neon:
+        description: "Scrivi su Neon (secret DATABASE_URL)"
+        type: boolean
+        default: false
+  pull_request:
+    paths:
+      - "ingest/archivio/senato.py"
+      - "ingest/archivio/sparql.py"
+      - "ingest/archivio/parlamento.py"
+      - "ingest/archivio/schema.sql"
+      - ".github/workflows/pipeline-senato.yml"
+
+concurrency:
+  group: pipeline-senato-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  legislature:
+    runs-on: ubuntu-latest
+    outputs:
+      elenco: ${{ steps.elenco.outputs.elenco }}
+    steps:
+      - id: elenco
+        env:
+          # Sulle pull request basta la XV (2006-2008), la più piccola.
+          LEGISLATURE: ${{ inputs.legislature || '15' }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os
+          inizio, _, fine = os.environ["LEGISLATURE"].partition("-")
+          print("elenco=" + json.dumps(list(range(int(inizio), int(fine or inizio) + 1))))
+          PY
+
+  estrai:
+    needs: legislature
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      max-parallel: 2  # il Senato non pubblica quote: restiamo prudenti
+      matrix:
+        legislatura: ${{ fromJSON(needs.legislature.outputs.elenco) }}
+    defaults:
+      run:
+        working-directory: ingest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - run: python -m archivio senato-estrai --legislature ${{ matrix.legislatura }} --uscita dati
+      - uses: actions/upload-artifact@v4
+        with:
+          name: senato-${{ matrix.legislatura }}
+          path: ingest/dati/senato_${{ matrix.legislatura }}.json
+          retention-days: 30
+
+  persone:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: ingest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - run: python -m archivio senato-persone --uscita dati
+      - uses: actions/upload-artifact@v4
+        with:
+          name: senato-persone
+          path: ingest/dati/senato_persone.json
+          retention-days: 30
+
+  # Solo per le prove: le leggi 2006-2008 da Normattiva, per verificare il collegamento iter → URN nel Postgres temporaneo.
+  normattiva:
+    if: ${{ !inputs.scrivi_su_neon }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: ingest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - run: python -m archivio estrai --anni 2006-2008 --tipi LEGGE "LEGGE COSTITUZIONALE" --uscita normattiva
+      - uses: actions/upload-artifact@v4
+        with:
+          name: normattiva-prova
+          path: ingest/normattiva/atti_*.jsonl
+          retention-days: 7
+
+  carica:
+    needs: [estrai, persone, normattiva]
+    if: ${{ !cancelled() && needs.persone.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: archivio
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      LOCALE: postgresql://postgres:postgres@localhost:5432/archivio
+      NEON: ${{ github.event_name == 'workflow_dispatch' && inputs.scrivi_su_neon && secrets.DATABASE_URL || '' }}
+    defaults:
+      run:
+        working-directory: ingest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: senato-*
+          path: ingest/dati
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        if: env.NEON == ''
+        continue-on-error: true
+        with:
+          name: normattiva-prova
+          path: ingest/normattiva
+      - name: Leggi di prova da Normattiva
+        if: env.NEON == ''
+        run: |
+          if ls normattiva/atti_*.jsonl > /dev/null 2>&1; then
+            DATABASE_URL="$LOCALE" python -m archivio carica --da normattiva --senza-api
+          else
+            echo "Nessuna legge di prova da Normattiva: gli iter restano senza URN" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Carica
+        run: |
+          if [ -n "$NEON" ]; then
+            echo "Destinazione: Neon (secret DATABASE_URL)" | tee -a "$GITHUB_STEP_SUMMARY"
+            export DATABASE_URL="$NEON"
+          else
+            echo "Destinazione: Postgres temporaneo del job" | tee -a "$GITHUB_STEP_SUMMARY"
+            export DATABASE_URL="$LOCALE"
+          fi
+          python -m archivio senato-carica --da dati
+      - name: Dump del Postgres temporaneo
+        if: env.NEON == ''
+        run: |
+          PGPASSWORD=postgres pg_dump -h localhost -U postgres -d archivio --no-owner | gzip > senato.sql.gz
+          ls -lh senato.sql.gz
+      - uses: actions/upload-artifact@v4
+        if: env.NEON == ''
+        with:
+          name: senato-db
+          path: ingest/senato.sql.gz
+          retention-days: 30

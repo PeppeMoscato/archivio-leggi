@@ -454,7 +454,9 @@ def estrai_persone(sparql: Sparql, legislature: list[int]) -> PersoneCamera:
 
 
 def client() -> Sparql:
-    return Sparql(ENDPOINT, PREFISSI)
+    # L'endpoint della Camera va a tratti in 502 per minuti (27/10/2026): più tentativi che al Senato,
+    # con attese crescenti (10, 20, ... 110 s: circa 11 minuti in tutto).
+    return Sparql(ENDPOINT, PREFISSI, tentativi=12)
 
 
 # --- File intermedi ---------------------------------------------------------------

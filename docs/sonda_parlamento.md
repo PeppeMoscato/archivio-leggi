@@ -10,7 +10,39 @@ Esecuzioni del 27/10/2026: [run 40578550705](https://github.com/PeppeMoscato/arc
 
 Fra le 20:29 e le 20:42 del 27/10/2026 l'endpoint ha risposto **502 Bad Gateway** a ogni richiesta, anche a una query banale (`SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 3`), sia in HTTPS sia in HTTP. È un problema del server della Camera, non della query. Da riprovare: finché non risponde, i voti dei deputati non sono verificati.
 
-Alle 21:10 dello stesso giorno l'endpoint è tornato a rispondere ([run 40584430068](https://github.com/PeppeMoscato/archivio-leggi/actions/runs/40584430068), job `sonda (camera)`): 22 classi esplorate (atti, votazioni, voti, deputati, gruppi, governi, membri del governo); due query in 504. La query mirata sui voti individuali non ha restituito righe: va riscritta prima di concludere qualcosa. L'analisi è il primo passo del task Camera.
+Alle 21:10 dello stesso giorno l'endpoint è tornato a rispondere ([run 40584430068](https://github.com/PeppeMoscato/archivio-leggi/actions/runs/40584430068), job `sonda (camera)`): 22 classi esplorate (atti, votazioni, voti, deputati, gruppi, governi, membri del governo). Le query mirate della seconda tornata sono nel [run 40587072564](https://github.com/PeppeMoscato/archivio-leggi/actions/runs/40587072564).
+
+Endpoint Virtuoso come quello del Senato: risposte troncate a 10.000 righe, OFFSET oltre 10.000 righe ordinate in errore (`SR353`), quindi paginazione per chiave. Funzionano `FILTER IN`, `VALUES` e le sottoquery. **Ogni tripla compare due volte** (due grafi): i conteggi senza DISTINCT sono gonfiati. I numeri qui sotto sono quelli della sonda divisi per due (per la XV: 112 leggi, come al Senato) e vanno presi come ordine di grandezza; i conti esatti delle votazioni da caricare sono nella stima della Pipeline Camera (sezione 4).
+
+### Copertura
+| Legislatura | Leggi (`ocd:legge`) | Votazioni d'Aula | … collegate a un atto | Votazioni finali |
+|---|---|---|---|---|
+| X (1987-1992) | 1.077 | — | — | — |
+| XI (1992-1994) | 314 | — | — | — |
+| XII (1994-1996) | 295 | — | — | — |
+| XIII (1996-2001) | 906 | 34.629 | 32.254 | 857 |
+| XIV (2001-2006) | 686 | 23.721 | 22.140 | 654 |
+| XV (2006-2008) | 112 | 5.308 | 4.572 | 151 |
+| XVI (2008-2013) | 387 | 10.517 | 9.265 | 407 |
+| XVII (2013-2018) | 378 | 24.930 | 19.361 | 481 |
+| XVIII (2018-2022) | 314 | 10.724 | 7.053 | 327 |
+| XIX (dal 2022) | 361 | 20.177 | 10.457 | 416 |
+
+Le votazioni nominali della Camera cominciano con la XIII legislatura, come i dati del Senato. Circa 30 milioni di voti individuali in tutto (Favorevole, Contrario, Astensione, "Non ha votato"; "Ha votato" nelle votazioni segrete).
+
+### Cosa c'è
+1. **Leggi con l'URN di Normattiva.** `ocd:legge` ha `ocd:lex` (il permalink di Normattiva con l'URN), numero, data, titolo, tipo (Ordinaria / Costituzionale) e i lavori preparatori (`ocd:lavoriPreparatori` → `ocd:rif_attoCamera`), anche per la X, XI e XII legislatura. Esempio: L. 241/1990 → atto C.1913 della X. I lavori preparatori indicano a volte un atto diverso da quello votato: per la Legge Sirchia citano C.2122-quater, mentre le votazioni sono su C.2122-bis e C.2122-bis-B (gli stessi atti dell'iter del Senato).
+2. **Atti.** Numero (dall'IRI, es. `ac14_2122-bis` → `2122-BIS`), data di presentazione, titolo, iniziativa (Parlamentare, Governo, Popolare, Regioni, CNEL, Mista), governo (`ocd:rif_governo`), primo firmatario e altri firmatari come persone (`ocd:primo_firmatario`, `ocd:altro_firmatario`) e come testo (`dc:creator`, `dc:contributor`, es. "TREMONTI GIULIO, Ministro dell'Economia e delle finanze (II Governo Berlusconi)"). Gli stati dell'iter ci sono solo dalla XVII.
+3. **Votazioni.** Titolo ("Votazione Emendamento 2.2 DDL n.2122-BIS"), descrizione ("EMENDAMENTO 2.2 VALPIANA (RC)"), tipo (Emendamento, Articolo, Ordine del Giorno, Mozione, Finale atto Camera, Risoluzione, Pregiudiziale, ...), data, presenti, votanti, favorevoli, contrari, astenuti, maggioranza, approvato, `votazioneFinale`, `votazioneSegreta`, `richiestaFiducia`, atto (`ocd:rif_attoCamera`) e la scheda sul sito della Camera.
+4. **Voti dei deputati.** Un `ocd:voto` per deputato e votazione, con `ocd:rif_votazione`, `ocd:rif_deputato` e il voto in `dc:type`. In una votazione della XVII: 26 favorevoli, 417 contrari, 7 astenuti, 179 "non ha votato".
+5. **Fiducia.** `richiestaFiducia = 1` dalla XIV: dalla XIV alla XIX (conteggi della sonda, con i doppioni: da 36 nella XV a 154 nella XIX). Segna tutta la procedura: l'articolo su cui il governo pone la fiducia e anche la votazione finale che segue. La pipeline tiene "finale" la finale e chiama "fiducia" le altre.
+6. **Deputati e gruppi.** Un deputato per legislatura (`d305578_17`), con la persona nell'identificativo (305578): si usa la persona, uguale in tutte le legislature. Adesioni ai gruppi con date (`ocd:aderisce`). Gruppi per legislatura con sigla e date; i nomi precedenti stanno in `ocd:denominazione` ("gia' ITALIA VIVA (IV) fino a 31.07.2022").
+7. **Governi** con date di inizio e fine dal 1948: coincidono con `governi.csv` (fonte Senato).
+
+### Cosa non c'è
+- Votazioni prima della XIII legislatura: per le leggi 1990-1996 ci sono iter e firmatari, non i voti.
+- Partiti della coalizione di governo: come al Senato, nessun dato strutturato.
+- Letture al Senato degli iter 1990-1996.
 
 ## 2. Senato (dati.senato.it)
 
@@ -48,4 +80,4 @@ Dati dalla **XIII legislatura (9 maggio 1996)** in poi. Per le leggi 1990-1996 (
 - I voti dei singoli parlamentari in forma compatta (un elenco per votazione) e solo per le votazioni finali e di fiducia: il resto (emendamenti, articoli) si aggiunge dopo con le stesse tabelle.
 - Il voto per gruppo si ricava dai voti individuali e dalle adesioni alla data della votazione: è una vista, non dati copiati.
 - I partiti dei governi si compilano a mano, con la fonte, come la tabella `governo`.
-- La Camera entra nelle stesse tabelle quando l'endpoint risponde.
+- La Camera entra nelle stesse tabelle: votazioni sulle fasi Camera degli iter del Senato (XIII-XIX), iter propri per la X-XII.

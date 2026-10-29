@@ -34,6 +34,7 @@ from archivio_api.modelli import (
     TipoRelazione,
     Verso,
     Votazione,
+    VotazioneDettaglio,
 )
 
 ATTRIBUZIONE = (
@@ -160,12 +161,28 @@ def votazioni_legge(
     tipo: Annotated[
         str | None, Query(pattern="^(finale|fiducia|articolo|emendamento|pregiudiziale|altro)$")
     ] = None,
+    gruppi: Annotated[bool, Query(description="Aggiunge a ogni votazione il voto per gruppo parlamentare")] = False,
     pagina: NumeroPagina = 1,
     per_pagina: PerPagina = 50,
 ) -> dict:
     _legge_o_404(conn, urn)
-    totale, risultati = query.votazioni(conn, urn, tipo, pagina, per_pagina)
+    totale, risultati = query.votazioni(conn, urn, tipo, gruppi, pagina, per_pagina)
     return {"totale": totale, "pagina": pagina, "per_pagina": per_pagina, "risultati": risultati}
+
+
+# `:path` perché gli id delle votazioni contengono "/" (senato:14/1).
+@app.get(
+    "/votazioni/{votazione_id:path}",
+    summary="Una votazione d'Aula con il voto per gruppo parlamentare",
+    response_model=VotazioneDettaglio,
+)
+def dettaglio_votazione(
+    conn: Connessione,
+    votazione_id: Annotated[str, Path(description="id della votazione, es. senato:14/1 (vedi /leggi/{urn}/votazioni)")],
+) -> dict:
+    if (riga := query.votazione(conn, votazione_id)) is None:
+        raise HTTPException(404, f"Votazione non trovata: {votazione_id}")
+    return riga
 
 
 @app.get("/governi", summary="I governi dal 1989, con il numero di atti e i partiti", response_model=list[GovernoConAtti])

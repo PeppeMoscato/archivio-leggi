@@ -127,8 +127,37 @@ def test_votazioni(client):
     assert [(v["tipo"], v["nominale"]) for v in corpo["risultati"]] == [("emendamento", False), ("finale", True)]
     assert "voti_favorevoli" not in corpo["risultati"][0]
     finale = client.get(f"/leggi/{L3}/votazioni", params={"tipo": "finale"}).json()
-    assert (finale["totale"], finale["risultati"][0]["favorevoli"]) == (1, 1)
+    assert (finale["totale"], finale["risultati"][0]["favorevoli"]) == (1, 2)
     assert client.get(f"/leggi/{L3}/votazioni", params={"tipo": "segreta"}).status_code == 422
+    assert corpo["risultati"][0]["gruppi"] is None
+
+
+# Votazione finale della L. 3/2003 in tests/dati.sql: il gruppo 1 ha ancora il vecchio nome, la senatrice 2 vota
+# nel gruppo 2 (vi è entrata quel giorno), il senatore 3 non ha gruppo e va in fondo.
+GRUPPI_FINALE = [
+    {"gruppo_id": "senato:g1", "nome": "Vecchio nome del gruppo", "sigla": "VNG", "favorevoli": 2, "contrari": 0, "astenuti": 0},
+    {"gruppo_id": "senato:g2", "nome": "Gruppo misto", "sigla": "MISTO", "favorevoli": 0, "contrari": 1, "astenuti": 0},
+    {"gruppo_id": None, "nome": None, "sigla": None, "favorevoli": 0, "contrari": 0, "astenuti": 1},
+]
+
+
+def test_votazioni_con_voto_per_gruppo(client):
+    corpo = client.get(f"/leggi/{L3}/votazioni", params={"gruppi": "true"}).json()
+    emendamento, finale = corpo["risultati"]
+    assert emendamento["gruppi"] == []  # voto non nominale
+    assert finale["gruppi"] == GRUPPI_FINALE
+
+
+def test_dettaglio_votazione(client):
+    # L'id contiene "/": arriva intero anche codificato.
+    for percorso in ("/votazioni/senato:14/1", "/votazioni/senato%3A14%2F1"):
+        corpo = client.get(percorso).json()
+        assert (corpo["id"], corpo["urn"], corpo["fase_numero"], corpo["tipo"]) == ("senato:14/1", L3, "S.795", "finale")
+        assert corpo["gruppi"] == GRUPPI_FINALE
+    assert client.get("/votazioni/senato:v2").json()["gruppi"] == []
+    risposta = client.get("/votazioni/senato:14/999")
+    assert risposta.status_code == 404
+    assert "Votazione non trovata" in risposta.json()["detail"]
 
 
 def test_governi(client):

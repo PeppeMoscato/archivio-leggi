@@ -6,7 +6,7 @@ from datetime import date, datetime
 from enum import StrEnum
 from typing import Generic, TypeVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 T = TypeVar("T")
 
@@ -173,6 +173,17 @@ class Iter(BaseModel):
     fasi: list[Fase]
 
 
+class VotoGruppo(BaseModel):
+    """Come ha votato un gruppo parlamentare: ogni parlamentare conta nel gruppo a cui aderiva il giorno del voto."""
+
+    gruppo_id: str | None = Field(description="Vuoto per chi quel giorno non risulta iscritto a un gruppo")
+    nome: str | None = Field(description="La denominazione del gruppo valida alla data del voto")
+    sigla: str | None
+    favorevoli: int
+    contrari: int
+    astenuti: int
+
+
 class Votazione(BaseModel):
     """Totali di una votazione d'Aula. Gli elenchi dei voti dei singoli non sono qui."""
 
@@ -192,3 +203,12 @@ class Votazione(BaseModel):
     maggioranza: int | None
     nominale: bool
     fonte_url: str
+    gruppi: list[VotoGruppo] | None = Field(
+        None, description="Voto per gruppo, solo se richiesto (gruppi=true); vuoto se il voto non è nominale"
+    )
+
+
+class VotazioneDettaglio(Votazione):
+    urn: str | None = Field(description="La legge a cui porta l'iter, se è nell'archivio")
+    fase_numero: str = Field(description="Il ddl votato, come lo scrive la fonte (S.795, C.2122-BIS)")
+    gruppi: list[VotoGruppo]

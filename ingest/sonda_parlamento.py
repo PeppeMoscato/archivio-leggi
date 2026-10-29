@@ -354,6 +354,25 @@ def schede() -> tuple[dict[str, Any], str]:
         report += f"HTTP {stato}, {len(grezzo)} byte, url finale {finale}\n\nParole: {conteggi}\n\n"
         dove = max(0, testo.lower().find("favorevol") - 300)
         report += "```\n" + testo[:600] + "\n...\n" + testo[dove:dove + 1500] + "\n```\n"
+        # Com'è fatta la tabella dei voti (per collegare i nomi ai deputati) e dove portano i link.
+        collegamenti: dict[str, int] = {}
+        for href in re.findall(r'(?i)href\s*=\s*["\']?([^"\'\s>]+)', html):
+            chiave = re.sub(r"=[^&]*", "=…", href)
+            collegamenti[chiave] = collegamenti.get(chiave, 0) + 1
+        report += "Link (parametri tolti): " + json.dumps(sorted(collegamenti.items(), key=lambda c: -c[1])[:20], ensure_ascii=False) + "\n\n"
+        if leg in (13, 16):
+            inizio = html.find("Nominativo")
+            report += "HTML attorno alla tabella:\n```html\n" + html[max(0, inizio - 300):inizio + 3500] + "\n```\n"
+            tabellare = re.search(r'(?is)href\s*=\s*["\']?([^"\'\s>]+)["\']?[^>]*>[^<]*tabellare', html)
+            if tabellare:
+                indirizzo = urllib.parse.urljoin(finale, tabellare.group(1).replace("&amp;", "&"))
+                report += f"Formato tabellare: {indirizzo}\n"
+                try:
+                    with urllib.request.urlopen(urllib.request.Request(indirizzo, headers={"User-Agent": "archivio-leggi (sonda)"}), timeout=60) as r:
+                        corpo = r.read()
+                    report += f"{len(corpo)} byte, tipo {r.headers.get('Content-Type')}\n```\n" + corpo[:2500].decode("latin-1") + "\n```\n"
+                except (urllib.error.URLError, TimeoutError) as errore:
+                    report += f"**Errore**: `{errore}`\n"
         time.sleep(ATTESA * 3)
     return risultati, report
 

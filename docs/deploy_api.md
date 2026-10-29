@@ -42,11 +42,12 @@ Fonti (verificate il 29/10/2026): [Render, Deploy for Free](https://render.com/d
 3. Copia nell'editor il contenuto di `api/deploy/ruolo_sola_lettura.sql`, sostituisci
    `SOSTITUISCI_CON_UNA_PASSWORD` con la password ed esegui. Se dimentichi di sostituirla, lo script si
    ferma con un errore.
-4. Nello stesso editor crea l'indice della ricerca, che su Neon non c'è ancora (arriverebbe solo con il
-   prossimo caricamento di una pipeline; è già in `ingest/archivio/schema.sql`):
-   ```sql
-   CREATE INDEX IF NOT EXISTS legge_titolo_fts ON legge USING gin (to_tsvector('italian', titolo));
-   ```
+4. Nello stesso editor, svuotato, esegui tutto `ingest/archivio/schema.sql`. Crea solo quello che manca
+   (le tabelle dello schema v1.2 e l'indice della ricerca `legge_titolo_fts`) e non tocca i dati; gli
+   avvisi "already exists, skipping" sono normali. Serve perché il primo caricamento su Neon è stato
+   fatto con lo schema v1.1: senza le tabelle `iter`, `votazione` e `governo_partito` il dettaglio della
+   legge, l'iter e i governi rispondono 500. Il ruolo `api_lettura` legge le tabelle nuove senza altri
+   GRANT, grazie ai privilegi predefiniti.
 5. Componi il `DATABASE_URL` dell'API partendo da quello delle pipeline (secret `DATABASE_URL` su GitHub,
    o **Connect** nella console di Neon): cambia utente e password, e usa l'indirizzo **diretto**, senza
    `-pooler` nel nome dell'host. L'API ha già il suo pool (al massimo 5 connessioni), quindi il pooler

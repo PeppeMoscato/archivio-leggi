@@ -322,12 +322,54 @@ def _esito(risultati: dict[str, Any], nome: str) -> str:
     return f"_{len(voce.get('righe', []))} righe in {voce.get('secondi', '?')} s_\n\n"
 
 
+# Le pagine HTML delle votazioni (dc:relation): per XIII-XVI l'endpoint non ha i voti dei deputati,
+# forse le schede sì. Una votazione per legislatura, la XVII come confronto.
+SCHEDE = {
+    13: "http://documenti.camera.it/votazioni/votazionitutte/schedavotazione.asp?Legislatura=XIII&RifVotazione=128_59&tipo=dettaglio",
+    14: "http://documenti.camera.it/votazioni/votazionitutte/schedavotazione.asp?Legislatura=XIV&RifVotazione=29_26&tipo=dettaglio",
+    15: "http://documenti.camera.it/votazioni/votazionitutte/schedavotazione.asp?Legislatura=XV&RifVotazione=33_13&tipo=dettaglio",
+    16: "http://documenti.camera.it/votazioni/votazionitutte/schedavotazione.asp?Legislatura=XVI&RifVotazione=36_26&tipo=dettaglio",
+    17: "http://documenti.camera.it/votazioni/votazionitutte/schedavotazione.asp?Legislatura=XVII&RifVotazione=374_51&tipo=dettaglio",
+}
+
+
+def schede() -> tuple[dict[str, Any], str]:
+    risultati: dict[str, Any] = {}
+    report = "\n## Schede HTML delle votazioni della Camera\n"
+    for leg, url in SCHEDE.items():
+        report += f"\n### Legislatura {leg}\n{url}\n\n"
+        try:
+            richiesta = urllib.request.Request(url, headers={"User-Agent": "archivio-leggi (sonda; progetto non commerciale)"})
+            with urllib.request.urlopen(richiesta, timeout=60) as risposta:
+                grezzo = risposta.read()
+                stato, finale = risposta.status, risposta.geturl()
+        except (urllib.error.URLError, TimeoutError) as errore:
+            risultati[str(leg)] = {"errore": str(errore)}
+            report += f"**Errore**: `{errore}`\n"
+            continue
+        html = grezzo.decode("utf-8", errors="replace") if b"utf-8" in grezzo[:2000].lower() else grezzo.decode("latin-1")
+        testo = " ".join(re.sub(r"<[^>]+>", " ", re.sub(r"(?is)<(script|style).*?</\1>", " ", html)).split())
+        conteggi = {parola: len(re.findall(parola, testo, re.I)) for parola in ("favorevole", "contrario", "astenuto", "non ha votato", "missione")}
+        risultati[str(leg)] = {"stato": stato, "url_finale": finale, "byte": len(grezzo), "conteggi": conteggi, "testo": testo[:20000]}
+        report += f"HTTP {stato}, {len(grezzo)} byte, url finale {finale}\n\nParole: {conteggi}\n\n"
+        dove = max(0, testo.lower().find("favorevol") - 300)
+        report += "```\n" + testo[:600] + "\n...\n" + testo[dove:dove + 1500] + "\n```\n"
+        time.sleep(ATTESA * 3)
+    return risultati, report
+
+
 def main() -> int:
-    # "senato-mirate": solo le query mirate, senza esplorare tutte le classi; "camera-voti": solo QUERY_VOTI.
+    # "senato-mirate": solo le query mirate, senza esplorare tutte le classi; "camera-voti": solo QUERY_VOTI;
+    # "camera-schede": le pagine HTML di alcune votazioni.
     rami = sys.argv[1:] or list(ENDPOINT)
     tutto: dict[str, Any] = {}
     report = "# Sonda Camera e Senato\n"
     for argomento in rami:
+        if argomento == "camera-schede":
+            tutto["schede"], parte = schede()
+            report += parte
+            print(parte, flush=True)
+            continue
         ramo, _, modo = argomento.partition("-")
         tutto[ramo], parte = sonda(ramo, esplora=modo not in ("mirate", "voti"), query=QUERY_VOTI if modo == "voti" else None)
         report += parte

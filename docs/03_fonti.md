@@ -12,6 +12,17 @@ Verificate il 27/10/2026. Il progetto è non commerciale, quindi sono utilizzabi
 | Openpolis (OPDM API) | Dati parlamentari arricchiti | API, token opzionale | CC BY-NC: ok perché il progetto è non commerciale. Citare "Fonte: Openpolis" |
 | Corte dei conti, UPB, Banca d'Italia, studi accademici | Valutazioni e analisi controfattuali | Ricerca manuale, solo per le leggi delle schede | Citare sempre l'URL |
 
+## Gerarchia delle fonti nelle schede
+Decisa il 29/10/2026, alla revisione della scheda Sirchia.
+1. **Fonti ufficiali e dati**: Normattiva, Gazzetta Ufficiale, Camera, Senato, Istat, ISS, Banca d'Italia, Corte dei conti, UPB, AIR/VIR.
+2. **Studi**: articoli peer-reviewed e working paper di istituti di ricerca. Un working paper si segnala come tale.
+3. **Stampa e divulgazione**: solo per contesto, o per trovare la fonte primaria.
+
+Regole:
+- Ogni numero si cita dalla fonte primaria. Se arriva dalla stampa, si risale allo studio o alla tavola originale.
+- Se la fonte primaria non si trova, il numero resta nella scheda con l'asterisco e la nota "dato riportato dalla stampa, studio originale non trovato". Un numero con l'asterisco non conta per il verdetto.
+- Ogni numero dice a quale zona, fascia d'età e periodo si riferisce (uno studio su Firenze non vale per l'Italia).
+
 ## Attribuzione obbligatoria Normattiva (footer dell'app)
 Fonte: Normattiva (https://www.normattiva.it), Istituto Poligrafico e Zecca dello Stato, in licenza CC BY 4.0. Testo non autentico e gratuito: l'unico testo ufficiale è quello pubblicato sulla Gazzetta Ufficiale a mezzo stampa.
 

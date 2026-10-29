@@ -33,24 +33,28 @@ AGENTE = "archivio-leggi/0.1 (sonda contesto, non commerciale)"
 
 # Atti dell'MVP di tipo diverso: D.L., D.Lgs., legge di iniziativa governativa e parlamentare.
 ATTI_NORMATTIVA = [
-    "urn:nir:stato:decreto.legge:2019-01-28;4",
+    "urn:nir:stato:decreto.legge:2018-07-12;87",
     "urn:nir:stato:decreto.legge:2017-06-07;73",
     "urn:nir:stato:decreto.legislativo:2015-03-04;23",
     "urn:nir:stato:legge:2003-01-16;3",
     "urn:nir:stato:legge:2016-05-20;76",
-    "urn:nir:stato:decreto.legge:1995-01-03;1",
+    "urn:nir:stato:decreto.legge:2006-07-04;223",
 ]
 
 SENATO_LEG14 = "osr:legislatura 14"
 QUERY = {
     "senato": {
-        "proprieta_ddl_xiv": f"""SELECT ?p (COUNT(*) AS ?n) WHERE {{ ?d a osr:Ddl ; {SENATO_LEG14} ; ?p ?o }} GROUP BY ?p ORDER BY DESC(?n)""",
-        "ddl_1271_xiv": f"""SELECT ?p ?o WHERE {{ ?d a osr:Ddl ; {SENATO_LEG14} ; osr:numeroFase ?num ; ?p ?o .
-  FILTER(STR(?num) = "1271") }}""",
-        "ddl_1271_xiv_un_salto": f"""SELECT ?p ?o ?p2 ?o2 WHERE {{ ?d a osr:Ddl ; {SENATO_LEG14} ; osr:numeroFase ?num ; ?p ?o .
-  ?o ?p2 ?o2 . FILTER(STR(?num) = "1271") }} LIMIT 300""",
-        "classi_documenti": """SELECT ?c (COUNT(?s) AS ?n) WHERE { ?s a ?c .
-  FILTER(REGEX(STR(?c), "test|document|dossier|relaz|resocont|seduta|intervent", "i")) } GROUP BY ?c""",
+        "proprieta_documento": """SELECT ?p (COUNT(*) AS ?n) WHERE { ?d a osr:Documento ; ?p ?o } GROUP BY ?p ORDER BY DESC(?n)""",
+        "documenti_esempio": """SELECT ?d ?p ?o WHERE { { SELECT ?d WHERE { ?d a osr:Documento } LIMIT 5 } ?d ?p ?o }""",
+        "documenti_ddl_15167": """SELECT ?d ?p ?o WHERE { ?d a osr:Documento ; ?q ?x . ?d ?p ?o .
+  FILTER(CONTAINS(STR(?x), "15167") || CONTAINS(STR(?x), "1271")) } LIMIT 200""",
+        "proprieta_intervento": """SELECT ?p (COUNT(*) AS ?n) WHERE { ?i a osr:Intervento ; ?p ?o } GROUP BY ?p ORDER BY DESC(?n)""",
+        "interventi_esempio": """SELECT ?i ?p ?o WHERE { { SELECT ?i WHERE { ?i a osr:Intervento } LIMIT 3 } ?i ?p ?o }""",
+        "testo_presentato_per_legislatura": """SELECT ?leg (COUNT(DISTINCT ?d) AS ?fasi) (COUNT(DISTINCT ?t) AS ?con_testo) WHERE {
+  ?d a osr:Ddl ; osr:legislatura ?leg . OPTIONAL { ?d osr:testoPresentato ?t } } GROUP BY ?leg ORDER BY ?leg""",
+        "ddl_esempi": """SELECT ?leg ?num ?id ?ramo ?testo WHERE { ?d a osr:Ddl ; osr:legislatura ?leg ; osr:numeroFase ?num ;
+  osr:idDdl ?id ; osr:ramo ?ramo . OPTIONAL { ?d osr:testoPresentato ?testo }
+  FILTER((?leg = 14 && STR(?num) = "1271") || (?leg = 18 && STR(?num) = "1018") || (?leg = 17 && STR(?num) = "2081")) }""",
     },
     "camera": {
         "proprieta_atto_xiv": """SELECT ?p (COUNT(DISTINCT ?o) AS ?n) WHERE { ?a a ocd:atto ;
@@ -96,8 +100,7 @@ def premesse() -> tuple[list[dict[str, Any]], str]:
                 atto = client.dettaglio(urn, vigenza="originale")
                 voce |= {"titolo": atto.titolo, "preambolo": atto.preambolo, "html": len(atto.testo_html),
                          "testo_inizio": atto.testo[:600]}
-                if not atto.preambolo:
-                    voce["html_inizio"] = atto.testo_html[:3000]
+                voce["html_inizio"] = atto.testo_html[:4000]
             except Exception as e:  # noqa: BLE001 - la sonda registra ogni errore e va avanti
                 voce["errore"] = f"{type(e).__name__}: {e}"
             righe.append(voce)
@@ -107,7 +110,9 @@ def premesse() -> tuple[list[dict[str, Any]], str]:
                 continue
             preambolo = voce["preambolo"] or ""
             report += f"- Titolo: {breve(voce['titolo'])}\n- Preambolo: {len(preambolo)} caratteri\n\n"
+            report += f"- HTML: {voce['html']} caratteri\n\n"
             report += f"```\n{preambolo[:2500] or '(vuoto) ' + voce['testo_inizio']}\n```\n\n"
+            report += f"```html\n{voce['html_inizio']}\n```\n\n"
             time.sleep(1)
     return righe, report
 
@@ -148,9 +153,16 @@ def parlamento(ramo: str) -> tuple[dict[str, Any], str]:
             for valore in r.values():
                 if re.match(r"https?://", valore) and not re.search(r"dati\.(senato|camera)\.it|purl\.org|w3\.org|xmlns", valore):
                     indirizzi.add(valore)
+    if ramo == "senato" and isinstance(risultati.get("ddl_esempi"), list):
+        for r in risultati["ddl_esempi"]:
+            leg, iddl = r["leg"], r["id"]
+            base = f"https://www.senato.it/leg/{leg}/BGT/Schede/Ddliter"
+            indirizzi |= {f"{base}/{iddl}.htm", f"{base}/testi/{iddl}_testi.htm", f"{base}/documenti/{iddl}_documenti.htm"}
+            if r.get("testo"):
+                indirizzi.add(f"https://www.senato.it/uri-res/N2Ls?{r['testo']}")
     report += "### Pagine web collegate\n\n"
     risultati["pagine"] = []
-    for url in sorted(indirizzi)[:15]:
+    for url in sorted(indirizzi)[:25]:
         esito = pagina(url)
         risultati["pagine"].append(esito)
         report += f"- {url}: " + (esito.get("errore") or f"{esito['tipo']}, {esito['byte']} byte, parole {esito['parole']}") + "\n"

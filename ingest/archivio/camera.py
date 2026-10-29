@@ -18,10 +18,13 @@ Ogni tripla compare due volte (due grafi): tutte le query sono DISTINCT.
 
 from __future__ import annotations
 
+import contextlib
+import gzip
 import html
 import json
 import logging
 import re
+import threading
 import time
 import unicodedata
 import urllib.error
@@ -34,7 +37,7 @@ from pathlib import Path
 
 from archivio import senato
 from archivio.senato import _intero, _json, numero_ddl_da_etichetta, numero_senza_ramo, scorri
-from archivio.sparql import Sparql
+from archivio.sparql import USER_AGENT, Sparql, attesa_dopo_errore
 
 logger = logging.getLogger(__name__)
 
@@ -51,8 +54,11 @@ PRIMA_CON_VOTI = 13  # la Camera ha votazioni nominali dalla XIII; il Senato ha 
 # individuale (sonda camera-voti del 29/10/2026). I nomi sono nelle schede HTML di documenti.camera.it (dc:relation).
 PRIMA_CON_VOTI_INDIVIDUALI = 17
 SCHEDA = "https://documenti.camera.it/votazioni/votazionitutte/schedavotazione.asp?Legislatura={romano}&RifVotazione={rif}&tipo=dettaglio"
-SCHEDE_IN_PARALLELO = 3  # pagine scaricate insieme: un sito HTML, non un servizio dati
+# Un sito per persone, non un servizio dati: 3 lettori con mezzo secondo di pausa, circa 2 pagine al secondo,
+# e una legislatura alla volta (max-parallel del workflow).
+SCHEDE_IN_PARALLELO = 3
 PAUSA_SCHEDA = 0.5  # secondi di pausa di ogni lettore dopo una pagina
+ERRORI_DI_FILA = 20  # tante schede di fila non scaricate: il sito soffre o ci blocca, ci si ferma
 INIZIO_PERIMETRO = date(1990, 1, 1)
 VOTAZIONI_PER_RICHIESTA = 14  # 14 × 630 deputati al massimo: sotto il limite di 10.000 righe
 ATTI_PER_RICHIESTA = 40
@@ -466,8 +472,7 @@ def nomi_deputati(sparql: Sparql, leg: int) -> NomiDeputati:
 
 
 def scarica_scheda(url: str, tentativi: int = 6) -> str:
-    agente = "archivio-leggi (progetto non commerciale; github.com/PeppeMoscato/archivio-leggi)"
-    richiesta = urllib.request.Request(url, headers={"User-Agent": agente})
+    richiesta = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     for tentativo in range(1, tentativi + 1):
         try:
             with urllib.request.urlopen(richiesta, timeout=60) as risposta:
@@ -478,49 +483,104 @@ def scarica_scheda(url: str, tentativi: int = 6) -> str:
             if tentativo == tentativi or (isinstance(errore, urllib.error.HTTPError) and errore.code < 500 and errore.code != 429):
                 raise
             logger.warning("scheda %s: %s, tentativo %s", url, errore, tentativo)
-            time.sleep(10 * tentativo)
+            time.sleep(attesa_dopo_errore(errore, tentativo))
     raise AssertionError("non raggiungibile")
 
 
-def estrai_voti_schede(
-    votazioni: list[VotazioneCamera], nomi: NomiDeputati, scarica: Callable[[str], str] = scarica_scheda
-) -> list[str]:
-    """Riempie `voti` delle votazioni palesi dalle schede HTML; restituisce le righe del rapporto."""
-    palesi = [v for v in votazioni if not v.segreta and url_scheda(v)]
+class SchedeFermate(Exception):
+    """Troppe schede di fila non scaricate: meglio fermarsi che insistere su un sito in difficoltà."""
 
-    def leggi(v: VotazioneCamera) -> tuple[VotazioneCamera, list[tuple[str, str, str]] | None]:
+
+def leggi_cache_schede(percorso: Path | None) -> dict[str, list[tuple[str, str, str]]]:
+    """Le righe delle schede già lette in un giro precedente; una riga troncata alla fine (job interrotto) si salta."""
+    lette: dict[str, list[tuple[str, str, str]]] = {}
+    if percorso is None or not percorso.exists():
+        return lette
+    try:
+        with gzip.open(percorso, "rt", encoding="utf-8") as f:
+            for riga in f:
+                try:
+                    dato = json.loads(riga)
+                except json.JSONDecodeError:
+                    break
+                lette[dato["url"]] = [tuple(r) for r in dato["righe"]]
+    except (EOFError, gzip.BadGzipFile, OSError):
+        pass
+    return lette
+
+
+def estrai_voti_schede(
+    votazioni: list[VotazioneCamera],
+    nomi: NomiDeputati,
+    scarica: Callable[[str], str] = scarica_scheda,
+    cache: Path | None = None,
+) -> list[str]:
+    """Riempie `voti` delle votazioni palesi dalle schede HTML; restituisce le righe del rapporto.
+
+    Con `cache`, le righe di ogni scheda letta finiscono in un JSONL compresso: se il job va rilanciato,
+    le schede già lette non si riscaricano."""
+    palesi = [v for v in votazioni if not v.segreta and url_scheda(v)]
+    dalla_cache = leggi_cache_schede(cache)
+    fermati = threading.Event()
+
+    def leggi(v: VotazioneCamera) -> tuple[VotazioneCamera, list[tuple[str, str, str]] | None, bool]:
+        url = url_scheda(v) or ""
+        if url in dalla_cache:
+            return v, dalla_cache[url], False
+        if fermati.is_set():
+            return v, None, False
         try:
-            pagina = scarica(url_scheda(v) or "")
+            pagina = scarica(url)
         except (urllib.error.URLError, TimeoutError, ConnectionError) as errore:
             logger.warning("scheda di %s non scaricata: %s", v.id, errore)
-            return v, None
+            return v, None, False
         finally:
             time.sleep(PAUSA_SCHEDA)
-        return v, righe_scheda(pagina)
+        return v, righe_scheda(pagina), True
 
-    non_scaricate = vuote = diverse = 0
+    non_scaricate = vuote = diverse = di_fila = 0
     sconosciuti: dict[str, int] = {}
-    with ThreadPoolExecutor(SCHEDE_IN_PARALLELO) as lettori:
-        for fatte, (v, righe) in enumerate(lettori.map(leggi, palesi), 1):
-            if righe is None:
-                non_scaricate += 1
-                continue
-            if not righe:
-                vuote += 1
-            for nominativo, sigla, voto in righe:
-                if not (chiave := VOTI_SCHEDA.get(voto)):
+    with contextlib.ExitStack() as aperti:
+        scrittura = None
+        if cache is not None:
+            # Si riscrive da capo: in coda a un file troncato le righe nuove non si rileggerebbero.
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            scrittura = aperti.enter_context(gzip.open(cache, "wt", encoding="utf-8"))
+            for url, righe in dalla_cache.items():
+                scrittura.write(json.dumps({"url": url, "righe": righe}, ensure_ascii=False) + "\n")
+        with ThreadPoolExecutor(SCHEDE_IN_PARALLELO) as lettori:
+            for fatte, (v, righe, nuova) in enumerate(lettori.map(leggi, palesi), 1):
+                if righe is None:
+                    non_scaricate += 1
+                    di_fila += 1
+                    if di_fila >= ERRORI_DI_FILA and not fermati.is_set():
+                        logger.error("schede: %s di fila non scaricate, mi fermo", di_fila)
+                        fermati.set()
                     continue
-                if (chi := nomi.trova(nominativo, sigla)) is None:
-                    sconosciuti[f"{nominativo} ({sigla})"] = sconosciuti.get(f"{nominativo} ({sigla})", 0) + 1
-                elif chi not in (elenco := v.voti.setdefault(chiave, [])):
-                    elenco.append(chi)
-            conti = (len(v.voti.get("favorevoli", [])), len(v.voti.get("contrari", [])), len(v.voti.get("astenuti", [])))
-            if righe and conti != (v.favorevoli or 0, v.contrari or 0, v.astenuti or 0):
-                diverse += 1
-            if fatte % 1000 == 0:
-                logger.info("schede: %s su %s", fatte, len(palesi))
+                di_fila = 0
+                if nuova and scrittura is not None:
+                    scrittura.write(json.dumps({"url": url_scheda(v), "righe": righe}, ensure_ascii=False) + "\n")
+                    if fatte % 200 == 0:
+                        scrittura.flush()  # se il job viene interrotto, il grosso resta leggibile
+                if not righe:
+                    vuote += 1
+                for nominativo, sigla, voto in righe:
+                    if not (chiave := VOTI_SCHEDA.get(voto)):
+                        continue
+                    if (chi := nomi.trova(nominativo, sigla)) is None:
+                        sconosciuti[f"{nominativo} ({sigla})"] = sconosciuti.get(f"{nominativo} ({sigla})", 0) + 1
+                    elif chi not in (elenco := v.voti.setdefault(chiave, [])):
+                        elenco.append(chi)
+                conti = (len(v.voti.get("favorevoli", [])), len(v.voti.get("contrari", [])), len(v.voti.get("astenuti", [])))
+                if righe and conti != (v.favorevoli or 0, v.contrari or 0, v.astenuti or 0):
+                    diverse += 1
+                if fatte % 1000 == 0:
+                    logger.info("schede: %s su %s", fatte, len(palesi))
+    if fermati.is_set():
+        raise SchedeFermate(f"{non_scaricate} schede non scaricate, {ERRORI_DI_FILA} di fila: rilanciare più tardi (le lette restano in cache)")
     rapporto = [
-        f"schede lette: {len(palesi) - non_scaricate} su {len(palesi)} votazioni palesi; non scaricate: {non_scaricate}; senza tabella: {vuote}",
+        f"schede lette: {len(palesi) - non_scaricate} su {len(palesi)} votazioni palesi ({len(dalla_cache)} dalla cache); "
+        f"non scaricate: {non_scaricate}; senza tabella: {vuote}",
         f"votazioni con elenchi diversi dai totali della fonte: {diverse}",
         f"nomi non collegati a un deputato: {len(sconosciuti)} ({sum(sconosciuti.values())} voti)"
         + (": " + ", ".join(f"{n} ×{c}" for n, c in sorted(sconosciuti.items(), key=lambda x: -x[1])[:15]) if sconosciuti else ""),
@@ -542,7 +602,9 @@ def scegli_votazioni(votazioni: list[VotazioneCamera], numeri: set[str]) -> tupl
     return scelte, len(votazioni) - len(scelte)
 
 
-def estrai_legislatura(camera: Sparql, senato_client: Sparql | None, leg: int) -> LegislaturaCamera:
+def estrai_legislatura(
+    camera: Sparql, senato_client: Sparql | None, leg: int, cartella_schede: Path | None = None
+) -> LegislaturaCamera:
     leggi = [legge for legge in estrai_leggi(camera, leg) if legge.data is None or legge.data >= INIZIO_PERIMETRO]
     logger.info("legislatura %s: %s leggi dal 1990", leg, len(leggi))
     if leg < PRIMA_CON_VOTI:
@@ -559,7 +621,8 @@ def estrai_legislatura(camera: Sparql, senato_client: Sparql | None, leg: int) -
         estrai_voti(camera, scelte)
     else:
         logger.info("legislatura %s: voti dei deputati dalle schede HTML (l'endpoint ha solo esiti e totali)", leg)
-        estrai_voti_schede(scelte, nomi_deputati(camera, leg))
+        cache = cartella_schede / f"camera_{leg}.jsonl.gz" if cartella_schede is not None else None
+        estrai_voti_schede(scelte, nomi_deputati(camera, leg), cache=cache)
     return LegislaturaCamera(leg, leggi, [], scelte, scartate, numeri)
 
 

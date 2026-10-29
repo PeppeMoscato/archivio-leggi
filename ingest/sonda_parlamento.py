@@ -28,6 +28,8 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+AGENTE = "archivio-leggi (progetto non commerciale; +https://github.com/PeppeMoscato/archivio-leggi)"  # come archivio.sparql.USER_AGENT
+
 CARTELLA_SAMPLES = Path(__file__).parent / "samples"
 ATTESA = 1.0  # secondi fra una query e l'altra: gli endpoint non pubblicano quote
 
@@ -190,7 +192,7 @@ def interroga(ramo: str, query: str, timeout: int = 120) -> list[dict[str, str]]
     for indirizzo in ENDPOINT[ramo]:
         richiesta = urllib.request.Request(
             f"{indirizzo}?{parametri}",
-            headers={"Accept": "application/sparql-results+json", "User-Agent": "archivio-leggi/0.1 (sonda, non commerciale)"},
+            headers={"Accept": "application/sparql-results+json", "User-Agent": AGENTE},
         )
         time.sleep(ATTESA)
         try:
@@ -339,7 +341,7 @@ def schede() -> tuple[dict[str, Any], str]:
     for leg, url in SCHEDE.items():
         report += f"\n### Legislatura {leg}\n{url}\n\n"
         try:
-            richiesta = urllib.request.Request(url, headers={"User-Agent": "archivio-leggi (sonda; progetto non commerciale)"})
+            richiesta = urllib.request.Request(url, headers={"User-Agent": AGENTE})
             with urllib.request.urlopen(richiesta, timeout=60) as risposta:
                 grezzo = risposta.read()
                 stato, finale = risposta.status, risposta.geturl()
@@ -368,7 +370,7 @@ def schede() -> tuple[dict[str, Any], str]:
                 indirizzo = urllib.parse.urljoin(finale, tabellare.group(1).replace("&amp;", "&"))
                 report += f"Formato tabellare: {indirizzo}\n"
                 try:
-                    with urllib.request.urlopen(urllib.request.Request(indirizzo, headers={"User-Agent": "archivio-leggi (sonda)"}), timeout=60) as r:
+                    with urllib.request.urlopen(urllib.request.Request(indirizzo, headers={"User-Agent": AGENTE}), timeout=60) as r:
                         corpo = r.read()
                     report += f"{len(corpo)} byte, tipo {r.headers.get('Content-Type')}\n```\n" + corpo[:2500].decode("latin-1") + "\n```\n"
                 except (urllib.error.URLError, TimeoutError) as errore:

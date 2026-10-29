@@ -152,7 +152,7 @@ def test_voti_dall_endpoint_dalla_xvii_e_dalle_schede_prima(monkeypatch, leg, da
     monkeypatch.setattr(camera, "estrai_votazioni", lambda *_: [votazione("a")])
     monkeypatch.setattr(camera, "estrai_voti", lambda *_: chiamate.append("endpoint"))
     monkeypatch.setattr(camera, "nomi_deputati", lambda *_: camera.NomiDeputati())
-    monkeypatch.setattr(camera, "estrai_voti_schede", lambda *_: chiamate.append("schede"))
+    monkeypatch.setattr(camera, "estrai_voti_schede", lambda *_, **__: chiamate.append("schede"))
     leg_camera = camera.estrai_legislatura(object(), object(), leg)
     assert len(leg_camera.votazioni) == 1
     assert chiamate == [da_dove]
@@ -203,6 +203,40 @@ def test_estrai_voti_schede(monkeypatch):
     assert "diversi dai totali della fonte: 1" in rapporto[1]
 
 
+def test_schede_gia_lette_non_si_riscaricano(monkeypatch, tmp_path):
+    monkeypatch.setattr(camera, "PAUSA_SCHEDA", 0)
+    nomi = camera.NomiDeputati()
+    nomi.aggiungi("1", "ABATERUSSO", "Ernesto", "DS-U")
+    cache = tmp_path / "schede" / "camera_13.jsonl.gz"
+    lette = []
+    prima = votazione("x", id=VOTAZIONE + "vs13_128_059")
+    camera.estrai_voti_schede([prima], nomi, lambda url: lette.append(url) or SCHEDA_XIII, cache=cache)
+    # Secondo giro (job rilanciato): la scheda già letta viene dalla cache, la nuova si scarica.
+    seconda, nuova = votazione("x", id=VOTAZIONE + "vs13_128_059"), votazione("y", id=VOTAZIONE + "vs13_128_061")
+    rapporto = camera.estrai_voti_schede([seconda, nuova], nomi, lambda url: lette.append(url) or SCHEDA_XIII, cache=cache)
+    assert len(lette) == 2 and lette[1].endswith("RifVotazione=128_61&tipo=dettaglio")
+    assert seconda.voti == prima.voti == {"contrari": ["1"]}
+    assert "(1 dalla cache)" in rapporto[0]
+    # Un file troncato (job interrotto a metà scrittura) non blocca: si rilegge quel che c'è.
+    cache.write_bytes(cache.read_bytes()[:-15])
+    assert len(camera.leggi_cache_schede(cache)) <= 2
+
+
+def test_schede_ci_si_ferma_dopo_troppi_errori_di_fila(monkeypatch):
+    monkeypatch.setattr(camera, "PAUSA_SCHEDA", 0)
+    monkeypatch.setattr(camera, "ERRORI_DI_FILA", 3)
+    tentate = []
+
+    def scarica(url):
+        tentate.append(url)
+        raise camera.urllib.error.URLError("503")
+
+    votazioni = [votazione("x", id=VOTAZIONE + f"vs13_128_{n:03d}") for n in range(1, 41)]
+    with pytest.raises(camera.SchedeFermate):
+        camera.estrai_voti_schede(votazioni, camera.NomiDeputati(), scarica)
+    assert len(tentate) < 40  # le schede ancora in coda non si chiedono più
+
+
 # --- file intermedi ---------------------------------------------------------------------
 
 
@@ -232,3 +266,18 @@ def test_json_andata_e_ritorno(tmp_path):
     )
     camera.scrivi(tmp_path / "camera_persone.json", persone)
     assert camera.leggi_persone(tmp_path / "camera_persone.json") == persone
+
+
+def test_attesa_dopo_errore_rispetta_retry_after():
+    from email.message import Message
+
+    from archivio.sparql import ATTESA_MASSIMA, attesa_dopo_errore
+
+    intestazioni = Message()
+    intestazioni["Retry-After"] = "120"
+    troppe = camera.urllib.error.HTTPError("https://documenti.camera.it", 429, "Too Many Requests", intestazioni, None)
+    assert attesa_dopo_errore(troppe, 1) == 120
+    assert attesa_dopo_errore(troppe, 20) == 200  # l'attesa crescente, se è più lunga
+    intestazioni.replace_header("Retry-After", "86400")
+    assert attesa_dopo_errore(troppe, 1) == ATTESA_MASSIMA
+    assert attesa_dopo_errore(TimeoutError(), 2) == 20

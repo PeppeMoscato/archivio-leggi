@@ -17,7 +17,20 @@ from collections.abc import Iterator
 
 logger = logging.getLogger(__name__)
 
-USER_AGENT = "archivio-leggi pipeline (+https://github.com/PeppeMoscato/archivio-leggi)"
+# Lo stesso per tutte le fonti: chi amministra i siti sa chi siamo e dove scriverci.
+USER_AGENT = "archivio-leggi (progetto non commerciale; +https://github.com/PeppeMoscato/archivio-leggi)"
+ATTESA_MASSIMA = 600  # secondi: oltre, un Retry-After non si aspetta per intero
+
+
+def attesa_dopo_errore(errore: Exception, tentativo: int) -> float:
+    """10, 20, 30... secondi, o di più se il server lo chiede con Retry-After (429 e 503)."""
+    attesa = 10.0 * tentativo
+    if isinstance(errore, urllib.error.HTTPError) and errore.headers is not None:
+        try:
+            attesa = max(attesa, float(errore.headers.get("Retry-After") or 0))
+        except ValueError:  # Retry-After con una data: si resta sull'attesa crescente
+            pass
+    return min(attesa, ATTESA_MASSIMA)
 
 
 class ErroreSparql(Exception):
@@ -46,10 +59,12 @@ class Sparql:
                     dati = json.load(risposta)
                 return [{k: v["value"] for k, v in riga.items()} for riga in dati["results"]["bindings"]]
             except urllib.error.HTTPError as errore:
-                if errore.code < 500 or tentativo == self.tentativi:
+                if (errore.code < 500 and errore.code != 429) or tentativo == self.tentativi:
                     dettaglio = errore.read().decode(errors="replace")[:300]
                     raise ErroreSparql(f"HTTP {errore.code}: {dettaglio}") from errore
                 logger.warning("SPARQL HTTP %s, tentativo %s", errore.code, tentativo)
+                time.sleep(attesa_dopo_errore(errore, tentativo))
+                continue
             except (urllib.error.URLError, TimeoutError) as errore:
                 if tentativo == self.tentativi:
                     raise ErroreSparql(str(errore)) from errore

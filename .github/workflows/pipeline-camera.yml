@@ -53,7 +53,9 @@ jobs:
     timeout-minutes: 300
     strategy:
       fail-fast: false
-      max-parallel: 2  # la Camera non pubblica quote: restiamo prudenti
+      # Una legislatura alla volta: per XIII-XVI si leggono le schede HTML di documenti.camera.it, un sito per
+      # persone (circa 2 pagine al secondo per job, ~2 ore per la XIII). Meglio lanciare di notte o nel fine settimana.
+      max-parallel: 1
       matrix:
         legislatura: ${{ fromJSON(needs.legislature.outputs.elenco) }}
     defaults:
@@ -65,7 +67,18 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e .
+      # Le schede già lette restano in cache: se il job va rilanciato non si riscaricano.
+      - uses: actions/cache/restore@v4
+        with:
+          path: ingest/dati/schede
+          key: schede-camera-${{ matrix.legislatura }}-${{ github.run_id }}
+          restore-keys: schede-camera-${{ matrix.legislatura }}-
       - run: python -m archivio camera-estrai --legislature ${{ matrix.legislatura }} --uscita dati
+      - if: always() && hashFiles('ingest/dati/schede/*') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: ingest/dati/schede
+          key: schede-camera-${{ matrix.legislatura }}-${{ github.run_id }}-${{ github.run_attempt }}
       - uses: actions/upload-artifact@v4
         with:
           name: camera-${{ matrix.legislatura }}

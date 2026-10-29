@@ -28,8 +28,7 @@ from normattiva import Normattiva
 
 from archivio import camera, db, parlamento, senato
 from archivio.pipeline import PERIMETRO, Rapporto, carica, estrai, leggi_atti
-
-USER_AGENT = "archivio-leggi pipeline (+https://github.com/PeppeMoscato/archivio-leggi)"
+from archivio.sparql import USER_AGENT
 
 
 def anni(testo: str) -> list[int]:
@@ -109,7 +108,7 @@ def main(argomenti: list[str] | None = None) -> int:
         rapporto = Rapporto()
         client_camera, client_senato = camera.client(), senato.client()
         for leg in sorted({n for testo in opzioni.legislature for n in anni(testo)}):
-            dati = camera.estrai_legislatura(client_camera, client_senato, leg)
+            dati = camera.estrai_legislatura(client_camera, client_senato, leg, opzioni.uscita / "schede")
             camera.scrivi(opzioni.uscita / f"camera_{leg}.json", dati)
             rapporto.aggiungi(
                 f"Legislatura {leg}: {len(dati.leggi)} leggi dal 1990, {len(dati.atti)} atti dei lavori preparatori, "

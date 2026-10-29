@@ -25,6 +25,14 @@ Ogni legge si giudica sui **propri** obiettivi dichiarati.
 - **Media**: indicatori coerenti, ma senza controfattuale.
 - **Bassa**: dati scarsi o indiretti.
 
+### Confidenza con un range
+Deciso il 29/10/2026 (scheda Sirchia). Si può dare un range, per esempio **Media-Alta**, solo se:
+1. i due livelli sono vicini (Bassa-Media o Media-Alta, mai Bassa-Alta);
+2. c'è un motivo concreto e scritto, per esempio studi controfattuali in conflitto o dati solo per una zona;
+3. la motivazione dice cosa alza la confidenza e cosa la abbassa.
+
+Senza questi tre requisiti si sceglie un solo livello.
+
 ## Neutralità
 - Il campione di leggi è bilanciato tra governi e maggioranze diverse.
 - Se esistono letture opposte e documentate, la scheda le riporta entrambe.

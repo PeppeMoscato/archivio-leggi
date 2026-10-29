@@ -1,7 +1,7 @@
 # Scheda esempio — Legge antifumo (legge Sirchia)
 
 Scheda di riferimento: tutte le schede seguono questo formato e questo livello di dettaglio.
-Compilata il 27/10/2026, rivista il 29/10/2026 (`docs/revisioni/2026-10-29_revisione_scheda_sirchia.md`). Stato: in approvazione.
+Compilata il 27/10/2026, rivista il 29/10/2026 (`docs/revisioni/2026-10-29_revisione_scheda_sirchia.md`). Stato: approvata da CAPO il 29/10/2026.
 
 ---
 
@@ -70,7 +70,9 @@ Note:
 - **Esito**: Obiettivo raggiunto
 - **Confidenza**: Alta
 - **Motivazione**: l'obiettivo dichiarato, la tutela dei non fumatori, è centrato. Il fumo passivo nei locali è quasi sparito e più studi peer-reviewed, con confronti che controllano stagionalità e trend, collegano il divieto a un calo degli infarti: -11% sotto i 60 anni in Piemonte, -4% sotto i 70 in tutta Italia.
-- **Obiettivo secondario**: Parzialmente raggiunto, confidenza Media. L'effetto sui fumatori è piccolo o nullo: due studi con un gruppo di confronto trovano un calo piccolo (-1,3% di fumatori), un terzo nessun calo generale e un calo solo tra alcuni gruppi di giovani. La confidenza è Media perché questi studi non sono d'accordo tra loro.
+- **Obiettivo secondario**: Parzialmente raggiunto, confidenza Media-Alta. L'effetto sui fumatori è piccolo o nullo: due studi con un gruppo di confronto trovano un calo piccolo (-1,3% di fumatori), un terzo nessun calo generale e un calo solo tra alcuni gruppi di giovani.
+  - **Cosa alza la confidenza**: tre studi con un gruppo di confronto, e tutti dicono che l'effetto è al massimo piccolo.
+  - **Cosa la abbassa**: non sono d'accordo se l'effetto valga per tutta la popolazione o solo per alcuni giovani, e lo studio che non lo trova (Vuri 2016) non è pubblicato su rivista.
 - **Letture alternative**: per Buonanno e Ranzani e per Pieroni et al. la legge ha ridotto anche il fumo attivo, sia pure di poco. Per Vuri l'effetto generale non c'è, e gli studi prima/dopo citati da ISS e stampa sono gonfiati dalla stagionalità. Entrambe le letture vanno mostrate.
 
 ## 8. Fonti
@@ -93,5 +95,6 @@ Note:
 - Preferire gli studi con un controllo (stesso periodo dell'anno prima, differenze-nelle-differenze) ai semplici prima/dopo.
 - Segnalare quando le serie vengono da indagini diverse.
 - Riportare le letture in conflitto invece di sceglierne una in silenzio, anche quando il conflitto è tra studi con un controllo.
+- Quando gli studi seri non sono d'accordo, usare una confidenza con un range e dire cosa la alza e cosa la abbassa (`02_metodo_valutazione.md`).
 - Risalire sempre alla fonte primaria quando un numero arriva da stampa o divulgazione. Se non si trova, il numero porta l'asterisco e non conta per il verdetto.
 - Scrivere a quale zona, età e periodo si riferisce un numero (Firenze non è l'Italia, il Piemonte non è l'Italia).

@@ -1,7 +1,9 @@
 # Revisione della scheda Sirchia (`04_scheda_esempio.md`)
 
 Data: 29/10/2026. Confronto con `02_metodo_valutazione.md` e `03_fonti.md`, link e fatti verificati sul web.
-Nessuna modifica ancora applicata alla scheda: si applicano dopo il via.
+Esito (29/10/2026, CAPO): proposte approvate, con due varianti dell'autore.
+- Numeri senza fonte primaria: restano con l'asterisco e non contano per il verdetto (invece di toglierli).
+- Obiettivo secondario: Parzialmente raggiunto, confidenza **Media-Alta**, con una regola nuova sui range in `02_metodo_valutazione.md`.
 
 ## In sintesi
 - La scheda regge: obiettivo dichiarato, indicatori e verdetto principale sono coerenti con il metodo.

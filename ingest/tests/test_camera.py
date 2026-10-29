@@ -143,6 +143,19 @@ def test_estrai_voti_salta_le_segrete_e_chi_non_vota(monkeypatch):
     assert votazioni[3].voti == {}
 
 
+@pytest.mark.parametrize(("leg", "chiede_voti"), [(15, False), (17, True)])
+def test_voti_individuali_solo_dalla_xvii(monkeypatch, leg, chiede_voti):
+    # Per XIII-XVI l'endpoint non ha ocd:voto: niente query sui voti, restano esiti e totali.
+    chiamate = []
+    monkeypatch.setattr(camera, "estrai_leggi", lambda *_: [])
+    monkeypatch.setattr(camera, "fasi_camera_del_senato", lambda *_: ["2122-BIS"])
+    monkeypatch.setattr(camera, "estrai_votazioni", lambda *_: [votazione("a")])
+    monkeypatch.setattr(camera, "estrai_voti", lambda _, vs: chiamate.append(vs))
+    leg_camera = camera.estrai_legislatura(object(), object(), leg)
+    assert len(leg_camera.votazioni) == 1
+    assert bool(chiamate) is chiede_voti
+
+
 # --- file intermedi ---------------------------------------------------------------------
 
 

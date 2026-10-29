@@ -129,14 +129,16 @@ def main(argomenti: list[str] | None = None) -> int:
         )
         return 0
     if opzioni.comando == "camera-stima":
-        righe = ["| Legislatura | Votazioni da caricare | Palesi | Voti individuali (totali della fonte) |", "|---|---|---|---|"]
+        righe = ["| Legislatura | Votazioni da caricare | Palesi | Voti individuali (totali della fonte) | Voti nell'endpoint |",
+                 "|---|---|---|---|---|"]
         somma = [0, 0, 0]
         client_camera, client_senato = camera.client(), senato.client()
         for leg in sorted({n for testo in opzioni.legislature for n in anni(testo)}):
             conti = camera.stima_legislatura(client_camera, client_senato, leg)
             somma = [a + b for a, b in zip(somma, conti)]
-            righe.append(f"| {leg} | {conti[0]} | {conti[1]} | {conti[2]} |")
-        righe.append(f"| Totale | {somma[0]} | {somma[1]} | {somma[2]} |")
+            nell_endpoint = "sì" if leg >= camera.PRIMA_CON_VOTI_INDIVIDUALI else "no, solo nelle schede HTML"
+            righe.append(f"| {leg} | {conti[0]} | {conti[1]} | {conti[2]} | {nell_endpoint} |")
+        righe.append(f"| Totale | {somma[0]} | {somma[1]} | {somma[2]} | |")
         pubblica("Stima delle votazioni della Camera", "\n".join(righe) + "\n")
         return 0
 

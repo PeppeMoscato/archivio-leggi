@@ -41,6 +41,9 @@ PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 """
 LEGISLATURE = range(10, 20)  # dalla X (1987): le leggi dal 1990
 PRIMA_CON_VOTI = 13  # la Camera ha votazioni nominali dalla XIII; il Senato ha gli iter dalla XIII
+# Il voto di ogni deputato (ocd:voto) c'è solo dalla XVII: per XIII-XVI l'endpoint ha esiti e totali ma nessun voto
+# individuale (sonda camera-voti del 29/10/2026). I nomi sono nelle schede HTML di documenti.camera.it (dc:relation).
+PRIMA_CON_VOTI_INDIVIDUALI = 17
 INIZIO_PERIMETRO = date(1990, 1, 1)
 VOTAZIONI_PER_RICHIESTA = 14  # 14 × 630 deputati al massimo: sotto il limite di 10.000 righe
 ATTI_PER_RICHIESTA = 40
@@ -376,6 +379,8 @@ def estrai_voti(sparql: Sparql, votazioni: list[VotazioneCamera]) -> None:
                     elenco.append(chi)
         if inizio and inizio % 1000 < VOTAZIONI_PER_RICHIESTA:
             logger.info("voti: %s votazioni su %s", inizio, len(palesi))
+    if vuote := sum(1 for v in palesi if not v.voti and (v.favorevoli or v.contrari or v.astenuti)):
+        logger.warning("voti: %s votazioni palesi su %s senza alcun voto individuale", vuote, len(palesi))
 
 
 def fasi_camera_del_senato(sparql_senato: Sparql, leg: int) -> list[str]:
@@ -403,12 +408,17 @@ def estrai_legislatura(camera: Sparql, senato_client: Sparql | None, leg: int) -
     tutte = estrai_votazioni(camera, leg)
     scelte, scartate = scegli_votazioni(tutte, set(numeri))
     logger.info("legislatura %s: %s votazioni sugli iter diventati legge, %s altre", leg, len(scelte), scartate)
-    estrai_voti(camera, scelte)
+    if leg >= PRIMA_CON_VOTI_INDIVIDUALI:
+        estrai_voti(camera, scelte)
+    else:
+        logger.info("legislatura %s: l'endpoint non ha i voti dei singoli deputati, solo esiti e totali", leg)
     return LegislaturaCamera(leg, leggi, [], scelte, scartate, numeri)
 
 
 def stima_legislatura(camera: Sparql, senato_client: Sparql, leg: int) -> tuple[int, int, int]:
-    """Senza scaricare i voti: votazioni da caricare, quante palesi e quanti voti individuali (dai totali della fonte)."""
+    """Senza scaricare i voti: votazioni da caricare, quante palesi e quanti voti individuali (dai totali della fonte).
+
+    Prima della XVII i voti individuali si contano lo stesso: sono quelli che darebbero le schede HTML."""
     numeri = set(fasi_camera_del_senato(senato_client, leg))
     scelte, _ = scegli_votazioni(estrai_votazioni(camera, leg), numeri)
     palesi = [v for v in scelte if not v.segreta]

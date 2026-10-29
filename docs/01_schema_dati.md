@@ -17,6 +17,8 @@ La DDL eseguibile è in [`ingest/archivio/schema.sql`](../ingest/archivio/schema
 
 Vista `legge_estesa`: tutti i campi di `legge` più `numero_modifiche` (relazioni in entrata di tipo modifica, abroga_parziale, proroga) e `modificata` (`numero_modifiche > 0`). "Modificata" non è uno stato: si ricava.
 
+Indice `legge_titolo_fts` (GIN su `to_tsvector('italian', titolo)`): serve alla ricerca per parole dell'API (`GET /leggi?q=`), con lo stemming italiano di Postgres. Senza indice la ricerca funziona ma calcola il vettore di ogni titolo a ogni richiesta (circa 8 volte più lenta nella prova su 9.000 titoli).
+
 ### Parlamento e governi (Task 1.2)
 
 Da dati.senato.it e, quando l'endpoint risponde, da dati.camera.it (`docs/sonda_parlamento.md`). Gli `id` di iter, fasi, gruppi e votazioni sono testi con il ramo davanti (`senato:15167`): restano stabili se si ricarica e dicono da dove viene il dato. I parlamentari hanno un `id` numerico, perché compaiono negli elenchi dei voti e un numero occupa meno spazio.
@@ -84,6 +86,7 @@ Le tabelle delle schede non sono ancora nella DDL: si creano in Fase 2, dopo le 
 Le relazioni `converte` vengono dalle note di aggiornamento del D.L. e, perché le note la citano solo a volte, dal titolo della legge di conversione ("Conversione in legge, con modificazioni, del decreto-legge 28 gennaio 2019, n. 4"): in quel caso `nota` contiene il titolo della legge.
 
 ## Storico modifiche dello schema
+- v1.2, indice (2026-10-28): nessuna modifica alle tabelle. Indice full text `legge_titolo_fts` sul titolo, per la ricerca dell'API. Si crea su Neon al prossimo caricamento di una pipeline (`schema.sql` è idempotente).
 - v1.2 (2026-10-27): dopo la sonda su Camera e Senato (`docs/sonda_parlamento.md`). La tabella `iter` della v1.1 (mai creata nella DDL) diventa `iter` + `fase_iter` + `votazione`; nuove tabelle `firmatario`, `parlamentare`, `gruppo`, `denominazione_gruppo`, `adesione_gruppo`, `governo_partito`; vista `voto_gruppo`. Tutte le votazioni d'Aula sui ddl diventati legge, con i voti individuali in array di `parlamentare.id` numerici.
 - v1.1 (2026-10-27): dopo lo spike Normattiva (`docs/spike_normattiva.md`). Nuova tabella `governo`; in `legge` aggiunti `data_entrata_vigore`, `gazzetta_data`, `gazzetta_numero`, `gazzetta_codice`, `governo_id`, `aggiornato_il`; `stato` = vigente / abrogata / decaduta, "modificata" derivata nella vista `legge_estesa`. In `relazione_normativa` aggiunti `articolo_origine`, `articolo_destinazione`, `nota`, `origine_gazzetta_codice`, `origine_gazzetta_data`; nuovi tipi abroga_parziale, converte, delega; `urn_origine` non più FK. Nuova tabella `pronuncia_costituzionale`. `iter`: voti opzionali. Tabella tecnica `gazzetta_urn`.
 - v1 (2026-10-27): prima versione.

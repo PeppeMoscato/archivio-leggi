@@ -7,6 +7,7 @@ Progetto gratuito e non commerciale. Visione, metodo e stato dei lavori sono in 
 ## Struttura
 - [`docs/`](docs/) — visione, schema dati, metodo di valutazione, fonti, stato e decisioni.
 - [`ingest/`](ingest/) — ingestione dei dati (Normattiva, Camera, Senato, Istat).
+- [`api/`](api/) — API FastAPI in sola lettura: ricerca e dettaglio delle leggi.
 
 ## Fonti
 Fonte: Normattiva (https://www.normattiva.it), Istituto Poligrafico e Zecca dello Stato, in licenza CC BY 4.0. Testo non autentico e gratuito: l'unico testo ufficiale è quello pubblicato sulla Gazzetta Ufficiale a mezzo stampa.

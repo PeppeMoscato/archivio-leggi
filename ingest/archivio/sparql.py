@@ -59,7 +59,9 @@ class Sparql:
                     dati = json.load(risposta)
                 return [{k: v["value"] for k, v in riga.items()} for riga in dati["results"]["bindings"]]
             except urllib.error.HTTPError as errore:
-                if (errore.code < 500 and errore.code != 429) or tentativo == self.tentativi:
+                # 404 su /sparql: l'endpoint della Camera a volte lo risponde per qualche istante (29/10/2026),
+                # l'indirizzo non cambia mai. Un 400 (query sbagliata) invece non si riprova.
+                if (errore.code < 500 and errore.code not in (404, 429)) or tentativo == self.tentativi:
                     dettaglio = errore.read().decode(errors="replace")[:300]
                     raise ErroreSparql(f"HTTP {errore.code}: {dettaglio}") from errore
                 logger.warning("SPARQL HTTP %s, tentativo %s", errore.code, tentativo)

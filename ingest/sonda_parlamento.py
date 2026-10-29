@@ -274,6 +274,30 @@ SELECT ?x ?v ?t WHERE {{ {{ SELECT ?d WHERE {{ ?d a ocd:deputato ; ocd:rif_leg {
     }
 
 
+# Schede della XV (29/10/2026): 88 nomi non collegati, quasi tutti deputati anche di altre legislature.
+_NON_COLLEGATI = "^(CAPARINI|TESTONI|VACCA|STRADELLA|VOLONT|ZUCCHI|FALOMI|DE CRISTOFARO|CECCACCI|LEDDI|GUADAGNO|KHALIL|DE ZULUETA)"
+QUERY_NOMI: dict[str, str] = {
+    "XV: deputati, con cognome e con nome": f"""
+SELECT (COUNT(DISTINCT ?d) AS ?deputati) (COUNT(DISTINCT ?c) AS ?con_cognome) (COUNT(DISTINCT ?n) AS ?con_nome) WHERE {{
+  ?d a ocd:deputato ; ocd:rif_leg {_legislatura(15)} .
+  OPTIONAL {{ ?d foaf:surname ?s . BIND(?d AS ?c) }} OPTIONAL {{ ?d foaf:firstName ?f . BIND(?d AS ?n) }} }}""",
+    "XV: righe della query dei nomi (camera.nomi_deputati)": f"""
+SELECT (COUNT(*) AS ?righe) WHERE {{ SELECT DISTINCT ?d ?cognome ?nome ?sigla WHERE {{ ?d a ocd:deputato ; ocd:rif_leg {_legislatura(15)} ;
+  foaf:surname ?cognome ; foaf:firstName ?nome .
+  OPTIONAL {{ ?d ocd:aderisce ?a . ?a ocd:rif_gruppoParlamentare ?g . ?g dcterms:alternative ?sigla }} }} }}""",
+    "non collegati: deputati con quel cognome, in ogni legislatura": f"""
+SELECT DISTINCT ?d ?cognome ?nome ?leg WHERE {{ ?d a ocd:deputato ; foaf:surname ?cognome .
+  OPTIONAL {{ ?d foaf:firstName ?nome }} OPTIONAL {{ ?d ocd:rif_leg ?leg }}
+  FILTER(REGEX(STR(?cognome), "{_NON_COLLEGATI}", "i")) }} ORDER BY ?cognome ?d LIMIT 300""",
+    "non collegati: persone con quel cognome": f"""
+SELECT DISTINCT ?p ?cognome ?nome WHERE {{ ?p a foaf:Person ; foaf:surname ?cognome . OPTIONAL {{ ?p foaf:firstName ?nome }}
+  FILTER(REGEX(STR(?cognome), "{_NON_COLLEGATI}", "i")) }} ORDER BY ?cognome LIMIT 100""",
+    "Caparini nella XV: tutte le triple": f"""
+SELECT ?d ?p ?o WHERE {{ ?d ?p ?o . {{ SELECT DISTINCT ?d WHERE {{ ?d foaf:surname ?c ; ocd:rif_leg {_legislatura(15)} .
+  FILTER(REGEX(STR(?c), "^CAPARINI", "i")) }} }} }} LIMIT 200""",
+}
+
+
 def sonda(ramo: str, esplora: bool = True, query: dict[str, str] | None = None) -> tuple[dict[str, Any], str]:
     risultati: dict[str, Any] = {}
     report = f"\n## {ramo.capitalize()} — {ENDPOINT[ramo][0]}\n"
@@ -381,7 +405,7 @@ def schede() -> tuple[dict[str, Any], str]:
 
 def main() -> int:
     # "senato-mirate": solo le query mirate, senza esplorare tutte le classi; "camera-voti": solo QUERY_VOTI;
-    # "camera-schede": le pagine HTML di alcune votazioni.
+    # "camera-schede": le pagine HTML di alcune votazioni; "camera-nomi": solo QUERY_NOMI.
     rami = sys.argv[1:] or list(ENDPOINT)
     tutto: dict[str, Any] = {}
     report = "# Sonda Camera e Senato\n"
@@ -392,7 +416,8 @@ def main() -> int:
             print(parte, flush=True)
             continue
         ramo, _, modo = argomento.partition("-")
-        tutto[ramo], parte = sonda(ramo, esplora=modo not in ("mirate", "voti"), query=QUERY_VOTI if modo == "voti" else None)
+        query = {"voti": QUERY_VOTI, "nomi": QUERY_NOMI}.get(modo)
+        tutto[ramo], parte = sonda(ramo, esplora=modo not in ("mirate", "voti", "nomi"), query=query)
         report += parte
         print(parte, flush=True)
     CARTELLA_SAMPLES.mkdir(exist_ok=True)

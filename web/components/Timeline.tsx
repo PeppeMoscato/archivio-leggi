@@ -57,7 +57,7 @@ export default async function Timeline({
 }
 
 function VoceEvento({ evento, legge, verso }: { evento: Evento; legge: LeggeDettaglio; verso: Verso }) {
-  const r = evento.relazione;
+  const elenco = evento.relazioni;
   return (
     <li className={`evento ${evento.tono}`}>
       <div className="evento-testa">
@@ -66,10 +66,12 @@ function VoceEvento({ evento, legge, verso }: { evento: Evento; legge: LeggeDett
             {dataLunga(evento.data)}
           </time>
         )}
-        <span className="evento-titolo">{r ? <TitoloRelazione r={r} legge={legge} verso={verso} /> : evento.titolo}</span>
+        <span className="evento-titolo">
+          {elenco ? <TitoloRelazione r={elenco[0]} legge={legge} verso={verso} /> : evento.titolo}
+        </span>
       </div>
       {evento.testo && <p>{evento.testo}</p>}
-      {r && <DettaglioRelazione r={r} verso={verso} />}
+      {elenco && <DettaglioRelazioni relazioni={elenco} verso={verso} />}
     </li>
   );
 }
@@ -97,23 +99,32 @@ function TitoloRelazione({ r, legge, verso }: { r: Relazione; legge: LeggeDettag
   return <>{nome}</>;
 }
 
-function DettaglioRelazione({ r, verso }: { r: Relazione; verso: Verso }) {
-  // L'articolo della legge della pagina e quello dell'altro atto.
-  const [qui, la] =
-    verso === "ricevute" ? [r.articolo_destinazione, r.articolo_origine] : [r.articolo_origine, r.articolo_destinazione];
+const senzaDoppi = (valori: (string | null)[]) => [...new Set(valori.filter((v): v is string => !!v))];
+
+function DettaglioRelazioni({ relazioni, verso }: { relazioni: Relazione[]; verso: Verso }) {
+  // Gli articoli della legge della pagina e quelli dell'altro atto.
+  const ricevute = verso === "ricevute";
+  const qui = senzaDoppi(relazioni.map((r) => (ricevute ? r.articolo_destinazione : r.articolo_origine)));
+  const la = senzaDoppi(relazioni.map((r) => (ricevute ? r.articolo_origine : r.articolo_destinazione)));
   const articoli = [
-    qui && (verso === "ricevute" ? `Interessa: ${qui}` : `Con: ${qui}`),
-    la && (verso === "ricevute" ? `disposta da: ${la}` : `su: ${la}`),
+    qui.length > 0 && (ricevute ? `Interessa: ${qui.join(", ")}` : `Con: ${qui.join(", ")}`),
+    la.length > 0 && (ricevute ? `disposta da: ${la.join(", ")}` : `su: ${la.join(", ")}`),
   ].filter(Boolean);
-  const fuoriArchivio = !r.atto_collegato && (verso === "ricevute" ? r.urn_origine : r.urn_destinazione);
+  const primo = relazioni[0];
+  const fuoriArchivio = !primo.atto_collegato && (ricevute ? primo.urn_origine : primo.urn_destinazione);
+  const note = senzaDoppi(relazioni.map((r) => r.nota));
   return (
     <>
       {articoli.length > 0 && <p>{articoli.join(" · ")}</p>}
       <details>
-        <summary>Dettagli</summary>
-        {r.atto_collegato && <p className="nota">{r.atto_collegato.titolo}</p>}
+        <summary>{note.length > 1 ? `Dettagli (${note.length} note)` : "Dettagli"}</summary>
+        {primo.atto_collegato && <p className="nota">{primo.atto_collegato.titolo}</p>}
         {fuoriArchivio && <p className="nota">Atto non presente nell&apos;archivio: {fuoriArchivio}</p>}
-        <p className="nota">Nota di aggiornamento di Normattiva: {r.nota}</p>
+        {note.map((nota) => (
+          <p key={nota} className="nota">
+            Nota di aggiornamento di Normattiva: {nota}
+          </p>
+        ))}
       </details>
     </>
   );

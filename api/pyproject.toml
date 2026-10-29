@@ -1,0 +1,23 @@
+[project]
+name = "archivio-leggi-api"
+version = "0.1.0"
+description = "API di Archivio Leggi: ricerca e dettaglio delle leggi (FastAPI, sola lettura)"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115,<1",
+    "psycopg[binary]>=3.2,<4",
+    "psycopg-pool>=3.2,<4",
+    "uvicorn[standard]>=0.30,<1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "httpx>=0.27"]
+
+[tool.setuptools]
+packages = ["archivio_api"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "db: prove su un Postgres vero (serve TEST_DATABASE_URL, altrimenti saltate)",
+]

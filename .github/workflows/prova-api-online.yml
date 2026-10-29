@@ -1,0 +1,62 @@
+name: Prova API online
+
+# Interroga l'API pubblicata su Render (docs/deploy_api.md): dal container di Claude Code onrender.com non è
+# raggiungibile. Solo a mano: ogni richiesta sveglia il servizio e il compute di Neon.
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "Indirizzo dell'API, es. https://archivio-leggi-api.onrender.com"
+        required: true
+      origine:
+        description: "Origine del frontend da provare con CORS (facoltativa)"
+        default: ""
+
+jobs:
+  prova:
+    runs-on: ubuntu-latest
+    env:
+      URL: ${{ inputs.url }}
+      ORIGINE: ${{ inputs.origine }}
+    steps:
+      - name: Risveglio (il piano Free si spegne dopo 15 minuti senza richieste)
+        run: |
+          URL="${URL%/}"
+          echo "URL=$URL" >> "$GITHUB_ENV"
+          inizio=$(date +%s)
+          for tentativo in $(seq 1 18); do
+            if curl -sf -o /dev/null "$URL/"; then
+              echo "Il servizio risponde dopo $(( $(date +%s) - inizio )) s"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::Nessuna risposta da $URL/ in 3 minuti"
+          exit 1
+
+      - name: Endpoint
+        run: |
+          errori=0
+          for percorso in \
+            "/salute" \
+            "/leggi?q=fumo%20locali%20pubblici&per_pagina=3" \
+            "/leggi?q=L.%203%2F2003" \
+            "/leggi/urn:nir:stato:legge:2003-01-16;3" \
+            "/leggi/urn:nir:stato:legge:2003-01-16;3/relazioni?per_pagina=5" \
+            "/leggi/urn:nir:stato:legge:2003-01-16;3/iter" \
+            "/governi"; do
+            risposta=$(curl -s -o corpo.json -w "%{http_code} %{time_total}" "$URL$percorso")
+            echo "$risposta s  $percorso"
+            head -c 300 corpo.json; echo; echo
+            [ "${risposta%% *}" = 200 ] || errori=$((errori + 1))
+          done
+          # La seconda chiamata a /salute misura il database già sveglio.
+          curl -s -o /dev/null -w "/salute di nuovo: %{time_total} s\n" "$URL/salute"
+          [ "$errori" = 0 ] || { echo "::error::$errori endpoint senza risposta 200"; exit 1; }
+
+      - name: CORS
+        if: inputs.origine != ''
+        run: |
+          intestazione=$(curl -s -D - -o /dev/null -H "Origin: $ORIGINE" "$URL/governi" | grep -i '^access-control-allow-origin' || true)
+          echo "${intestazione:-nessuna intestazione access-control-allow-origin}"
+          echo "$intestazione" | grep -qF "$ORIGINE" || { echo "::error::CORS_ORIGINI non comprende $ORIGINE"; exit 1; }

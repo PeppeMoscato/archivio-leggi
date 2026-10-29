@@ -17,7 +17,7 @@ App gratuita e non commerciale che archivia le leggi statali italiane (dal 1990)
 ## Struttura
 - `docs/` — documenti di progetto (fonte di verità).
 - `ingest/` — pipeline Python di ingestione (Normattiva, Camera, Senato, Istat). Pacchetto `ingest/archivio/`: pipeline Normattiva → Postgres.
-- `api/` — FastAPI (da creare, Fase 1).
+- `api/` — FastAPI in sola lettura (pacchetto `api/archivio_api/`): ricerca e dettaglio delle leggi.
 - `web/` — Next.js (da creare, Fase 1).
 
 ## Comandi
@@ -42,10 +42,18 @@ python -m archivio camera-estrai --legislature 15 --uscita dati   # votazioni (X
 python -m archivio camera-persone --uscita dati                   # deputati, gruppi, adesioni, governi
 python -m archivio camera-stima --legislature 13-19               # votazioni e voti da caricare, senza scaricare i voti
 DATABASE_URL=... python -m archivio camera-carica --da dati
+
+# API FastAPI, sola lettura
+cd ../api
+pip install -e ".[dev]"
+pytest                                                  # con TEST_DATABASE_URL anche le prove sul database
+DATABASE_URL=... uvicorn archivio_api.app:app --reload  # documentazione interattiva su /docs
 ```
 - Normattiva non è raggiungibile dal container di Claude Code: la pipeline gira sul workflow "Pipeline Normattiva" (Actions → Run workflow, campo `anni`). Con il secret `DATABASE_URL` scrive su Neon, altrimenti pubblica il dump `archivio-db` come artifact.
 - dati.senato.it e dati.camera.it non sono raggiungibili dal container: il Senato gira sul workflow "Pipeline Senato", la Camera su "Pipeline Camera" (campo `legislature`); scrivono su Neon solo con `scrivi_su_neon` spuntato. Su Neon la Camera va caricata dopo il Senato.
-- La DDL è `ingest/archivio/schema.sql`: va tenuta allineata a `docs/01_schema_dati.md`.
+- La DDL è `ingest/archivio/schema.sql`: va tenuta allineata a `docs/01_schema_dati.md`. L'API la usa anche nelle sue prove.
+- L'API non scrive mai: ogni transazione è `READ ONLY`, e su Neon usa il ruolo `api_lettura` (`api/deploy/ruolo_sola_lettura.sql`).
+- L'API gira su Render, piano Free (`render.yaml`, guida in `docs/deploy_api.md`): onrender.com non è raggiungibile dal container, si prova con il workflow "Prova API online" (campo `url`).
 
 ## Fonti e licenze
 - Normattiva: CC BY 4.0, attribuzione obbligatoria nel footer dell'app (testo in `docs/03_fonti.md`).

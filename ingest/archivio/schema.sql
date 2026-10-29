@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS legge (
 CREATE INDEX IF NOT EXISTS legge_tipo_data ON legge (tipo, data);
 CREATE INDEX IF NOT EXISTS legge_governo ON legge (governo_id);
 CREATE INDEX IF NOT EXISTS legge_gazzetta ON legge (gazzetta_codice, gazzetta_data);
+-- Ricerca full text sul titolo (API, GET /leggi?q=): l'espressione deve essere uguale a quella delle query.
+CREATE INDEX IF NOT EXISTS legge_titolo_fts ON legge USING gin (to_tsvector('italian', titolo));
 
 CREATE TABLE IF NOT EXISTS relazione_normativa (
     id                       bigserial PRIMARY KEY,

@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       rami:
-        description: 'Rami da sondare, JSON: ["camera"], ["camera-mirate", "senato-mirate"]'
+        description: 'Rami da sondare, JSON: ["camera"], ["camera-mirate", "senato-mirate"], ["camera-voti"]'
         default: '["camera-mirate"]'
   pull_request:
     paths:

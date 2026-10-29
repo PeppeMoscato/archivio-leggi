@@ -248,11 +248,35 @@ def tabella(righe: list[dict[str, str]], massimo: int = 60) -> str:
     return testo
 
 
-def sonda(ramo: str, esplora: bool = True) -> tuple[dict[str, Any], str]:
+def _legislatura(n: int) -> str:
+    return f"<http://dati.camera.it/ocd/legislatura.rdf/repubblica_{n:02d}>"
+
+
+# Terza tornata (28/10/2026): la pipeline non trova voti individuali per le votazioni della XV
+# (0 righe con ocd:rif_votazione), mentre per XVII e XIX ci sono. Per ogni legislatura: come sono
+# fatte le votazioni, che cosa punta a loro e a quali votazioni puntano i voti dei deputati.
+QUERY_VOTI: dict[str, str] = {
+    "un voto della XVII (tutte le triple)": """
+SELECT ?x ?p ?o WHERE { { SELECT ?x WHERE { ?x ocd:rif_votazione <http://dati.camera.it/ocd/votazione.rdf/vs17_487_077> } LIMIT 1 } ?x ?p ?o }""",
+}
+for _n in range(13, 20):
+    QUERY_VOTI |= {
+        f"leg. {_n}: una votazione (tutte le triple)": f"""
+SELECT ?v ?p ?o WHERE {{ {{ SELECT ?v WHERE {{ ?v a ocd:votazione ; ocd:rif_leg {_legislatura(_n)} }} OFFSET 500 LIMIT 1 }} ?v ?p ?o }}""",
+        f"leg. {_n}: che cosa punta a tre votazioni": f"""
+SELECT ?v ?p (COUNT(*) AS ?n) WHERE {{ {{ SELECT ?v WHERE {{ ?v a ocd:votazione ; ocd:rif_leg {_legislatura(_n)} }} OFFSET 500 LIMIT 3 }} ?s ?p ?v }}
+GROUP BY ?v ?p""",
+        f"leg. {_n}: voti di un deputato": f"""
+SELECT ?x ?v ?t WHERE {{ {{ SELECT ?d WHERE {{ ?d a ocd:deputato ; ocd:rif_leg {_legislatura(_n)} }} OFFSET 100 LIMIT 1 }}
+?x ocd:rif_deputato ?d ; ocd:rif_votazione ?v ; dc:type ?t }} LIMIT 5""",
+    }
+
+
+def sonda(ramo: str, esplora: bool = True, query: dict[str, str] | None = None) -> tuple[dict[str, Any], str]:
     risultati: dict[str, Any] = {}
     report = f"\n## {ramo.capitalize()} — {ENDPOINT[ramo][0]}\n"
     if not esplora:
-        return _mirate(risultati, ramo, report)
+        return _mirate(risultati, ramo, report, query or QUERY_MIRATE[ramo])
 
     classi = prova(risultati, ramo, "classi", "SELECT ?c (COUNT(?s) AS ?n) WHERE { ?s a ?c } GROUP BY ?c ORDER BY DESC(?n) LIMIT 300")
     if not classi:
@@ -280,12 +304,12 @@ def sonda(ramo: str, esplora: bool = True) -> tuple[dict[str, Any], str]:
             esempi = prova(risultati, ramo, nome_esempi, f"SELECT ?s ?p ?o WHERE {{ {{ SELECT ?s WHERE {{ ?s a <{classe}> }} LIMIT 2 }} ?s ?p ?o }}")
         report += "\nDue istanze di esempio:\n\n" + tabella(compatta(esempi), 120)
 
-    return _mirate(risultati, ramo, report)
+    return _mirate(risultati, ramo, report, QUERY_MIRATE[ramo])
 
 
-def _mirate(risultati: dict[str, Any], ramo: str, report: str) -> tuple[dict[str, Any], str]:
+def _mirate(risultati: dict[str, Any], ramo: str, report: str, mirate: dict[str, str]) -> tuple[dict[str, Any], str]:
     report += "\n### Query mirate\n"
-    for nome, query in QUERY_MIRATE[ramo].items():
+    for nome, query in mirate.items():
         righe = prova(risultati, ramo, nome, query)
         report += f"\n#### {nome}\n" + _esito(risultati, nome) + tabella(righe, 80)
     return risultati, report
@@ -299,13 +323,13 @@ def _esito(risultati: dict[str, Any], nome: str) -> str:
 
 
 def main() -> int:
-    # "senato-mirate": solo le query mirate, senza esplorare tutte le classi.
+    # "senato-mirate": solo le query mirate, senza esplorare tutte le classi; "camera-voti": solo QUERY_VOTI.
     rami = sys.argv[1:] or list(ENDPOINT)
     tutto: dict[str, Any] = {}
     report = "# Sonda Camera e Senato\n"
     for argomento in rami:
         ramo, _, modo = argomento.partition("-")
-        tutto[ramo], parte = sonda(ramo, esplora=modo != "mirate")
+        tutto[ramo], parte = sonda(ramo, esplora=modo not in ("mirate", "voti"), query=QUERY_VOTI if modo == "voti" else None)
         report += parte
         print(parte, flush=True)
     CARTELLA_SAMPLES.mkdir(exist_ok=True)

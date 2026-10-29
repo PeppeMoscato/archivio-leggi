@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        parte: [normattiva, senato, camera]
+        parte: [pagine, camera]
     defaults:
       run:
         working-directory: ingest

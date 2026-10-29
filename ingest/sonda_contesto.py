@@ -30,6 +30,15 @@ from sonda_parlamento import interroga
 
 CARTELLA_SAMPLES = Path(__file__).parent / "samples"
 AGENTE = "archivio-leggi/0.1 (sonda contesto, non commerciale)"
+# Il sito del Senato rinnovato risponde vuoto agli indirizzi vecchi: si provano quelli nuovi.
+NAVIGATORE = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
+PAGINE_SENATO = [
+    "https://www.senato.it/legislature/14/leggi-e-documenti/disegni-di-legge/scheda-ddl?did=15167",
+    "https://www.senato.it/export/ddl/full/15167?leg=14",
+    "https://www.senato.it/legislature/18/leggi-e-documenti/disegni-di-legge/scheda-ddl?did=47271",
+    "https://www.senato.it/export/ddl/full/47271?leg=18",
+    "https://www.senato.it/service/PDF/PDFServer/BGT/127134.pdf",
+]
 
 # Atti dell'MVP di tipo diverso: D.L., D.Lgs., legge di iniziativa governativa e parlamentare.
 ATTI_NORMATTIVA = [
@@ -117,12 +126,13 @@ def premesse() -> tuple[list[dict[str, Any]], str]:
     return righe, report
 
 
-def pagina(url: str) -> dict[str, Any]:
-    richiesta = urllib.request.Request(url, headers={"User-Agent": AGENTE})
+def pagina(url: str, agente: str = AGENTE) -> dict[str, Any]:
+    richiesta = urllib.request.Request(url, headers={"User-Agent": agente, "Accept": "*/*"})
     try:
         with urllib.request.urlopen(richiesta, timeout=60) as risposta:
-            corpo = risposta.read(3_000_000).decode("utf-8", "replace")
-            tipo = risposta.headers.get("Content-Type", "")
+            grezzo = risposta.read(3_000_000)
+            corpo = grezzo.decode("utf-8", "replace")
+            tipo = f"{risposta.status} {risposta.headers.get('Content-Type', '')} -> {risposta.geturl()}"
     except (urllib.error.URLError, TimeoutError, ValueError) as e:
         return {"url": url, "errore": f"{type(e).__name__}: {e}"}
     link = sorted({urllib.parse.urljoin(url, l) for l in LINK_UTILI.findall(corpo)})
@@ -177,7 +187,15 @@ def main() -> int:
     tutto: dict[str, Any] = {}
     report = "# Sonda contesto delle leggi\n\n"
     for parte in parti:
-        if parte == "normattiva":
+        if parte == "pagine":
+            tutto[parte] = [pagina(u, NAVIGATORE) for u in PAGINE_SENATO]
+            testo = "## Pagine del Senato (sito nuovo)\n\n"
+            for esito in tutto[parte]:
+                testo += f"### {esito['url']}\n\n{esito.get('errore') or esito['tipo']}, {esito.get('byte')} byte, parole {esito.get('parole')}\n\n"
+                testo += f"> {breve(esito.get('inizio', ''), 1500)}\n\n"
+                testo += "".join(f"- {link}\n" for link in esito.get("link", []))
+                testo += "\n"
+        elif parte == "normattiva":
             tutto[parte], testo = premesse()
         else:
             tutto[parte], testo = parlamento(parte)

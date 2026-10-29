@@ -44,14 +44,15 @@ Fase 1 — Archivio. Schema dati v1.2 approvato e scritto. Task 1.1 completato: 
 | 2026-10-28 | Indice GIN `legge_titolo_fts` sul titolo (schema v1.2, nessuna tabella cambia) | Senza indice la ricerca è circa 8 volte più lenta (250-370 ms contro 30-55 ms su 9.000 titoli in locale); sul compute minimo di Neon sarebbe peggio |
 | 2026-10-28 | Ogni transazione dell'API è `READ ONLY`; pool che parte vuoto e chiude le connessioni ferme da un minuto | Le scritture sono solo delle pipeline. Connessioni sempre aperte terrebbero sveglio il compute di Neon e consumerebbero le 100 CU-ore al mese del piano Free |
 | 2026-10-29 | Voto per gruppo nell'API: `GET /votazioni/{id}` (dettaglio con la legge e i gruppi) e `gruppi=true` su `/leggi/{urn}/votazioni`. Nome del gruppo valido alla data del voto (`denominazione_gruppo`, altrimenti il nome in `gruppo`); chi quel giorno non risulta in un gruppo sta in una riga senza `gruppo_id`, in fondo | La vista `voto_gruppo` basta: Postgres filtra la votazione prima di espandere i voti (indice sulla chiave), 5 ms per votazione e circa 150 ms per 50 votazioni con 310 voti ciascuna su 44.000 votazioni generate in locale. Gli id delle votazioni contengono `/` (`senato:14/1`): il percorso li accetta interi |
+| 2026-10-29 | Gerarchia delle fonti nelle schede: fonti ufficiali e dati, poi studi, poi stampa solo per contesto (`docs/03_fonti.md`) | Nella scheda Sirchia quattro numeri venivano dalla stampa; per tre la fonte primaria c'era, e uno (nicotina -90/95%) era di uno studio su Firenze presentato come nazionale |
+| 2026-10-29 | Un numero senza fonte primaria resta con l'asterisco e non conta per il verdetto; schema v1.3 con `fonte_primaria`, `fonte_url` e `nota` in `misura` | Proposta dell'autore: meglio mostrare il dato dichiarandone il limite che toglierlo, se viene da un ente credibile (es. SIAAIC sull'asma) |
 | 2026-10-27 | Partiti dei governi compilati a mano (`ingest/archivio/governi_partiti.csv`, una fonte per riga) | Nessuna fonte strutturata; i siti utili (storia.camera.it, governo.it) non sono raggiungibili dal container |
 
 ## Ancora da decidere
 - Relazioni `delega` e `attua` (decreti legislativi ↔ leggi delega): le note di aggiornamento non le descrivono, serve un'altra fonte o il testo dell'atto.
 - Numero delle sentenze della Corte costituzionale: le note non lo riportano; si può risalire dal riferimento in Gazzetta.
-- Prima della Fase 2: schede su un singolo articolo, un verdetto per obiettivo, dove vive la scheda (file nel repo o database) e come si approva.
+- Prima della Fase 2: schede su un singolo articolo, un verdetto per obiettivo, `obiettivo.tipo_fonte` = studio per gli obiettivi attesi (scheda Sirchia), dove vive la scheda (file nel repo o database) e come si approva.
 - Effetti a breve, medio e lungo periodo: il metodo oggi chiede "almeno 3 anni". Valutare un verdetto per orizzonte temporale (es. 1-2 anni, 3-5 anni, 10+ anni).
-- Gerarchia delle fonti: la stampa non può essere l'unica fonte di un numero.
 - Relazioni `converte` doppie: le 2.477 relazioni sono più dei 1.147 D.L. convertiti, perché la stessa conversione può arrivare da più note e dal titolo della legge. Non tocca lo stato; da ripulire prima di mostrarle nella timeline.
 - Aggiornamento periodico: proposta GitHub Actions con cron settimanale che riesporta solo gli atti aggiornati (l'API ha un elenco degli atti modificati di recente).
 - Licenza del codice del repository.
@@ -70,7 +71,7 @@ Fase 1 — Archivio. Schema dati v1.2 approvato e scritto. Task 1.1 completato: 
 - [x] Schema v1.1 sui risultati dello spike
 - [x] Compilare `04_scheda_esempio.md` su una legge vera (Legge Sirchia; resta la revisione a mano)
 - [x] Scegliere le 30 leggi dell'MVP (`06_leggi_mvp.md`)
-- [ ] Rileggere e approvare la scheda di esempio
+- [ ] Rileggere e approvare la scheda di esempio — rivista il 29/10/2026 (`docs/revisioni/2026-10-29_revisione_scheda_sirchia.md`), manca la confidenza del verdetto sul fumo attivo
 
 ### Fase 1 — Archivio
 - [x] Pipeline Normattiva → Postgres (leggi dal 1990, stato, modifiche, abrogazioni) — Task 1.1, PR #2
@@ -102,3 +103,4 @@ Fase 1 — Archivio. Schema dati v1.2 approvato e scritto. Task 1.1 completato: 
 - 2026-10-27: Task 1.2, parte Senato. Sonda su Camera (502) e Senato; schema v1.2 approvato con tutte le votazioni d'Aula; pipeline dati.senato.it → Postgres con workflow "Pipeline Senato" (prova sulla XV legislatura in un Postgres temporaneo: 112 iter diventati legge, tutti collegati alla legge di Normattiva; 1.273 votazioni con 370.149 voti individuali, 46 finali; 722 votazioni su altri ddl o non collegate; tabella `votazione` 2 MB, quindi circa 70 MB per tutto il Senato; estrazione 10 minuti, circa 6 ore di job per le legislature XIII-XIX).
 - 2026-10-28: API FastAPI, scheletro. Pacchetto `api/archivio_api/` (FastAPI, psycopg con pool, sola lettura): ricerca con filtri (tipo, stato, governo, anno, numero, date, modificata) e paginazione, dettaglio legge, relazioni come timeline, pronunce, iter con fasi e firmatari, votazioni con i totali, governi. Indice full text sul titolo in `schema.sql`. 29 prove su Postgres 16 locale (job `api` nella CI). Non ancora provata su Neon: dal container il database non è raggiungibile senza il `DATABASE_URL`.
 - 2026-10-29: API, voto per gruppo. `GET /votazioni/{id}` con la legge, il ddl e il voto per gruppo (denominazione valida alla data); `/leggi/{urn}/votazioni?gruppi=true` aggiunge i gruppi a ogni votazione della pagina. Nessuna modifica allo schema: usa la vista `voto_gruppo`. 31 prove su Postgres 16 locale; prova di carico in locale su 44.000 votazioni generate.
+- 2026-10-29: revisione della scheda Sirchia. Trovati due studi controfattuali su *Health Policy* 2013 che la scheda non citava (calo piccolo dei fumatori); numeri dalla stampa sostituiti con la fonte primaria o marcati con l'asterisco; stato della legge aggiornato (D.L. 104/2013, D.Lgs. 6/2016). Gerarchia delle fonti in `03_fonti.md`; schema v1.3 (`misura`).

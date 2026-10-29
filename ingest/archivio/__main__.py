@@ -108,7 +108,7 @@ def main(argomenti: list[str] | None = None) -> int:
         rapporto = Rapporto()
         client_camera, client_senato = camera.client(), senato.client()
         for leg in sorted({n for testo in opzioni.legislature for n in anni(testo)}):
-            dati = camera.estrai_legislatura(client_camera, client_senato, leg, opzioni.uscita / "schede")
+            dati = camera.estrai_legislatura(client_camera, client_senato, leg, opzioni.uscita / "cache")
             camera.scrivi(opzioni.uscita / f"camera_{leg}.json", dati)
             rapporto.aggiungi(
                 f"Legislatura {leg}: {len(dati.leggi)} leggi dal 1990, {len(dati.atti)} atti dei lavori preparatori, "

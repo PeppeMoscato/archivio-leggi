@@ -67,18 +67,19 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e .
-      # Le schede già lette restano in cache: se il job va rilanciato non si riscaricano.
+      # Voti e schede già scaricati restano in cache, anche se il job cade (endpoint in 502, sito lento):
+      # rilanciando il job ("Re-run failed jobs") non si richiedono.
       - uses: actions/cache/restore@v4
         with:
-          path: ingest/dati/schede
-          key: schede-camera-${{ matrix.legislatura }}-${{ github.run_id }}
-          restore-keys: schede-camera-${{ matrix.legislatura }}-
+          path: ingest/dati/cache
+          key: camera-cache-${{ matrix.legislatura }}-${{ github.run_id }}
+          restore-keys: camera-cache-${{ matrix.legislatura }}-
       - run: python -m archivio camera-estrai --legislature ${{ matrix.legislatura }} --uscita dati
-      - if: always() && hashFiles('ingest/dati/schede/*') != ''
+      - if: always() && hashFiles('ingest/dati/cache/*') != ''
         uses: actions/cache/save@v4
         with:
-          path: ingest/dati/schede
-          key: schede-camera-${{ matrix.legislatura }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ingest/dati/cache
+          key: camera-cache-${{ matrix.legislatura }}-${{ github.run_id }}-${{ github.run_attempt }}
       - uses: actions/upload-artifact@v4
         with:
           name: camera-${{ matrix.legislatura }}

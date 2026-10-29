@@ -118,7 +118,7 @@ def camera_governi_csv():
 # --- estrazione con un endpoint finto ------------------------------------------------
 
 
-def test_estrai_voti_salta_le_segrete_e_chi_non_vota(monkeypatch):
+def test_estrai_voti_salta_le_segrete_e_chi_non_vota(monkeypatch, tmp_path):
     monkeypatch.setattr(camera, "VOTAZIONI_PER_RICHIESTA", 2)
     votazioni = [votazione("x", id=VOTAZIONE + f"vs15_001_00{i}") for i in range(3)] + [
         votazione("segreta", id=VOTAZIONE + "vs15_001_009", segreta=True)
@@ -136,11 +136,17 @@ def test_estrai_voti_salta_le_segrete_e_chi_non_vota(monkeypatch):
                 {"v": ids[0], "d": deputato, "t": "Favorevole"},  # doppione da un altro grafo
             ]
 
-    camera.estrai_voti(Finto(), votazioni)
+    cache = tmp_path / "camera_15_voti.jsonl.gz"
+    camera.estrai_voti(Finto(), votazioni, cache)
     assert len(Finto.query) == 2
     assert all("vs15_001_009" not in q for q in Finto.query)
     assert votazioni[0].voti == {"favorevoli": ["305578"], "astenuti": ["300001"]}
     assert votazioni[3].voti == {}
+    # Job rilanciato dopo un guasto dell'endpoint: le votazioni in cache non si richiedono.
+    di_nuovo = [votazione("x", id=VOTAZIONE + f"vs15_001_00{i}") for i in range(4)]
+    camera.estrai_voti(Finto(), di_nuovo, cache)
+    assert len(Finto.query) == 3 and "vs15_001_003" in Finto.query[-1]
+    assert di_nuovo[0].voti == votazioni[0].voti
 
 
 @pytest.mark.parametrize(("leg", "da_dove"), [(15, "schede"), (17, "endpoint")])
@@ -150,7 +156,7 @@ def test_voti_dall_endpoint_dalla_xvii_e_dalle_schede_prima(monkeypatch, leg, da
     monkeypatch.setattr(camera, "estrai_leggi", lambda *_: [])
     monkeypatch.setattr(camera, "fasi_camera_del_senato", lambda *_: ["2122-BIS"])
     monkeypatch.setattr(camera, "estrai_votazioni", lambda *_: [votazione("a")])
-    monkeypatch.setattr(camera, "estrai_voti", lambda *_: chiamate.append("endpoint"))
+    monkeypatch.setattr(camera, "estrai_voti", lambda *_, **__: chiamate.append("endpoint"))
     monkeypatch.setattr(camera, "nomi_deputati", lambda *_: camera.NomiDeputati())
     monkeypatch.setattr(camera, "estrai_voti_schede", lambda *_, **__: chiamate.append("schede"))
     leg_camera = camera.estrai_legislatura(object(), object(), leg)
@@ -203,23 +209,47 @@ def test_estrai_voti_schede(monkeypatch):
     assert "diversi dai totali della fonte: 1" in rapporto[1]
 
 
+def test_nomi_d_uso_delle_schede():
+    # Nomi veri della XV: scheda (nome d'uso) contro endpoint (nome anagrafico), sonda camera-nomi del 29/10/2026.
+    nomi = camera.NomiDeputati()
+    for chi, cognome, nome, sigla in [
+        ("50138", "CAPARINI", "DAVIDE CARLO", "LNP"), ("302045", "VACCA", "ELIA", "COM-IT"),
+        ("302137", "DE ZULUETA OWTRAM", "CAYETANA", "VERDI"), ("302102", "CECCACCI", "FIORELLA", "FI"),
+        ("302081", "KHALIL", "ALI'", "RC-SE"), ("301569", "DE CRISTOFARO", "GIUSEPPE", "RC-SE"),
+        ("1", "RUSSO", "FRANCESCO", "RC-SE"), ("2", "RUSSO", "PAOLO", "FI"), ("3", "RUSSO", "ANTONIO", "FI"),
+    ]:
+        nomi.aggiungi(chi, cognome, nome, sigla)
+    assert nomi.trova("CAPARINI DAVIDE", "LNP") == "50138"
+    assert nomi.trova("VACCA ELIAS", "COM-IT") == "302045"
+    assert nomi.trova("DE ZULUETA TANA", "VERDI") == "302137"
+    assert nomi.trova("CECCACCI RUBINO FIORELLA", "FI") == "302102"
+    assert nomi.trova("KHALIL D. ALI' RASCHID", "RC-SE") == "302081"
+    assert nomi.trova("DE CRISTOFARO PEPPE", "RC-SE") == "301569"
+    assert nomi.trova("RUSSO FRANCO", "RC-SE") == "1"  # tre Russo: decide il gruppo
+    assert nomi.trova("RUSSO PAOLO", "FI") == "2"
+    assert nomi.trova("RUSSO PIERO", "FI") == "2"  # due Russo di FI: decide l'iniziale
+    assert nomi.trova("RUSSO MARIO", "FI") is None  # nessuna iniziale combacia: meglio nessun voto che uno sbagliato
+    assert nomi.trova("BIANCHI MARIO", "FI") is None
+    assert nomi.per_cognome_trovati["VACCA ELIAS"] == "302045"
+
+
 def test_schede_gia_lette_non_si_riscaricano(monkeypatch, tmp_path):
     monkeypatch.setattr(camera, "PAUSA_SCHEDA", 0)
     nomi = camera.NomiDeputati()
     nomi.aggiungi("1", "ABATERUSSO", "Ernesto", "DS-U")
-    cache = tmp_path / "schede" / "camera_13.jsonl.gz"
+    cache = tmp_path / "cache" / "camera_13_schede.jsonl.gz"
     lette = []
     prima = votazione("x", id=VOTAZIONE + "vs13_128_059")
-    camera.estrai_voti_schede([prima], nomi, lambda url: lette.append(url) or SCHEDA_XIII, cache=cache)
+    camera.estrai_voti_schede([prima], nomi, lambda url: lette.append(url) or SCHEDA_XIII, percorso_cache=cache)
     # Secondo giro (job rilanciato): la scheda già letta viene dalla cache, la nuova si scarica.
     seconda, nuova = votazione("x", id=VOTAZIONE + "vs13_128_059"), votazione("y", id=VOTAZIONE + "vs13_128_061")
-    rapporto = camera.estrai_voti_schede([seconda, nuova], nomi, lambda url: lette.append(url) or SCHEDA_XIII, cache=cache)
+    rapporto = camera.estrai_voti_schede([seconda, nuova], nomi, lambda url: lette.append(url) or SCHEDA_XIII, percorso_cache=cache)
     assert len(lette) == 2 and lette[1].endswith("RifVotazione=128_61&tipo=dettaglio")
     assert seconda.voti == prima.voti == {"contrari": ["1"]}
     assert "(1 dalla cache)" in rapporto[0]
     # Un file troncato (job interrotto a metà scrittura) non blocca: si rilegge quel che c'è.
     cache.write_bytes(cache.read_bytes()[:-15])
-    assert len(camera.leggi_cache_schede(cache)) <= 2
+    assert len(camera.Cache(cache).dati) <= 2
 
 
 def test_schede_ci_si_ferma_dopo_troppi_errori_di_fila(monkeypatch):

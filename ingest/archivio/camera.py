@@ -18,7 +18,6 @@ Ogni tripla compare due volte (due grafi): tutte le query sono DISTINCT.
 
 from __future__ import annotations
 
-import contextlib
 import gzip
 import html
 import json
@@ -34,6 +33,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 from archivio import senato
 from archivio.senato import _intero, _json, numero_ddl_da_etichetta, numero_senza_ramo, scorri
@@ -378,22 +378,80 @@ def estrai_votazioni(sparql: Sparql, leg: int) -> list[VotazioneCamera]:
     return list(votazioni.values())
 
 
-def estrai_voti(sparql: Sparql, votazioni: list[VotazioneCamera]) -> None:
+class Cache:
+    """Quel che si è già scaricato, in un JSONL compresso ({"k": chiave, "d": dato} per riga).
+
+    Se il job cade a metà (endpoint in 502 per un quarto d'ora, sito lento) e va rilanciato, quel che è
+    già in cache non si richiede: il workflow la salva con actions/cache anche quando il job fallisce."""
+
+    def __init__(self, percorso: Path | None):
+        self.percorso = percorso
+        self.dati: dict[str, Any] = {}
+        self._file: Any = None
+        self._da_scaricare = 0
+        if percorso is None or not percorso.exists():
+            return
+        try:  # una riga troncata alla fine (job interrotto mentre scriveva) si salta
+            with gzip.open(percorso, "rt", encoding="utf-8") as f:
+                for riga in f:
+                    try:
+                        dato = json.loads(riga)
+                    except json.JSONDecodeError:
+                        break
+                    self.dati[dato["k"]] = dato["d"]
+        except (EOFError, gzip.BadGzipFile, OSError):
+            pass
+
+    def __enter__(self) -> Cache:
+        if self.percorso is not None:
+            # Si riscrive da capo: in coda a un file troncato le righe nuove non si rileggerebbero.
+            self.percorso.parent.mkdir(parents=True, exist_ok=True)
+            self._file = gzip.open(self.percorso, "wt", encoding="utf-8")
+            for chiave, dato in self.dati.items():
+                self._riga(chiave, dato)
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        if self._file is not None:
+            self._file.close()
+
+    def salva(self, chiave: str, dato: Any) -> None:
+        self.dati[chiave] = dato
+        if self._file is not None:
+            self._riga(chiave, dato)
+            self._da_scaricare += 1
+            if self._da_scaricare % 200 == 0:
+                self._file.flush()  # se il job viene interrotto, il grosso resta leggibile
+
+    def _riga(self, chiave: str, dato: Any) -> None:
+        self._file.write(json.dumps({"k": chiave, "d": dato}, ensure_ascii=False) + "\n")
+
+
+def estrai_voti(sparql: Sparql, votazioni: list[VotazioneCamera], percorso_cache: Path | None = None) -> None:
     """Riempie `voti` delle votazioni palesi, a gruppi di VOTAZIONI_PER_RICHIESTA. Chi non ha votato non si salva."""
     palesi = [v for v in votazioni if not v.segreta]
-    for inizio in range(0, len(palesi), VOTAZIONI_PER_RICHIESTA):
-        gruppo = {v.id: v for v in palesi[inizio:inizio + VOTAZIONI_PER_RICHIESTA]}
-        righe = sparql.select(f"""SELECT DISTINCT ?v ?d ?t WHERE {{ ?x ocd:rif_votazione ?v ; ocd:rif_deputato ?d ; dc:type ?t
+    with Cache(percorso_cache) as cache:
+        if cache.dati:
+            logger.info("voti: %s votazioni già in cache", len(cache.dati))
+        for inizio in range(0, len(palesi), VOTAZIONI_PER_RICHIESTA):
+            gruppo = {v.id: v for v in palesi[inizio:inizio + VOTAZIONI_PER_RICHIESTA]}
+            if all(i in cache.dati for i in gruppo):
+                for i, v in gruppo.items():
+                    v.voti = {voto: list(elenco) for voto, elenco in cache.dati[i].items()}
+                continue
+            righe = sparql.select(f"""SELECT DISTINCT ?v ?d ?t WHERE {{ ?x ocd:rif_votazione ?v ; ocd:rif_deputato ?d ; dc:type ?t
   FILTER(?v IN ({_iri_in(list(gruppo))})) FILTER(STR(?t) IN ("Favorevole", "Contrario", "Astensione")) }}""")
-        if len(righe) >= senato.LIMITE_RIGHE:
-            raise RuntimeError(f"risposta troncata per le votazioni da {palesi[inizio].id}")
-        for r in righe:
-            if (chi := persona(r["d"])) and (voto := VOTI.get(r["t"])):
-                elenco = gruppo[r["v"]].voti.setdefault(voto, [])
-                if chi not in elenco:
-                    elenco.append(chi)
-        if inizio and inizio % 1000 < VOTAZIONI_PER_RICHIESTA:
-            logger.info("voti: %s votazioni su %s", inizio, len(palesi))
+            if len(righe) >= senato.LIMITE_RIGHE:
+                raise RuntimeError(f"risposta troncata per le votazioni da {palesi[inizio].id}")
+            for r in righe:
+                if (chi := persona(r["d"])) and (voto := VOTI.get(r["t"])):
+                    elenco = gruppo[r["v"]].voti.setdefault(voto, [])
+                    if chi not in elenco:
+                        elenco.append(chi)
+            for i, v in gruppo.items():
+                cache.salva(i, v.voti)
+            if inizio and inizio % 1000 < VOTAZIONI_PER_RICHIESTA:
+                logger.info("voti: %s votazioni su %s", inizio, len(palesi))
     if vuote := sum(1 for v in palesi if not v.voti and (v.favorevoli or v.contrari or v.astenuti)):
         logger.warning("voti: %s votazioni palesi su %s senza alcun voto individuale", vuote, len(palesi))
 
@@ -442,22 +500,56 @@ def chiave_nome(testo_nome: str) -> str:
 
 @dataclass
 class NomiDeputati:
-    """Deputati di una legislatura per "COGNOME NOME", con le sigle dei loro gruppi."""
+    """Deputati di una legislatura per "COGNOME NOME", con le sigle dei loro gruppi.
+
+    Le schede usano spesso il nome d'uso e non quello anagrafico dell'endpoint: "CAPARINI DAVIDE" per
+    Davide Carlo, "VACCA ELIAS" per Elia, "DE ZULUETA TANA" per Cayetana De Zulueta Owtram (sonda
+    camera-nomi del 29/10/2026). Se cognome e nome non bastano, si cerca il cognome."""
 
     per_nome: dict[str, list[str]] = field(default_factory=dict)
+    per_cognome: dict[str, list[str]] = field(default_factory=dict)
+    nomi_propri: dict[str, str] = field(default_factory=dict)
+    anagrafe: dict[str, str] = field(default_factory=dict)  # deputato → "COGNOME NOME" dell'endpoint
     sigle: dict[str, set[str]] = field(default_factory=dict)
+    per_cognome_trovati: dict[str, str] = field(default_factory=dict)  # nominativo della scheda → deputato
 
     def aggiungi(self, chi: str, cognome: str, nome: str, sigla: str | None) -> None:
-        elenco = self.per_nome.setdefault(chiave_nome(f"{cognome} {nome}"), [])
-        if chi not in elenco:
-            elenco.append(chi)
+        for indice, chiave in ((self.per_nome, chiave_nome(f"{cognome} {nome}")), (self.per_cognome, chiave_nome(cognome))):
+            if chi not in (elenco := indice.setdefault(chiave, [])):
+                elenco.append(chi)
+        self.nomi_propri[chi] = chiave_nome(nome)
+        self.anagrafe[chi] = chiave_nome(f"{cognome} {nome}")
         if sigla:
             self.sigle.setdefault(chi, set()).add(chiave_nome(sigla))
 
     def trova(self, nominativo: str, sigla: str) -> str | None:
-        candidati = self.per_nome.get(chiave_nome(nominativo), [])
+        chiave = chiave_nome(nominativo)
+        if chiave in self.per_nome:
+            return self._uno(self.per_nome[chiave], sigla, "")
+        candidati, resto = self._per_cognome(chiave.split())
+        if (chi := self._uno(candidati, sigla, resto)) is not None:
+            self.per_cognome_trovati[nominativo] = chi
+        return chi
+
+    def _per_cognome(self, parole: list[str]) -> tuple[list[str], str]:
+        """I deputati col cognome con cui comincia il nominativo, e il resto del nominativo (il nome)."""
+        # Il cognome più lungo ("CECCACCI RUBINO FIORELLA" → CECCACCI)...
+        for n in range(len(parole) - 1, 0, -1):
+            if candidati := self.per_cognome.get(" ".join(parole[:n]), []):
+                return candidati, " ".join(parole[n:])
+        # ...o un cognome doppio che la scheda accorcia ("DE ZULUETA TANA" → DE ZULUETA OWTRAM).
+        for n in range(len(parole) - 1, 1, -1):
+            prefisso = " ".join(parole[:n]) + " "
+            if candidati := [c for cognome, chi in self.per_cognome.items() if cognome.startswith(prefisso) for c in chi]:
+                return candidati, " ".join(parole[n:])
+        return [], ""
+
+    def _uno(self, candidati: list[str], sigla: str, resto: str) -> str | None:
+        """L'unico candidato; fra più candidati decide la sigla del gruppo, poi l'iniziale del nome."""
         if len(candidati) > 1:
-            candidati = [c for c in candidati if chiave_nome(sigla) in self.sigle.get(c, set())]
+            candidati = [c for c in candidati if chiave_nome(sigla) in self.sigle.get(c, set())] or candidati
+        if len(candidati) > 1 and resto:
+            candidati = [c for c in candidati if self.nomi_propri.get(c, "")[:1] == resto[:1]]
         return candidati[0] if len(candidati) == 1 else None
 
 
@@ -491,42 +583,25 @@ class SchedeFermate(Exception):
     """Troppe schede di fila non scaricate: meglio fermarsi che insistere su un sito in difficoltà."""
 
 
-def leggi_cache_schede(percorso: Path | None) -> dict[str, list[tuple[str, str, str]]]:
-    """Le righe delle schede già lette in un giro precedente; una riga troncata alla fine (job interrotto) si salta."""
-    lette: dict[str, list[tuple[str, str, str]]] = {}
-    if percorso is None or not percorso.exists():
-        return lette
-    try:
-        with gzip.open(percorso, "rt", encoding="utf-8") as f:
-            for riga in f:
-                try:
-                    dato = json.loads(riga)
-                except json.JSONDecodeError:
-                    break
-                lette[dato["url"]] = [tuple(r) for r in dato["righe"]]
-    except (EOFError, gzip.BadGzipFile, OSError):
-        pass
-    return lette
-
-
 def estrai_voti_schede(
     votazioni: list[VotazioneCamera],
     nomi: NomiDeputati,
     scarica: Callable[[str], str] = scarica_scheda,
-    cache: Path | None = None,
+    percorso_cache: Path | None = None,
 ) -> list[str]:
     """Riempie `voti` delle votazioni palesi dalle schede HTML; restituisce le righe del rapporto.
 
-    Con `cache`, le righe di ogni scheda letta finiscono in un JSONL compresso: se il job va rilanciato,
+    Con `percorso_cache`, le righe di ogni scheda letta restano in una Cache: se il job va rilanciato,
     le schede già lette non si riscaricano."""
     palesi = [v for v in votazioni if not v.segreta and url_scheda(v)]
-    dalla_cache = leggi_cache_schede(cache)
+    cache = Cache(percorso_cache)
+    dalla_cache = len(cache.dati)
     fermati = threading.Event()
 
     def leggi(v: VotazioneCamera) -> tuple[VotazioneCamera, list[tuple[str, str, str]] | None, bool]:
         url = url_scheda(v) or ""
-        if url in dalla_cache:
-            return v, dalla_cache[url], False
+        if url in cache.dati:
+            return v, [tuple(r) for r in cache.dati[url]], False
         if fermati.is_set():
             return v, None, False
         try:
@@ -540,14 +615,7 @@ def estrai_voti_schede(
 
     non_scaricate = vuote = diverse = di_fila = 0
     sconosciuti: dict[str, int] = {}
-    with contextlib.ExitStack() as aperti:
-        scrittura = None
-        if cache is not None:
-            # Si riscrive da capo: in coda a un file troncato le righe nuove non si rileggerebbero.
-            cache.parent.mkdir(parents=True, exist_ok=True)
-            scrittura = aperti.enter_context(gzip.open(cache, "wt", encoding="utf-8"))
-            for url, righe in dalla_cache.items():
-                scrittura.write(json.dumps({"url": url, "righe": righe}, ensure_ascii=False) + "\n")
+    with cache:
         with ThreadPoolExecutor(SCHEDE_IN_PARALLELO) as lettori:
             for fatte, (v, righe, nuova) in enumerate(lettori.map(leggi, palesi), 1):
                 if righe is None:
@@ -558,10 +626,8 @@ def estrai_voti_schede(
                         fermati.set()
                     continue
                 di_fila = 0
-                if nuova and scrittura is not None:
-                    scrittura.write(json.dumps({"url": url_scheda(v), "righe": righe}, ensure_ascii=False) + "\n")
-                    if fatte % 200 == 0:
-                        scrittura.flush()  # se il job viene interrotto, il grosso resta leggibile
+                if nuova:
+                    cache.salva(url_scheda(v) or "", righe)
                 if not righe:
                     vuote += 1
                 for nominativo, sigla, voto in righe:
@@ -579,11 +645,14 @@ def estrai_voti_schede(
     if fermati.is_set():
         raise SchedeFermate(f"{non_scaricate} schede non scaricate, {ERRORI_DI_FILA} di fila: rilanciare più tardi (le lette restano in cache)")
     rapporto = [
-        f"schede lette: {len(palesi) - non_scaricate} su {len(palesi)} votazioni palesi ({len(dalla_cache)} dalla cache); "
+        f"schede lette: {len(palesi) - non_scaricate} su {len(palesi)} votazioni palesi ({dalla_cache} dalla cache); "
         f"non scaricate: {non_scaricate}; senza tabella: {vuote}",
         f"votazioni con elenchi diversi dai totali della fonte: {diverse}",
         f"nomi non collegati a un deputato: {len(sconosciuti)} ({sum(sconosciuti.values())} voti)"
         + (": " + ", ".join(f"{n} ×{c}" for n, c in sorted(sconosciuti.items(), key=lambda x: -x[1])[:15]) if sconosciuti else ""),
+        f"nomi collegati per cognome (nome d'uso diverso da quello anagrafico): {len(nomi.per_cognome_trovati)}"
+        + (": " + ", ".join(f"{n} → {nomi.anagrafe.get(c, c)}" for n, c in sorted(nomi.per_cognome_trovati.items())[:40])
+           if nomi.per_cognome_trovati else ""),
     ]
     for riga in rapporto:
         logger.info("voti dalle schede: %s", riga)
@@ -603,7 +672,7 @@ def scegli_votazioni(votazioni: list[VotazioneCamera], numeri: set[str]) -> tupl
 
 
 def estrai_legislatura(
-    camera: Sparql, senato_client: Sparql | None, leg: int, cartella_schede: Path | None = None
+    camera: Sparql, senato_client: Sparql | None, leg: int, cartella_cache: Path | None = None
 ) -> LegislaturaCamera:
     leggi = [legge for legge in estrai_leggi(camera, leg) if legge.data is None or legge.data >= INIZIO_PERIMETRO]
     logger.info("legislatura %s: %s leggi dal 1990", leg, len(leggi))
@@ -617,12 +686,14 @@ def estrai_legislatura(
     tutte = estrai_votazioni(camera, leg)
     scelte, scartate = scegli_votazioni(tutte, set(numeri))
     logger.info("legislatura %s: %s votazioni sugli iter diventati legge, %s altre", leg, len(scelte), scartate)
+    def cache(nome: str) -> Path | None:
+        return cartella_cache / f"camera_{leg}_{nome}.jsonl.gz" if cartella_cache is not None else None
+
     if leg >= PRIMA_CON_VOTI_INDIVIDUALI:
-        estrai_voti(camera, scelte)
+        estrai_voti(camera, scelte, cache("voti"))
     else:
         logger.info("legislatura %s: voti dei deputati dalle schede HTML (l'endpoint ha solo esiti e totali)", leg)
-        cache = cartella_schede / f"camera_{leg}.jsonl.gz" if cartella_schede is not None else None
-        estrai_voti_schede(scelte, nomi_deputati(camera, leg), cache=cache)
+        estrai_voti_schede(scelte, nomi_deputati(camera, leg), percorso_cache=cache("schede"))
     return LegislaturaCamera(leg, leggi, [], scelte, scartate, numeri)
 
 

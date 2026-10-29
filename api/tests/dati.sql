@@ -1,5 +1,5 @@
 -- Dati per le prove dell'API. Le prime tre leggi sono vere (titolo, data, Gazzetta); il decreto-legge, le relazioni,
--- la pronuncia, l'iter, i senatori e i voti sono inventati: servono solo a provare le query.
+-- la pronuncia, l'iter, i senatori, i gruppi e i voti sono inventati: servono solo a provare le query.
 
 INSERT INTO governo (id, nome, presidente, inizio, fine, fonte_url) VALUES
     ('andreotti-6', 'Andreotti VI', 'Giulio Andreotti', '1989-07-22', '1991-04-12', 'https://www.senato.it/legislature/repubblica/governi-della-repubblica'),
@@ -50,14 +50,33 @@ INSERT INTO fase_iter (id, iter_id, progressivo, ramo, numero, titolo, data_pres
 
 INSERT INTO parlamentare (id, codice, ramo, nome, cognome, fonte_url) VALUES
     (1, 'senato:1', 'senato', 'Mario', 'Rossi', 'http://dati.senato.it/senatore/1'),
-    (2, 'senato:2', 'senato', 'Anna', 'Bianchi', 'http://dati.senato.it/senatore/2');
+    (2, 'senato:2', 'senato', 'Anna', 'Bianchi', 'http://dati.senato.it/senatore/2'),
+    (3, 'senato:3', 'senato', 'Luca', 'Verdi', 'http://dati.senato.it/senatore/3'),
+    (4, 'senato:4', 'senato', 'Sara', 'Neri', 'http://dati.senato.it/senatore/4');
+
+-- Il gruppo 1 ha cambiato nome nel 2006; il 2 non ha denominazioni (vale il nome in `gruppo`).
+INSERT INTO gruppo (id, ramo, nome, sigla) VALUES
+    ('senato:g1', 'senato', 'Nuovo nome del gruppo', 'NNG'),
+    ('senato:g2', 'senato', 'Gruppo misto', 'MISTO');
+
+INSERT INTO denominazione_gruppo (gruppo_id, inizio, fine, nome, sigla) VALUES
+    ('senato:g1', '2001-05-30', '2006-04-27', 'Vecchio nome del gruppo', 'VNG'),
+    ('senato:g1', '2006-04-28', NULL, 'Nuovo nome del gruppo', 'NNG');
+
+-- La senatrice 2 passa dal gruppo 1 al 2 proprio il giorno del voto finale: vale l'adesione più recente.
+-- Il senatore 3 non ha adesioni.
+INSERT INTO adesione_gruppo (parlamentare_id, gruppo_id, inizio, fine) VALUES
+    (1, 'senato:g1', '2001-05-30', NULL),
+    (2, 'senato:g1', '2001-05-30', '2001-11-28'),
+    (2, 'senato:g2', '2001-11-28', NULL),
+    (4, 'senato:g1', '2001-05-30', NULL);
 
 INSERT INTO firmatario (fase_id, nome, tipo, primo_firmatario, parlamentare_id) VALUES
     ('senato:15002', 'Firmatario di prova (Gov. Berlusconi-II)', 'governativa', true, NULL);
 
 INSERT INTO votazione (id, fase_id, ramo, legislatura, data, tipo, descrizione, esito, presenti, votanti, favorevoli, contrari,
                        astenuti, maggioranza, voti_favorevoli, voti_contrari, voti_astenuti, fonte_url) VALUES
-    ('senato:v1', 'senato:15002', 'senato', 14, '2001-11-28', 'finale', 'Disegno di legge n. 795. Votazione finale', 'approvato',
-     2, 2, 1, 1, 0, 2, '{1}', '{2}', '{}', 'http://dati.senato.it/votazione/1'),
+    ('senato:14/1', 'senato:15002', 'senato', 14, '2001-11-28', 'finale', 'Disegno di legge n. 795. Votazione finale', 'approvato',
+     4, 4, 2, 1, 1, 3, '{1,4}', '{2}', '{3}', 'http://dati.senato.it/votazione/14/1'),
     ('senato:v2', 'senato:15002', 'senato', 14, '2001-11-27', 'emendamento', 'Emendamento 1.1', 'respinto',
      NULL, NULL, NULL, NULL, NULL, NULL, '{}', '{}', '{}', 'http://dati.senato.it/votazione/2');

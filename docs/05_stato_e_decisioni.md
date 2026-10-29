@@ -1,10 +1,10 @@
 # Stato del progetto e decisioni
 
-Ultimo aggiornamento: 28/10/2026
+Ultimo aggiornamento: 29/10/2026
 Aggiornare a fine di ogni sessione di lavoro.
 
 ## Fase attuale
-Fase 1 — Archivio. Schema dati v1.2 approvato e scritto. Task 1.1 completato: l'archivio Normattiva è su Neon (8.927 atti dal 1990, 43.726 relazioni, 471 pronunce della Consulta), caricato dal workflow "Pipeline Normattiva" (Actions → Run workflow) con il secret `DATABASE_URL`. Task 1.2, parte Senato, in revisione (PR #4): pipeline dati.senato.it → Postgres (`ingest/archivio/senato.py`, `parlamento.py`), workflow "Pipeline Senato", che scrive su Neon solo se lanciato a mano con `scrivi_su_neon`. API FastAPI (ricerca e dettaglio legge) in revisione: pacchetto `api/archivio_api/`, in sola lettura, provata su un Postgres locale. Prossimi passi: unire la PR #4, lanciare la Pipeline Senato su Neon (legislature `13-19`), poi la Camera e la tabella dei partiti dei governi.
+Fase 1 — Archivio. Schema dati v1.2 approvato e scritto. Task 1.1 completato: l'archivio Normattiva è su Neon (8.927 atti dal 1990, 43.726 relazioni, 471 pronunce della Consulta), caricato dal workflow "Pipeline Normattiva" (Actions → Run workflow) con il secret `DATABASE_URL`. Task 1.2, parte Senato, in revisione (PR #4): pipeline dati.senato.it → Postgres (`ingest/archivio/senato.py`, `parlamento.py`), workflow "Pipeline Senato", che scrive su Neon solo se lanciato a mano con `scrivi_su_neon`. API FastAPI (ricerca, dettaglio legge, votazioni con il voto per gruppo) unita (PR #7): pacchetto `api/archivio_api/`, in sola lettura, provata su un Postgres locale; manca il deploy. Prossimi passi: unire la PR #4, lanciare la Pipeline Senato su Neon (legislature `13-19`), poi la Camera e la tabella dei partiti dei governi.
 
 ## Decisioni prese
 | Data | Decisione | Motivo |
@@ -43,6 +43,7 @@ Fase 1 — Archivio. Schema dati v1.2 approvato e scritto. Task 1.1 completato: 
 | 2026-10-28 | Ricerca: full text sul titolo con lo stemming italiano di Postgres (`websearch_to_tsquery`), più citazioni ("L. 3/2003", "d.lgs. 81/2008") e URN riconosciuti nello stesso campo | Gli utenti cercano per parole o per citazione; Postgres basta, nessun motore di ricerca in più |
 | 2026-10-28 | Indice GIN `legge_titolo_fts` sul titolo (schema v1.2, nessuna tabella cambia) | Senza indice la ricerca è circa 8 volte più lenta (250-370 ms contro 30-55 ms su 9.000 titoli in locale); sul compute minimo di Neon sarebbe peggio |
 | 2026-10-28 | Ogni transazione dell'API è `READ ONLY`; pool che parte vuoto e chiude le connessioni ferme da un minuto | Le scritture sono solo delle pipeline. Connessioni sempre aperte terrebbero sveglio il compute di Neon e consumerebbero le 100 CU-ore al mese del piano Free |
+| 2026-10-29 | Voto per gruppo nell'API: `GET /votazioni/{id}` (dettaglio con la legge e i gruppi) e `gruppi=true` su `/leggi/{urn}/votazioni`. Nome del gruppo valido alla data del voto (`denominazione_gruppo`, altrimenti il nome in `gruppo`); chi quel giorno non risulta in un gruppo sta in una riga senza `gruppo_id`, in fondo | La vista `voto_gruppo` basta: Postgres filtra la votazione prima di espandere i voti (indice sulla chiave), 5 ms per votazione e circa 150 ms per 50 votazioni con 310 voti ciascuna su 44.000 votazioni generate in locale. Gli id delle votazioni contengono `/` (`senato:14/1`): il percorso li accetta interi |
 | 2026-10-27 | Partiti dei governi compilati a mano (`ingest/archivio/governi_partiti.csv`, una fonte per riga) | Nessuna fonte strutturata; i siti utili (storia.camera.it, governo.it) non sono raggiungibili dal container |
 
 ## Ancora da decidere
@@ -59,7 +60,6 @@ Fase 1 — Archivio. Schema dati v1.2 approvato e scritto. Task 1.1 completato: 
 - Leggi 1990-1996: il Senato non ha dati strutturati prima della XIII legislatura; verificare la Camera.
 - Deploy dell'API: Render o Fly.io (piano free), con un ruolo Neon di sola lettura nel `DATABASE_URL` e `CORS_ORIGINI` per il frontend.
 - Ricerca: titoli con l'accento scritto come apostrofo ("pubblicita'") e parole accentate non si trovano a vicenda; si risolve con l'estensione `unaccent` (modifica dello schema).
-- Voto per gruppo di una votazione (vista `voto_gruppo` con la denominazione valida alla data): endpoint da aggiungere quando il Senato è su Neon.
 - Da rivedere al primo deploy: se il traffico supera il piano Free di Neon, passare al piano Launch (a consumo).
 
 ## Roadmap
@@ -76,7 +76,7 @@ Fase 1 — Archivio. Schema dati v1.2 approvato e scritto. Task 1.1 completato: 
 - [x] Pipeline Normattiva → Postgres (leggi dal 1990, stato, modifiche, abrogazioni) — Task 1.1, PR #2
 - [ ] Aggiornamento settimanale incrementale della pipeline
 - [ ] Ingestione iter da Camera e Senato (SPARQL) — Task 1.2: Senato in revisione (PR #4), Camera in PR #5
-- [ ] API FastAPI: ricerca e dettaglio legge — scheletro in revisione (PR #7), manca il deploy
+- [ ] API FastAPI: ricerca e dettaglio legge — scheletro unito (PR #7), voto per gruppo aggiunto; manca il deploy
 - [ ] Frontend: ricerca e pagina legge con timeline delle modifiche
 
 ### Fase 2 — Schede "ha funzionato?"
@@ -101,3 +101,4 @@ Fase 1 — Archivio. Schema dati v1.2 approvato e scritto. Task 1.1 completato: 
 - 2026-10-27: Task 1.1 chiuso. PR #2 unita; esecuzione completa su Neon ([run 40568695190](https://github.com/PeppeMoscato/archivio-leggi/actions/runs/40568695190), circa 1 h 35 min): 8.927 atti; D.L. 1.047 vigenti, 1.316 decaduti, 100 abrogati; leggi 4.066 vigenti e 269 abrogate; D.Lgs. 1.810 vigenti e 291 abrogati; 28 leggi costituzionali. Relazioni 43.726 (modifica 32.710, abroga_parziale 6.850, converte 2.477 di cui 1.125 dai titoli, abroga 1.689); 740 senza atto di origine risolto. Nessuna chiamata API per i riferimenti: bastava la cache `gazzetta_urn`.
 - 2026-10-27: Task 1.2, parte Senato. Sonda su Camera (502) e Senato; schema v1.2 approvato con tutte le votazioni d'Aula; pipeline dati.senato.it → Postgres con workflow "Pipeline Senato" (prova sulla XV legislatura in un Postgres temporaneo: 112 iter diventati legge, tutti collegati alla legge di Normattiva; 1.273 votazioni con 370.149 voti individuali, 46 finali; 722 votazioni su altri ddl o non collegate; tabella `votazione` 2 MB, quindi circa 70 MB per tutto il Senato; estrazione 10 minuti, circa 6 ore di job per le legislature XIII-XIX).
 - 2026-10-28: API FastAPI, scheletro. Pacchetto `api/archivio_api/` (FastAPI, psycopg con pool, sola lettura): ricerca con filtri (tipo, stato, governo, anno, numero, date, modificata) e paginazione, dettaglio legge, relazioni come timeline, pronunce, iter con fasi e firmatari, votazioni con i totali, governi. Indice full text sul titolo in `schema.sql`. 29 prove su Postgres 16 locale (job `api` nella CI). Non ancora provata su Neon: dal container il database non è raggiungibile senza il `DATABASE_URL`.
+- 2026-10-29: API, voto per gruppo. `GET /votazioni/{id}` con la legge, il ddl e il voto per gruppo (denominazione valida alla data); `/leggi/{urn}/votazioni?gruppi=true` aggiunge i gruppi a ogni votazione della pagina. Nessuna modifica allo schema: usa la vista `voto_gruppo`. 31 prove su Postgres 16 locale; prova di carico in locale su 44.000 votazioni generate.

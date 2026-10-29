@@ -256,8 +256,19 @@ def iter_parlamentari(conn: psycopg.Connection, urn: str) -> list[dict]:
         return cur.fetchall()
 
 
+# Le colonne di `Votazione`, dalla tabella votazione (alias v).
+COLONNE_VOTAZIONE = sql.SQL(
+    """
+    v.id, v.fase_id, v.ramo, v.legislatura, v.data, v.tipo, v.descrizione, v.esito,
+    v.presenti, v.votanti, v.favorevoli, v.contrari, v.astenuti, v.maggioranza,
+    cardinality(v.voti_favorevoli) + cardinality(v.voti_contrari) + cardinality(v.voti_astenuti) > 0 AS nominale,
+    v.fonte_url
+    """
+)
+
+
 def votazioni(
-    conn: psycopg.Connection, urn: str, tipo: str | None, pagina: int, per_pagina: int
+    conn: psycopg.Connection, urn: str, tipo: str | None, gruppi: bool, pagina: int, per_pagina: int
 ) -> tuple[int, list[dict]]:
     """Le votazioni d'Aula sulle fasi degli iter della legge, in ordine di data."""
     dove = sql.SQL("i.urn = %s")
@@ -270,21 +281,71 @@ def votazioni(
         cur.execute(sql.SQL("SELECT count(*) AS totale ") + da + dove, parametri)
         totale = cur.fetchone()["totale"]
         cur.execute(
-            sql.SQL(
-                """
-                SELECT v.id, v.fase_id, v.ramo, v.legislatura, v.data, v.tipo, v.descrizione, v.esito,
-                       v.presenti, v.votanti, v.favorevoli, v.contrari, v.astenuti, v.maggioranza,
-                       cardinality(v.voti_favorevoli) + cardinality(v.voti_contrari) + cardinality(v.voti_astenuti) > 0
-                           AS nominale,
-                       v.fonte_url
-                """
-            )
+            sql.SQL("SELECT ")
+            + COLONNE_VOTAZIONE
             + da
             + dove
             + sql.SQL(" ORDER BY v.data NULLS LAST, v.id LIMIT %s OFFSET %s"),
             [*parametri, per_pagina, (pagina - 1) * per_pagina],
         )
-        return totale, cur.fetchall()
+        risultati = cur.fetchall()
+    if gruppi:
+        per_votazione = voto_per_gruppo(conn, [v["id"] for v in risultati])
+        for votazione in risultati:
+            votazione["gruppi"] = per_votazione.get(votazione["id"], [])
+    return totale, risultati
+
+
+def votazione(conn: psycopg.Connection, id: str) -> dict | None:
+    """Una votazione con la legge a cui porta e il voto per gruppo."""
+    with conn.cursor() as cur:
+        cur.execute(
+            sql.SQL("SELECT ")
+            + COLONNE_VOTAZIONE
+            + sql.SQL(
+                """, i.urn, f.numero AS fase_numero
+                FROM votazione v JOIN fase_iter f ON f.id = v.fase_id JOIN iter i ON i.id = f.iter_id
+                WHERE v.id = %s
+                """
+            ),
+            (id,),
+        )
+        riga = cur.fetchone()
+    if riga is not None:
+        riga["gruppi"] = voto_per_gruppo(conn, [id]).get(id, [])
+    return riga
+
+
+def voto_per_gruppo(conn: psycopg.Connection, ids: list[str]) -> dict[str, list[dict]]:
+    """Il voto per gruppo (vista voto_gruppo) delle votazioni date, con il nome del gruppo valido alla data del voto.
+
+    Prima i gruppi con più voti; chi quel giorno non risulta in un gruppo sta in fondo, con gruppo_id vuoto.
+    """
+    if not ids:
+        return {}
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT vg.votazione_id, vg.gruppo_id, coalesce(d.nome, g.nome) AS nome, coalesce(d.sigla, g.sigla) AS sigla,
+                   vg.favorevoli, vg.contrari, vg.astenuti
+            FROM voto_gruppo vg
+            JOIN votazione v ON v.id = vg.votazione_id
+            LEFT JOIN gruppo g ON g.id = vg.gruppo_id
+            LEFT JOIN LATERAL (
+                SELECT nome, sigla FROM denominazione_gruppo
+                WHERE gruppo_id = vg.gruppo_id AND inizio <= v.data AND (fine IS NULL OR v.data <= fine)
+                ORDER BY inizio DESC
+                LIMIT 1
+            ) d ON true
+            WHERE vg.votazione_id = ANY(%s)
+            ORDER BY vg.votazione_id, vg.gruppo_id IS NULL, vg.favorevoli + vg.contrari + vg.astenuti DESC, 3, 2
+            """,
+            (ids,),
+        )
+        per_votazione: dict[str, list[dict]] = {}
+        for riga in cur.fetchall():
+            per_votazione.setdefault(riga.pop("votazione_id"), []).append(riga)
+        return per_votazione
 
 
 def governi(conn: psycopg.Connection) -> list[dict]:

@@ -1,0 +1,23 @@
+# Blueprint di Render per l'API (docs/deploy_api.md).
+# Render → New → Blueprint → questo repository: crea il servizio e chiede i valori con sync: false.
+services:
+  - type: web
+    name: archivio-leggi-api
+    runtime: python
+    plan: free
+    region: frankfurt
+    rootDir: api
+    buildCommand: pip install .
+    # Una sola istanza uvicorn: il piano Free ha 512 MB e il pool ha al massimo 5 connessioni.
+    startCommand: uvicorn archivio_api.app:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips '*'
+    # "/" non tocca il database: un controllo su /salute terrebbe sveglio Neon finché il servizio è acceso.
+    healthCheckPath: /
+    # Deploy a ogni push su main con la CI verde.
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.16
+      - key: DATABASE_URL
+        sync: false
+      - key: CORS_ORIGINI
+        sync: false

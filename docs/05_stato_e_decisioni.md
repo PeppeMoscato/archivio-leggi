@@ -4,7 +4,7 @@ Ultimo aggiornamento: 29/10/2026
 Aggiornare a fine di ogni sessione di lavoro.
 
 ## Fase attuale
-Fase 1 — Archivio. Schema dati v1.2 approvato e scritto. Task 1.1 completato: l'archivio Normattiva è su Neon (8.927 atti dal 1990, 43.726 relazioni, 471 pronunce della Consulta), caricato dal workflow "Pipeline Normattiva" (Actions → Run workflow) con il secret `DATABASE_URL`. Task 1.2, parte Senato, in revisione (PR #4): pipeline dati.senato.it → Postgres (`ingest/archivio/senato.py`, `parlamento.py`), workflow "Pipeline Senato", che scrive su Neon solo se lanciato a mano con `scrivi_su_neon`. API FastAPI (ricerca, dettaglio legge, votazioni con il voto per gruppo) unita (PR #7): pacchetto `api/archivio_api/`, in sola lettura, provata su un Postgres locale; manca il deploy. Prossimi passi: unire la PR #4, lanciare la Pipeline Senato su Neon (legislature `13-19`), poi la Camera e la tabella dei partiti dei governi.
+Fase 1 — Archivio. Schema dati v1.2 approvato e scritto. Task 1.1 completato: l'archivio Normattiva è su Neon (8.927 atti dal 1990, 43.726 relazioni, 471 pronunce della Consulta), caricato dal workflow "Pipeline Normattiva" (Actions → Run workflow) con il secret `DATABASE_URL`. Task 1.2, parte Senato, in revisione (PR #4): pipeline dati.senato.it → Postgres (`ingest/archivio/senato.py`, `parlamento.py`), workflow "Pipeline Senato", che scrive su Neon solo se lanciato a mano con `scrivi_su_neon`. API FastAPI (ricerca, dettaglio legge, votazioni con il voto per gruppo) unita (PR #7): pacchetto `api/archivio_api/`, in sola lettura. Deploy preparato per Render (piano Free) con un ruolo Neon di sola lettura: mancano i passi manuali dell'autore in `docs/deploy_api.md`. Prossimi passi: unire la PR #4, lanciare la Pipeline Senato su Neon (legislature `13-19`), poi la Camera e la tabella dei partiti dei governi.
 
 ## Decisioni prese
 | Data | Decisione | Motivo |
@@ -48,6 +48,10 @@ Fase 1 — Archivio. Schema dati v1.2 approvato e scritto. Task 1.1 completato: 
 | 2026-10-29 | Un numero senza fonte primaria resta con l'asterisco e non conta per il verdetto; schema v1.3 con `fonte_primaria`, `fonte_url` e `nota` in `misura` | Proposta dell'autore: meglio mostrare il dato dichiarandone il limite che toglierlo, se viene da un ente credibile (es. SIAAIC sull'asma) |
 | 2026-10-29 | Confidenza con un range (es. Media-Alta), solo tra livelli vicini, con un motivo scritto e con cosa alza e cosa abbassa la confidenza; nello schema `confidenza_min` e `confidenza_max` | Proposta dell'autore sulla scheda Sirchia: tre studi controfattuali sul fumo attivo non sono d'accordo, e un livello secco nasconderebbe il dubbio. Le regole evitano che il range diventi un modo per non decidere |
 | 2026-10-29 | Scheda Sirchia approvata: obiettivo dichiarato raggiunto (Alta), obiettivo secondario parzialmente raggiunto (Media-Alta) | Revisione in `docs/revisioni/2026-10-29_revisione_scheda_sirchia.md` |
+| 2026-10-29 | API su Render, piano Free (`render.yaml`), non Fly.io | Fly.io non ha più un piano gratuito per i nuovi account (a consumo, carta obbligatoria). Render Free: 0 €, 750 ore al mese, si spegne dopo 15 minuti senza richieste (risveglio in circa un minuto), così non tiene sveglio Neon. Dettagli in `docs/deploy_api.md` |
+| 2026-10-29 | L'API legge Neon con il ruolo `api_lettura` (`api/deploy/ruolo_sola_lettura.sql`): solo SELECT, sola lettura per default, `statement_timeout` 15 s, massimo 10 connessioni; indirizzo diretto, non il pooler | Una seconda barriera oltre al READ ONLY dell'API; una query lenta non consuma CU-ore. L'API ha già il suo pool |
+| 2026-10-29 | Il controllo di salute di Render chiama `/`, non `/salute` | `/salute` interroga il database: chiamato da Render ogni pochi secondi terrebbe sveglio il compute di Neon |
+| 2026-10-29 | Deploy automatico su push in `main` solo con la CI verde (`autoDeployTrigger: checksPass`); l'API pubblicata si prova con il workflow "Prova API online" | Dal container di Claude Code onrender.com non è raggiungibile |
 | 2026-10-27 | Partiti dei governi compilati a mano (`ingest/archivio/governi_partiti.csv`, una fonte per riga) | Nessuna fonte strutturata; i siti utili (storia.camera.it, governo.it) non sono raggiungibili dal container |
 
 ## Ancora da decidere
@@ -61,7 +65,6 @@ Fase 1 — Archivio. Schema dati v1.2 approvato e scritto. Task 1.1 completato: 
 - Partiti di ciascun governo: compilare `governi_partiti.csv` (22 governi) con la fonte.
 - Questioni di fiducia prima del 2013: il Senato non le distingue nelle etichette; serve un'altra fonte (resoconti o Camera).
 - Leggi 1990-1996: il Senato non ha dati strutturati prima della XIII legislatura; verificare la Camera.
-- Deploy dell'API: Render o Fly.io (piano free), con un ruolo Neon di sola lettura nel `DATABASE_URL` e `CORS_ORIGINI` per il frontend.
 - Ricerca: titoli con l'accento scritto come apostrofo ("pubblicita'") e parole accentate non si trovano a vicenda; si risolve con l'estensione `unaccent` (modifica dello schema).
 - Da rivedere al primo deploy: se il traffico supera il piano Free di Neon, passare al piano Launch (a consumo).
 
@@ -79,7 +82,7 @@ Fase 1 — Archivio. Schema dati v1.2 approvato e scritto. Task 1.1 completato: 
 - [x] Pipeline Normattiva → Postgres (leggi dal 1990, stato, modifiche, abrogazioni) — Task 1.1, PR #2
 - [ ] Aggiornamento settimanale incrementale della pipeline
 - [ ] Ingestione iter da Camera e Senato (SPARQL) — Task 1.2: Senato in revisione (PR #4), Camera in PR #5
-- [ ] API FastAPI: ricerca e dettaglio legge — scheletro unito (PR #7), voto per gruppo aggiunto; manca il deploy
+- [ ] API FastAPI: ricerca e dettaglio legge — scheletro unito (PR #7), voto per gruppo aggiunto; deploy su Render preparato, mancano i passi manuali (`docs/deploy_api.md`)
 - [ ] Frontend: ricerca e pagina legge con timeline delle modifiche
 
 ### Fase 2 — Schede "ha funzionato?"
@@ -106,3 +109,4 @@ Fase 1 — Archivio. Schema dati v1.2 approvato e scritto. Task 1.1 completato: 
 - 2026-10-28: API FastAPI, scheletro. Pacchetto `api/archivio_api/` (FastAPI, psycopg con pool, sola lettura): ricerca con filtri (tipo, stato, governo, anno, numero, date, modificata) e paginazione, dettaglio legge, relazioni come timeline, pronunce, iter con fasi e firmatari, votazioni con i totali, governi. Indice full text sul titolo in `schema.sql`. 29 prove su Postgres 16 locale (job `api` nella CI). Non ancora provata su Neon: dal container il database non è raggiungibile senza il `DATABASE_URL`.
 - 2026-10-29: API, voto per gruppo. `GET /votazioni/{id}` con la legge, il ddl e il voto per gruppo (denominazione valida alla data); `/leggi/{urn}/votazioni?gruppi=true` aggiunge i gruppi a ogni votazione della pagina. Nessuna modifica allo schema: usa la vista `voto_gruppo`. 31 prove su Postgres 16 locale; prova di carico in locale su 44.000 votazioni generate.
 - 2026-10-29: revisione della scheda Sirchia. Trovati due studi controfattuali su *Health Policy* 2013 che la scheda non citava (calo piccolo dei fumatori); numeri dalla stampa sostituiti con la fonte primaria o marcati con l'asterisco; stato della legge aggiornato (D.L. 104/2013, D.Lgs. 6/2016). Gerarchia delle fonti in `03_fonti.md`; confidenza con un range nel metodo; schema v1.3 (`misura`, `verdetto`). Scheda approvata.
+- 2026-10-29: deploy dell'API. Scelto Render Free (Fly.io non ha più un piano gratuito). `render.yaml` (Francoforte, Python 3.12, controllo di salute su `/`, deploy con la CI verde), ruolo Neon `api_lettura` di sola lettura (provato su Postgres 16 locale: SELECT sì, INSERT, DELETE e CREATE TABLE negati anche togliendo la sola lettura di sessione; vale anche per le tabelle create dopo), workflow "Prova API online", guida in `docs/deploy_api.md`. Da fare a mano: ruolo e indice su Neon, Blueprint su Render.

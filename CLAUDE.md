@@ -46,7 +46,8 @@ DATABASE_URL=... uvicorn archivio_api.app:app --reload  # documentazione interat
 - Normattiva non è raggiungibile dal container di Claude Code: la pipeline gira sul workflow "Pipeline Normattiva" (Actions → Run workflow, campo `anni`). Con il secret `DATABASE_URL` scrive su Neon, altrimenti pubblica il dump `archivio-db` come artifact.
 - dati.senato.it e dati.camera.it non sono raggiungibili dal container: il Senato gira sul workflow "Pipeline Senato" (campo `legislature`); scrive su Neon solo con `scrivi_su_neon` spuntato.
 - La DDL è `ingest/archivio/schema.sql`: va tenuta allineata a `docs/01_schema_dati.md`. L'API la usa anche nelle sue prove.
-- L'API non scrive mai: ogni transazione è `READ ONLY`. Per Neon conviene comunque un ruolo di sola lettura nel suo `DATABASE_URL`.
+- L'API non scrive mai: ogni transazione è `READ ONLY`, e su Neon usa il ruolo `api_lettura` (`api/deploy/ruolo_sola_lettura.sql`).
+- L'API gira su Render, piano Free (`render.yaml`, guida in `docs/deploy_api.md`): onrender.com non è raggiungibile dal container, si prova con il workflow "Prova API online" (campo `url`).
 
 ## Fonti e licenze
 - Normattiva: CC BY 4.0, attribuzione obbligatoria nel footer dell'app (testo in `docs/03_fonti.md`).

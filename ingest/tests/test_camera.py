@@ -143,17 +143,64 @@ def test_estrai_voti_salta_le_segrete_e_chi_non_vota(monkeypatch):
     assert votazioni[3].voti == {}
 
 
-@pytest.mark.parametrize(("leg", "chiede_voti"), [(15, False), (17, True)])
-def test_voti_individuali_solo_dalla_xvii(monkeypatch, leg, chiede_voti):
-    # Per XIII-XVI l'endpoint non ha ocd:voto: niente query sui voti, restano esiti e totali.
+@pytest.mark.parametrize(("leg", "da_dove"), [(15, "schede"), (17, "endpoint")])
+def test_voti_dall_endpoint_dalla_xvii_e_dalle_schede_prima(monkeypatch, leg, da_dove):
+    # Per XIII-XVI l'endpoint non ha ocd:voto: i voti vengono dalle schede HTML.
     chiamate = []
     monkeypatch.setattr(camera, "estrai_leggi", lambda *_: [])
     monkeypatch.setattr(camera, "fasi_camera_del_senato", lambda *_: ["2122-BIS"])
     monkeypatch.setattr(camera, "estrai_votazioni", lambda *_: [votazione("a")])
-    monkeypatch.setattr(camera, "estrai_voti", lambda _, vs: chiamate.append(vs))
+    monkeypatch.setattr(camera, "estrai_voti", lambda *_: chiamate.append("endpoint"))
+    monkeypatch.setattr(camera, "nomi_deputati", lambda *_: camera.NomiDeputati())
+    monkeypatch.setattr(camera, "estrai_voti_schede", lambda *_: chiamate.append("schede"))
     leg_camera = camera.estrai_legislatura(object(), object(), leg)
     assert len(leg_camera.votazioni) == 1
-    assert bool(chiamate) is chiede_voti
+    assert chiamate == [da_dove]
+
+
+# Righe vere della scheda XIII 128_59 (sonda camera-schede del 29/10/2026), più un omonimo inventato.
+SCHEDA_XIII = """<h2 class="blu">Riepilogo dei voti espressi dai deputati</h2>
+<table id="tabellaPartecipazioneVoto" class="display"><thead><tr><th>Nominativo</th><th>Gruppo</th><th>Voto</th></tr></thead>
+<tbody>
+<tr><td>ABATERUSSO ERNESTO</td><td>DS-U</td><td><span class="rosso">Contrario</span></td></tr>
+<tr><td>ACIERNO ALBERTO</td><td>F-ITA</td><td><span class="verde">Favorevole</span></td></tr>
+<tr><td>ACQUARONE LORENZO</td><td>PD-U</td><td><span class="nero">Non ha partecipato</span></td></tr>
+<tr><td>ANDREATTA BENIAMINO</td><td>PD-U</td><td><span class="giallo">In missione</span></td></tr>
+<tr><td>AGOSTINI LUCIANO</td><td>PD</td><td><span class="bianco">Astensione</span></td></tr>
+<tr><td>D&#39;ALIA NICOLO&#39;</td><td>AN</td><td><span class="verde">Favorevole</span></td></tr>
+<tr><td>ROSSI MARIO</td><td>AN</td><td><span class="verde">Favorevole</span></td></tr>
+<tr><td>SCONOSCIUTO TIZIO</td><td>MISTO</td><td><span class="verde">Favorevole</span></td></tr>
+</tbody></table>"""
+
+
+def test_righe_scheda_e_url():
+    righe = camera.righe_scheda(SCHEDA_XIII)
+    assert righe[0] == ("ABATERUSSO ERNESTO", "DS-U", "Contrario")
+    assert righe[5] == ("D'ALIA NICOLO'", "AN", "Favorevole")
+    assert len(righe) == 8
+    assert camera.righe_scheda("<html>niente</html>") == []
+    v = votazione("x", id=VOTAZIONE + "vs13_128_059")
+    assert camera.url_scheda(v).endswith("Legislatura=XIII&RifVotazione=128_59&tipo=dettaglio")
+    v.fonte_url = "http://documenti.camera.it/votazioni/votazionitutte/schedavotazione.asp?Legislatura=XIII&RifVotazione=128_59&tipo=dettaglio"
+    assert camera.url_scheda(v).startswith("https://documenti.camera.it/")
+
+
+def test_estrai_voti_schede(monkeypatch):
+    monkeypatch.setattr(camera, "PAUSA_SCHEDA", 0)
+    nomi = camera.NomiDeputati()
+    for chi, cognome, nome, sigla in [
+        ("1", "ABATERUSSO", "Ernesto", "DS-U"), ("2", "ACIERNO", "Alberto", "F-ITA"), ("3", "AGOSTINI", "Luciano", "PD"),
+        ("4", "D'ALIA", "Nicolò", "AN"), ("5", "ROSSI", "Mario", "AN"), ("6", "ROSSI", "Mario", "DS-U"),
+    ]:
+        nomi.aggiungi(chi, cognome, nome, sigla)
+    v = votazione("x", id=VOTAZIONE + "vs13_128_059", favorevoli=4, contrari=1, astenuti=1)
+    segreta = votazione("s", id=VOTAZIONE + "vs13_128_060", segreta=True)
+    lette = []
+    rapporto = camera.estrai_voti_schede([v, segreta], nomi, lambda url: lette.append(url) or SCHEDA_XIII)
+    assert len(lette) == 1  # la segreta non si scarica
+    assert v.voti == {"contrari": ["1"], "favorevoli": ["2", "4", "5"], "astenuti": ["3"]}
+    assert "SCONOSCIUTO TIZIO (MISTO) ×1" in rapporto[2]
+    assert "diversi dai totali della fonte: 1" in rapporto[1]
 
 
 # --- file intermedi ---------------------------------------------------------------------

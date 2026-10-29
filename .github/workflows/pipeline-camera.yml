@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       legislature:
-        description: "Legislature da estrarre: 19, 10-19 (votazioni dalla XIII con i voti dei deputati dalla XVII, iter della Camera per X-XII)"
+        description: "Legislature da estrarre: 19, 10-19 (votazioni dalla XIII, voti dei deputati dalle schede HTML per XIII-XVI; iter della Camera per X-XII)"
         default: "10-19"
       scrivi_su_neon:
         description: "Scrivi su Neon (secret DATABASE_URL), dopo la Pipeline Senato"
@@ -34,9 +34,9 @@ jobs:
     steps:
       - id: elenco
         env:
-          # Sulle pull request: la XII (1994-1996, iter della Camera) e la XIX (dal 2022, la più piccola con i voti
-          # dei singoli deputati, che l'endpoint ha solo dalla XVII).
-          LEGISLATURE: ${{ inputs.legislature || '12,19' }}
+          # Sulle pull request: la XII (1994-1996, iter della Camera), la XV (2006-2008, voti dalle schede HTML)
+          # e la XIX (dal 2022, voti dall'endpoint, che li ha solo dalla XVII).
+          LEGISLATURE: ${{ inputs.legislature || '12,15,19' }}
         run: |
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import json, os
@@ -112,7 +112,7 @@ jobs:
   prova:
     if: ${{ !inputs.scrivi_su_neon }}
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 150
     continue-on-error: true
     defaults:
       run:
@@ -123,9 +123,9 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e .
-      - run: python -m archivio senato-estrai --legislature 19 --uscita senato
+      - run: python -m archivio senato-estrai --legislature 15 19 --uscita senato
       - run: python -m archivio senato-persone --uscita senato
-      - run: python -m archivio estrai --anni 1994-1996 2022-2026 --tipi LEGGE "LEGGE COSTITUZIONALE" --uscita normattiva
+      - run: python -m archivio estrai --anni 1994-1996 2006-2008 2022-2026 --tipi LEGGE "LEGGE COSTITUZIONALE" --uscita normattiva
       - uses: actions/upload-artifact@v4
         with:
           name: prova-camera

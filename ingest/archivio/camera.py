@@ -22,6 +22,12 @@ import html
 import json
 import logging
 import re
+import time
+import unicodedata
+import urllib.error
+import urllib.request
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from datetime import date
 from pathlib import Path
@@ -44,6 +50,9 @@ PRIMA_CON_VOTI = 13  # la Camera ha votazioni nominali dalla XIII; il Senato ha 
 # Il voto di ogni deputato (ocd:voto) c'è solo dalla XVII: per XIII-XVI l'endpoint ha esiti e totali ma nessun voto
 # individuale (sonda camera-voti del 29/10/2026). I nomi sono nelle schede HTML di documenti.camera.it (dc:relation).
 PRIMA_CON_VOTI_INDIVIDUALI = 17
+SCHEDA = "https://documenti.camera.it/votazioni/votazionitutte/schedavotazione.asp?Legislatura={romano}&RifVotazione={rif}&tipo=dettaglio"
+SCHEDE_IN_PARALLELO = 3  # pagine scaricate insieme: un sito HTML, non un servizio dati
+PAUSA_SCHEDA = 0.5  # secondi di pausa di ogni lettore dopo una pagina
 INIZIO_PERIMETRO = date(1990, 1, 1)
 VOTAZIONI_PER_RICHIESTA = 14  # 14 × 630 deputati al massimo: sotto il limite di 10.000 righe
 ATTI_PER_RICHIESTA = 40
@@ -383,6 +392,144 @@ def estrai_voti(sparql: Sparql, votazioni: list[VotazioneCamera]) -> None:
         logger.warning("voti: %s votazioni palesi su %s senza alcun voto individuale", vuote, len(palesi))
 
 
+# --- voti XIII-XVI dalle schede HTML ---------------------------------------------------
+# Ogni votazione ha una pagina su documenti.camera.it (dc:relation) con una riga per deputato:
+# <tr><td>ABATERUSSO ERNESTO</td><td>DS-U</td><td><span class="rosso">Contrario</span></td></tr>.
+# Il voto è Favorevole, Contrario, Astensione, Non ha partecipato o In missione; il nome non ha
+# identificativi e si collega ai deputati della legislatura per cognome e nome (sigla del gruppo
+# per gli omonimi).
+
+VOTI_SCHEDA = {"Favorevole": "favorevoli", "Contrario": "contrari", "Astensione": "astenuti"}
+_ROMANI = {13: "XIII", 14: "XIV", 15: "XV", 16: "XVI", 17: "XVII", 18: "XVIII", 19: "XIX"}
+_TABELLA_SCHEDA = re.compile(r'(?is)<table[^>]*id="tabellaPartecipazioneVoto".*?</table>')
+_RIGA_SCHEDA = re.compile(r"(?is)<tr>\s*<td>(.*?)</td>\s*<td>(.*?)</td>\s*<td>(.*?)</td>\s*</tr>")
+_VOTAZIONE_IRI = re.compile(r"/vs(\d+)_(\d+)_(\d+)$")
+
+
+def url_scheda(v: VotazioneCamera) -> str | None:
+    """La scheda della votazione: dc:relation in HTTPS, altrimenti ricostruita dall'IRI (vs13_128_059 → 128_59)."""
+    if v.fonte_url and "schedavotazione" in v.fonte_url:
+        return v.fonte_url.replace("http://", "https://", 1)
+    if not (trovato := _VOTAZIONE_IRI.search(v.id)) or int(trovato.group(1)) not in _ROMANI:
+        return None
+    leg, seduta, numero = (int(g) for g in trovato.groups())
+    return SCHEDA.format(romano=_ROMANI[leg], rif=f"{seduta}_{numero}")
+
+
+def _senza_tag(testo_html: str) -> str:
+    return " ".join(html.unescape(re.sub(r"<[^>]+>", " ", testo_html)).split())
+
+
+def righe_scheda(pagina: str) -> list[tuple[str, str, str]]:
+    """(nominativo, sigla del gruppo, voto) per ogni deputato della scheda."""
+    tabella = _TABELLA_SCHEDA.search(pagina)
+    if not tabella:
+        return []
+    return [(_senza_tag(a), _senza_tag(b), _senza_tag(c)) for a, b, c in _RIGA_SCHEDA.findall(tabella.group(0))]
+
+
+def chiave_nome(testo_nome: str) -> str:
+    """"Nicolò D'Alia" e "NICOLO' D ALIA" → "NICOLO DALIA": niente accenti, apostrofi né spazi doppi."""
+    senza_accenti = "".join(c for c in unicodedata.normalize("NFKD", testo_nome) if not unicodedata.combining(c))
+    return " ".join(re.sub(r"['`’.]", "", senza_accenti).replace("-", " ").upper().split())
+
+
+@dataclass
+class NomiDeputati:
+    """Deputati di una legislatura per "COGNOME NOME", con le sigle dei loro gruppi."""
+
+    per_nome: dict[str, list[str]] = field(default_factory=dict)
+    sigle: dict[str, set[str]] = field(default_factory=dict)
+
+    def aggiungi(self, chi: str, cognome: str, nome: str, sigla: str | None) -> None:
+        elenco = self.per_nome.setdefault(chiave_nome(f"{cognome} {nome}"), [])
+        if chi not in elenco:
+            elenco.append(chi)
+        if sigla:
+            self.sigle.setdefault(chi, set()).add(chiave_nome(sigla))
+
+    def trova(self, nominativo: str, sigla: str) -> str | None:
+        candidati = self.per_nome.get(chiave_nome(nominativo), [])
+        if len(candidati) > 1:
+            candidati = [c for c in candidati if chiave_nome(sigla) in self.sigle.get(c, set())]
+        return candidati[0] if len(candidati) == 1 else None
+
+
+def nomi_deputati(sparql: Sparql, leg: int) -> NomiDeputati:
+    nomi = NomiDeputati()
+    for r in scorri(sparql, f"""SELECT DISTINCT ?d ?cognome ?nome ?sigla WHERE {{ ?d a ocd:deputato ; ocd:rif_leg <{legislatura_iri(leg)}> ;
+  foaf:surname ?cognome ; foaf:firstName ?nome .
+  OPTIONAL {{ ?d ocd:aderisce ?a . ?a ocd:rif_gruppoParlamentare ?g . ?g dcterms:alternative ?sigla }} %DOPO% }}""", "d"):
+        if chi := persona(r["d"]):
+            nomi.aggiungi(chi, testo(r["cognome"]) or "", testo(r["nome"]) or "", testo(r.get("sigla")))
+    return nomi
+
+
+def scarica_scheda(url: str, tentativi: int = 6) -> str:
+    agente = "archivio-leggi (progetto non commerciale; github.com/PeppeMoscato/archivio-leggi)"
+    richiesta = urllib.request.Request(url, headers={"User-Agent": agente})
+    for tentativo in range(1, tentativi + 1):
+        try:
+            with urllib.request.urlopen(richiesta, timeout=60) as risposta:
+                grezzo = risposta.read()
+                codifica = risposta.headers.get_content_charset() or "windows-1252"
+            return grezzo.decode(codifica, errors="replace")
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as errore:
+            if tentativo == tentativi or (isinstance(errore, urllib.error.HTTPError) and errore.code < 500 and errore.code != 429):
+                raise
+            logger.warning("scheda %s: %s, tentativo %s", url, errore, tentativo)
+            time.sleep(10 * tentativo)
+    raise AssertionError("non raggiungibile")
+
+
+def estrai_voti_schede(
+    votazioni: list[VotazioneCamera], nomi: NomiDeputati, scarica: Callable[[str], str] = scarica_scheda
+) -> list[str]:
+    """Riempie `voti` delle votazioni palesi dalle schede HTML; restituisce le righe del rapporto."""
+    palesi = [v for v in votazioni if not v.segreta and url_scheda(v)]
+
+    def leggi(v: VotazioneCamera) -> tuple[VotazioneCamera, list[tuple[str, str, str]] | None]:
+        try:
+            pagina = scarica(url_scheda(v) or "")
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as errore:
+            logger.warning("scheda di %s non scaricata: %s", v.id, errore)
+            return v, None
+        finally:
+            time.sleep(PAUSA_SCHEDA)
+        return v, righe_scheda(pagina)
+
+    non_scaricate = vuote = diverse = 0
+    sconosciuti: dict[str, int] = {}
+    with ThreadPoolExecutor(SCHEDE_IN_PARALLELO) as lettori:
+        for fatte, (v, righe) in enumerate(lettori.map(leggi, palesi), 1):
+            if righe is None:
+                non_scaricate += 1
+                continue
+            if not righe:
+                vuote += 1
+            for nominativo, sigla, voto in righe:
+                if not (chiave := VOTI_SCHEDA.get(voto)):
+                    continue
+                if (chi := nomi.trova(nominativo, sigla)) is None:
+                    sconosciuti[f"{nominativo} ({sigla})"] = sconosciuti.get(f"{nominativo} ({sigla})", 0) + 1
+                elif chi not in (elenco := v.voti.setdefault(chiave, [])):
+                    elenco.append(chi)
+            conti = (len(v.voti.get("favorevoli", [])), len(v.voti.get("contrari", [])), len(v.voti.get("astenuti", [])))
+            if righe and conti != (v.favorevoli or 0, v.contrari or 0, v.astenuti or 0):
+                diverse += 1
+            if fatte % 1000 == 0:
+                logger.info("schede: %s su %s", fatte, len(palesi))
+    rapporto = [
+        f"schede lette: {len(palesi) - non_scaricate} su {len(palesi)} votazioni palesi; non scaricate: {non_scaricate}; senza tabella: {vuote}",
+        f"votazioni con elenchi diversi dai totali della fonte: {diverse}",
+        f"nomi non collegati a un deputato: {len(sconosciuti)} ({sum(sconosciuti.values())} voti)"
+        + (": " + ", ".join(f"{n} ×{c}" for n, c in sorted(sconosciuti.items(), key=lambda x: -x[1])[:15]) if sconosciuti else ""),
+    ]
+    for riga in rapporto:
+        logger.info("voti dalle schede: %s", riga)
+    return rapporto
+
+
 def fasi_camera_del_senato(sparql_senato: Sparql, leg: int) -> list[str]:
     """I numeri delle letture alla Camera ("2122-BIS") negli iter diventati legge della legislatura, dal Senato."""
     fasi = senato.estrai_fasi(sparql_senato, leg)
@@ -411,7 +558,8 @@ def estrai_legislatura(camera: Sparql, senato_client: Sparql | None, leg: int) -
     if leg >= PRIMA_CON_VOTI_INDIVIDUALI:
         estrai_voti(camera, scelte)
     else:
-        logger.info("legislatura %s: l'endpoint non ha i voti dei singoli deputati, solo esiti e totali", leg)
+        logger.info("legislatura %s: voti dei deputati dalle schede HTML (l'endpoint ha solo esiti e totali)", leg)
+        estrai_voti_schede(scelte, nomi_deputati(camera, leg))
     return LegislaturaCamera(leg, leggi, [], scelte, scartate, numeri)
 
 

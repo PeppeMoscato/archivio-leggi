@@ -52,6 +52,8 @@ class Storia:
     data_entrata_vigore: date | None
     fine_vigore_originale: date | None = None
     note: list[Nota] = field(default_factory=list)
+    # False se le versioni più recenti dell'export erano vuote o illeggibili: note e stato vengono da una versione vecchia.
+    completa: bool = True
 
     @property
     def data_abrogazione(self) -> date | None:
@@ -196,4 +198,5 @@ def leggi_storie(percorso: Path) -> Iterator[Storia]:
                 data_entrata_vigore=entrata_in_vigore_dichiarata(titolo) or min((i for i, _ in finestre), default=None),
                 fine_vigore_originale=max(fini) if fini and None not in fini else None,
                 note=note_da_metadati(metadati),
+                completa=nome_ultimo == file[-1][2],
             )

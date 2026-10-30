@@ -3,16 +3,19 @@
 Invece di riesportare tutto il perimetro (circa 1 h 35 min e 144 export), si
 riesportano solo:
 - gli atti che Normattiva ha modificato nella finestra (`atti_aggiornati`);
-- gli atti nuovi, pubblicati in Gazzetta nella finestra (catalogo dell'anno);
-- i D.L. pubblicati negli ultimi 90 giorni: decadono o si convertono senza che
-  Normattiva li modifichi per forza, e la legge di conversione (nuova) va unita
-  al suo D.L. nello stesso caricamento.
+- gli atti pubblicati in Gazzetta negli ultimi 90 giorni (catalogo dell'anno):
+  i D.L. decadono o si convertono senza che Normattiva li modifichi per forza,
+  la legge di conversione (nuova) va unita al suo D.L. nello stesso caricamento,
+  e per gli atti appena pubblicati export e testo arrivano dopo qualche giorno
+  (prova del 30/10/2026: nessun export per le leggi e i D.Lgs. di ottobre).
 
 Come la pipeline completa, due fasi: `estrai_aggiornamento` scrive
 `atti_aggiornati.jsonl` (e le premesse dei D.L. e D.Lgs. nuovi in
 `premesse_aggiornate.jsonl`); `carica_aggiornamento` li scrive nel database con
 `pipeline.carica`, usando il catalogo già nel database per i riferimenti in
-Gazzetta e le conversioni dai titoli. Ogni scrittura è idempotente: una
+Gazzetta e le conversioni dai titoli. Un atto senza export completo (versioni
+recenti vuote o illeggibili) non si riscrive: se è già nel database resta com'è,
+se è nuovo entra con i dati del catalogo. Ogni scrittura è idempotente: una
 finestra più lunga della settimana (14 giorni di default) recupera un giro
 fallito senza doppioni.
 """
@@ -36,11 +39,12 @@ from archivio.modelli import TIPI, Atto
 from archivio.pipeline import (
     ATTESA_ATTO, PERIMETRO, ExportNonRiuscito, Rapporto, carica, esporta, leggi_atti, storie_dell_anno, unisci,
 )
+from archivio.storia import chiave_urn
 
 logger = logging.getLogger(__name__)
 
 GIORNI = 14  # una settimana più una di margine: se un giro fallisce, il successivo lo recupera
-FINESTRA_DL = timedelta(days=90)  # 60 giorni per la conversione (art. 77 Cost.) più il margine
+FINESTRA_RECENTI = timedelta(days=90)  # 60 giorni per la conversione dei D.L. (art. 77 Cost.) più il margine
 # Fra emanazione e pubblicazione in Gazzetta passano di solito giorni, a volte settimane: per gli atti
 # nuovi si guarda anche il catalogo dell'anno prima, se la finestra comincia a inizio anno.
 RITARDO_GAZZETTA = timedelta(days=60)
@@ -79,10 +83,10 @@ def modificati(client: Normattiva, dal: date, al: date) -> tuple[dict[str, Atto]
 
 
 def nuovi(client: Normattiva, dal: date, al: date) -> dict[str, Atto]:
-    """Gli atti del perimetro pubblicati in Gazzetta da `dal`; per i D.L. dagli ultimi 90 giorni."""
+    """Gli atti del perimetro pubblicati in Gazzetta da `dal`, e comunque negli ultimi 90 giorni."""
     atti: dict[str, Atto] = {}
+    da = min(dal, al - FINESTRA_RECENTI)
     for denominazione in PERIMETRO:
-        da = min(dal, al - FINESTRA_DL) if denominazione == "DECRETO-LEGGE" else dal
         for anno in range((da - RITARDO_GAZZETTA).year, al.year + 1):
             for urn, atto in catalogo(client, denominazione, anno).items():
                 if (atto.gazzetta_data or atto.data) >= da:
@@ -129,40 +133,45 @@ def estrai_aggiornamento(
         f"({', '.join(f'{t} {n}' for t, n in Counter(a.tipo for a in cambiati.values()).most_common()) or 'nessuno'})"
     )
     rapporto.aggiungi(
-        f"- atti pubblicati nella finestra (D.L. negli ultimi {FINESTRA_DL.days} giorni): {len(recenti)} "
+        f"- atti pubblicati negli ultimi {(al - min(dal, al - FINESTRA_RECENTI)).days} giorni: {len(recenti)} "
         f"({', '.join(f'{t} {n}' for t, n in Counter(a.tipo for a in recenti.values()).most_common()) or 'nessuno'})"
     )
 
     righe: list[Atto] = []
+    esportati_totale = 0
     gruppi = per_gruppo(atti.values())
     with tempfile.TemporaryDirectory() as temporanea:
         for (denominazione, anno), gruppo in gruppi.items():
             storie, mancanti = storie_del_gruppo(client, Path(temporanea), denominazione, anno, gruppo)
-            uniti, discrepanze = unisci(gruppo, storie, None)
-            # Senza export l'atto non si riscrive: resta com'era, e il prossimo giro lo riprova.
-            esportati = [a for a in uniti if a.abrogato is not None]
-            righe += esportati
-            if mancanti or len(esportati) < len(gruppo):
+            # Con le versioni recenti illeggibili note e stato sarebbero vecchi: l'atto conta come senza export.
+            complete = [s for s in storie if s.completa]
+            uniti, discrepanze = unisci(gruppo, complete, None)
+            # Gli atti senza export restano nel file con `abrogato` None: il caricamento decide (vedi sopra).
+            righe += uniti
+            esportati = sum(1 for a in uniti if a.abrogato is not None)
+            nel_gruppo = {chiave_urn(urn) for urn in gruppo}
+            illeggibili = sum(1 for s in storie if not s.completa and s.urn in nel_gruppo)
+            if esportati < len(gruppo):
                 rapporto.aggiungi(
-                    f"- {anno} {denominazione}: senza export {len(gruppo) - len(esportati)} su {len(gruppo)}"
+                    f"- {anno} {denominazione}: senza export {len(gruppo) - esportati} su {len(gruppo)}"
+                    + (f", di cui con l'ultima versione illeggibile {illeggibili}" if illeggibili else "")
                     + (f" ({', '.join(mancanti)})" if mancanti else "")
                 )
+            esportati_totale += esportati
             logger.info("%s %s: %s atti, export %s, discrepanze %s", anno, denominazione, len(gruppo), len(storie), dict(discrepanze))
     with (uscita / FILE_ATTI).open("w", encoding="utf-8") as scritto:
         for atto in sorted(righe, key=lambda a: (a.data, a.tipo, a.numero)):
             scritto.write(json.dumps(atto.in_json(), ensure_ascii=False) + "\n")
-    rapporto.aggiungi(f"Atti riesportati: {len(righe)} su {len(atti)}, in {len(gruppi)} gruppi per tipo e anno")
+    rapporto.aggiungi(f"Atti riesportati: {esportati_totale} su {len(atti)}, in {len(gruppi)} gruppi per tipo e anno")
 
-    # Le premesse non cambiano con le modifiche: servono solo per i D.L. e D.Lgs. nuovi.
+    # Le premesse non cambiano con le modifiche: servono solo per i D.L. e D.Lgs. recenti. Si rileggono per
+    # tutti i 90 giorni perché il testo degli atti appena pubblicati a volte non si legge ancora (errore 500).
     conti_premesse: Counter = Counter()
-    con_premessa = [
-        a for a in recenti.values()
-        if DENOMINAZIONI[a.tipo] in contesto.TIPI_CON_PREMESSA and (a.gazzetta_data or a.data) >= dal
-    ]
+    con_premessa = [a for a in recenti.values() if DENOMINAZIONI[a.tipo] in contesto.TIPI_CON_PREMESSA]
     premesse = contesto.premesse_di(client, con_premessa, conti_premesse, pausa)
     contesto.scrivi_premesse(uscita / FILE_PREMESSE, premesse)
     rapporto.aggiungi(
-        f"Premesse dei D.L. e D.Lgs. nuovi: {len(premesse)}"
+        f"Premesse dei D.L. e D.Lgs. recenti: {len(premesse)}"
         + (f" ({', '.join(f'{chiave} {n}' for chiave, n in sorted(conti_premesse.items()))})" if conti_premesse else "")
     )
     return rapporto
@@ -176,8 +185,10 @@ def atto_dal_catalogo(riga: tuple) -> Atto:
 def carica_aggiornamento(conn: psycopg.Connection, cartella: Path, client: Normattiva | None = None) -> Rapporto:
     """Atti aggiornati e premesse dei nuovi nel database, dopo il caricamento completo di Normattiva."""
     db.crea_schema(conn)
-    atti = leggi_atti(cartella)
+    letti = leggi_atti(cartella)
     nel_database = {riga[0]: atto_dal_catalogo(riga) for riga in db.leggi_catalogo(conn)}
+    # Senza export (`abrogato` None) un atto già nel database resta com'è; uno nuovo entra con i dati del catalogo.
+    atti = [a for a in letti if a.abrogato is not None or a.urn not in nel_database]
     for atto in atti:
         # Con più pubblicazioni in Gazzetta si tiene la più vecchia (come `unisci_pubblicazioni`):
         # il flusso degli aggiornati può portare la ripubblicazione.
@@ -190,7 +201,9 @@ def carica_aggiornamento(conn: psycopg.Connection, cartella: Path, client: Norma
     rapporto = carica(conn, atti, client, noti=noti)
     rapporto.aggiungi(
         f"- già nel database: {sum(1 for a in atti if a.urn in nel_database)}; "
-        f"nuovi: {sum(1 for a in atti if a.urn not in nel_database)}; atti nel database prima: {len(nel_database)}"
+        f"nuovi: {sum(1 for a in atti if a.urn not in nel_database)} "
+        f"(di cui senza export, solo dal catalogo: {sum(1 for a in atti if a.abrogato is None)}); "
+        f"senza export e lasciati come erano: {len(letti) - len(atti)}; atti nel database prima: {len(nel_database)}"
     )
     rapporto.righe += contesto.carica_premesse(conn, contesto.leggi_premesse(cartella)).righe
     return rapporto

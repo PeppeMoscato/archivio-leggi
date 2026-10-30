@@ -2,6 +2,7 @@
 
 import json
 import os
+import zipfile
 from datetime import date
 
 import pytest
@@ -23,6 +24,8 @@ SIRCHIA = "urn:nir:stato:legge:2003-01-16;3"
 LEGGE_2010 = "urn:nir:stato:legge:2010-02-01;7"
 DL_90 = "urn:nir:stato:decreto.legge:2026-08-01;90"
 LEGGE_180 = "urn:nir:stato:legge:2026-09-25;180"
+CAD = "urn:nir:stato:decreto.legislativo:2005-03-07;82"
+LEGGE_210 = "urn:nir:stato:legge:2026-10-28;210"
 
 
 def trovato(denominazione, emanazione, numero, pubblicazione, codice, titolo="Titolo"):
@@ -33,6 +36,7 @@ def trovato(denominazione, emanazione, numero, pubblicazione, codice, titolo="Ti
 MODIFICATI = [
     trovato("LEGGE", date(2003, 1, 16), "3", date(2003, 1, 20), "003G0007", "Sirchia"),
     trovato("LEGGE", date(2010, 2, 1), "7", date(2010, 2, 3), "010G0007", "Senza export"),
+    trovato("DECRETO LEGISLATIVO", date(2005, 3, 7), "82", date(2005, 5, 16), "005G0104", "CAD, ultima versione vuota"),
     trovato("DECRETO DEL PRESIDENTE DELLA REPUBBLICA", date(2001, 1, 5), "5", date(2001, 1, 9), "001G0005"),
     trovato("LEGGE", date(1985, 6, 1), "200", date(1985, 6, 5), "085G0200", "Prima del 1990"),
 ]
@@ -58,6 +62,7 @@ STORIE = {
     DL_100: storia(DL_100, "DECRETO-LEGGE", "100", "2026-09-01"),
     DL_150: storia(DL_150, "DECRETO-LEGGE", "150", "2026-10-20"),
     LEGGE_200: storia(LEGGE_200, "LEGGE", "200", "2026-10-25"),
+    CAD: storia(CAD, "DECRETO LEGISLATIVO", "82", "2005-03-07"),
 }
 
 
@@ -87,7 +92,11 @@ class ClientFinto:
                 return None
 
             def save(self, percorso):
-                return scrivi_export(percorso, [STORIE[urn] for urn in scelte])
+                scrivi_export(percorso, [STORIE[urn] for urn in scelte])
+                if CAD in scelte:  # come il D.Lgs. 82/2005 nella prova del 30/10/2026
+                    with zipfile.ZipFile(percorso, "a") as archivio:
+                        archivio.writestr(f"{STORIE[CAD]['cartella']}/{STORIE[CAD]['cartella']}_VIGENZA_2026-04-21_V2.json", "")
+                return percorso
 
         return Export()
 
@@ -113,20 +122,24 @@ def test_estrai_aggiornamento(tmp_path, cataloghi):
 
     # Un giorno alla volta, dal 16 al 29 ottobre (il 30 è l'ultimo giorno della finestra).
     assert len(client.giorni) == 14 and client.giorni[-1] == (date(2026, 10, 29), AL)
-    # Modificati nel perimetro, nuovi della finestra, D.L. degli ultimi 90 giorni; senza export la L. 7/2010.
-    assert set(atti) == {SIRCHIA, DL_100, DL_150, LEGGE_200}
+    # Modificati nel perimetro e atti degli ultimi 90 giorni; senza export (abrogato None) la L. 7/2010 e il CAD,
+    # che ha l'ultima versione vuota.
+    assert set(atti) == {SIRCHIA, DL_100, DL_150, LEGGE_200, LEGGE_2010, CAD}
+    assert atti[LEGGE_2010].abrogato is None and atti[CAD].abrogato is None and atti[CAD].note == []
     assert atti[SIRCHIA].note[0].riferimenti[0].codice == "26G00200"
     assert atti[DL_100].abrogato is False
     # Gruppi piccoli: un export per atto, con le coordinate dell'atto.
     assert {(c["denominazione"], c["anno"], c.get("numero")) for c in client.export} >= {("LEGGE", 2003, "3"), ("DECRETO-LEGGE", 2026, "100")}
-    # Premesse solo per i D.L. e D.Lgs. pubblicati nella finestra, non per il D.L. di settembre.
-    assert client.testi == [DL_150]
-    (premessa,) = [json.loads(r) for r in (tmp_path / aggiornamento.FILE_PREMESSE).read_text().splitlines()]
-    assert premessa["urn"] == DL_150 and premessa["motivazioni"]
+    # Premesse dei D.L. e D.Lgs. degli ultimi 90 giorni, non delle leggi.
+    assert client.testi == [DL_100, DL_150]
+    premesse = [json.loads(r) for r in (tmp_path / aggiornamento.FILE_PREMESSE).read_text().splitlines()]
+    assert [p["urn"] for p in premesse] == [DL_100, DL_150] and all(p["motivazioni"] for p in premesse)
     testo = rapporto.testo()
-    assert "atti modificati nel flusso di Normattiva: 4, nel perimetro: 2" in testo
+    assert "atti modificati nel flusso di Normattiva: 5, nel perimetro: 3" in testo
+    assert "atti pubblicati negli ultimi 90 giorni: 3" in testo
     assert "2010 LEGGE: senza export 1 su 1" in testo
-    assert "Atti riesportati: 4 su 5" in testo
+    assert "2005 DECRETO LEGISLATIVO: senza export 1 su 1, di cui con l'ultima versione illeggibile 1" in testo
+    assert "Atti riesportati: 4 su 6" in testo
 
 
 def test_gruppi_grandi_con_export_dell_anno(tmp_path, cataloghi, monkeypatch):
@@ -177,9 +190,11 @@ def test_carica_aggiornamento(conn, tmp_path):
                           gazzetta_data=date(2026, 9, 30), gazzetta_codice="26G00180", abrogato=False)
     sirchia = Atto(SIRCHIA, "legge", "3", date(2003, 1, 16), "Sirchia", gazzetta_data=date(2003, 1, 20), gazzetta_codice="003G0007",
                    abrogato=False)
+    abrogata = Atto(LEGGE_2010, "legge", "7", date(2010, 2, 1), "Abrogata", gazzetta_data=date(2010, 2, 3), abrogato=True,
+                    data_abrogazione=date(2020, 1, 1))
     # Il database dopo il caricamento completo.
     carica(conn, [dl(DL_90, "90", date(2026, 8, 1), date(2026, 8, 1), "26G00090"), conversione_90,
-                  dl(DL_100, "100", date(2026, 9, 1), date(2026, 9, 1), "26G00100"), sirchia], ClientSenzaRisposte())
+                  dl(DL_100, "100", date(2026, 9, 1), date(2026, 9, 1), "26G00100"), sirchia, abrogata], ClientSenzaRisposte())
 
     modifica = Nota("La L. 25 ottobre 2026, n. 200 ha disposto (con l'art. 1, comma 1) la modifica dell'art. 51.",
                     (Riferimento("26G00200", date(2026, 10, 27)),))
@@ -193,13 +208,18 @@ def test_carica_aggiornamento(conn, tmp_path):
         legge_200,
         Atto(SIRCHIA, "legge", "3", date(2003, 1, 16), "Sirchia", gazzetta_data=date(2003, 1, 20), gazzetta_codice="003G0007",
              abrogato=False, note=[modifica]),
+        # Senza export: quella già nel database resta com'è, quella nuova entra dal catalogo.
+        Atto(LEGGE_2010, "legge", "7", date(2010, 2, 1), "Abrogata", gazzetta_data=date(2010, 2, 3)),
+        Atto(LEGGE_210, "legge", "210", date(2026, 10, 28), "Appena pubblicata", gazzetta_data=date(2026, 10, 29)),
     ], [{"urn": DL_100, "tipo": "decreto-legge", "motivazioni": ["Ritenuta la straordinaria necessità ed urgenza"],
          "citazioni": [], "proposta": None, "deleghe": [], "fonte_url": "https://www.normattiva.it/"}])
 
     rapporto = aggiornamento.carica_aggiornamento(conn, tmp_path / "dati", ClientSenzaRisposte())
     with conn.cursor() as cur:
         cur.execute("SELECT count(*) FROM legge")
-        assert cur.fetchone() == (5,)
+        assert cur.fetchone() == (7,)
+        cur.execute("SELECT urn, stato, data_abrogazione FROM legge WHERE urn IN (%s, %s) ORDER BY urn", (LEGGE_2010, LEGGE_210))
+        assert cur.fetchall() == [(LEGGE_2010, "abrogata", date(2020, 1, 1)), (LEGGE_210, "vigente", None)]
         cur.execute("SELECT gazzetta_data, gazzetta_codice FROM legge WHERE urn = %s", (DL_100,))
         assert cur.fetchone() == (date(2026, 9, 1), "26G00100")
         cur.execute("SELECT urn_destinazione, urn_origine FROM relazione_normativa WHERE tipo = 'converte' ORDER BY 1")
@@ -210,4 +230,5 @@ def test_carica_aggiornamento(conn, tmp_path):
         cur.execute("SELECT urn FROM premessa")
         assert cur.fetchall() == [(DL_100,)]
     testo = rapporto.testo()
-    assert "Atti caricati: 4" in testo and "nuovi: 1" in testo and "Premesse caricate: 1" in testo
+    assert "Atti caricati: 5" in testo and "Premesse caricate: 1" in testo
+    assert "nuovi: 2 (di cui senza export, solo dal catalogo: 1); senza export e lasciati come erano: 1" in testo

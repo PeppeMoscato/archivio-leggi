@@ -409,3 +409,5 @@ def test_leggi_storie_salta_i_file_vuoti(tmp_path):
     (storia,) = list(leggi_storie(percorso))
     assert storia.urn == MERLONI
     assert storia.versioni == 3
+    # L'ultima versione è vuota: note e stato vengono dalla V2, e l'aggiornamento settimanale non riscrive l'atto.
+    assert storia.completa is False

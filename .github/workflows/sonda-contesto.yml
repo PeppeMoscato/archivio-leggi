@@ -4,11 +4,6 @@ name: Sonda contesto delle leggi
 # e pubblica il report nel riepilogo del job.
 on:
   workflow_dispatch:
-  push:
-    branches-ignore: [main]
-    paths:
-      - "ingest/sonda_contesto.py"
-      - ".github/workflows/sonda-contesto.yml"
   pull_request:
     paths:
       - "ingest/sonda_contesto.py"

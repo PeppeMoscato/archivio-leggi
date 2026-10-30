@@ -8,7 +8,7 @@ from archivio import db
 OGGETTI = (
     "DROP VIEW IF EXISTS legge_estesa, voto_gruppo; "
     "DROP TABLE IF EXISTS votazione, firmatario, fase_iter, iter, adesione_gruppo, denominazione_gruppo, gruppo, "
-    "parlamentare, governo_partito, relazione_normativa, pronuncia_costituzionale, gazzetta_urn, legge, governo CASCADE"
+    "parlamentare, governo_partito, premessa, relazione_normativa, pronuncia_costituzionale, gazzetta_urn, legge, governo CASCADE"
 )
 
 

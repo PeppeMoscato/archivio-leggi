@@ -66,7 +66,7 @@ def test_decreto_legge_motivazioni_e_citazioni():
         "Vista la deliberazione del Consiglio dei Ministri, adottata nella riunione del 30 giugno 2006;",
     ]
     assert premessa.proposta.startswith("Sulla proposta del Presidente del Consiglio dei Ministri, del Ministro dell'economia")
-    assert premessa.urn_delega == []
+    assert premessa.deleghe == []
 
 
 def test_legge_ordinaria_senza_premessa():
@@ -77,5 +77,6 @@ def test_decreto_legislativo_legge_delega():
     premessa = premessa_da_html(DLGS)
     assert premessa.motivazioni == []
     assert len(premessa.citazioni) == 3
-    assert premessa.urn_delega == ["urn:nir:stato:legge:2014-12-10;183"]
+    assert [(d.urn, d.articolo) for d in premessa.deleghe] == [("urn:nir:stato:legge:2014-12-10;183", None)]
+    assert premessa.deleghe[0].citazione.startswith("Vista la legge 10 dicembre 2014, n. 183, recante deleghe")
     assert "fine" not in " ".join(premessa.citazioni)

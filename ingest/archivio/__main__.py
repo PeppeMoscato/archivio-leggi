@@ -3,6 +3,9 @@
     python -m archivio estrai --anni 2003 2004 --uscita dati/
     python -m archivio carica --da dati/            # DATABASE_URL nell'ambiente
 
+    python -m archivio premesse-estrai --anni 1990- --uscita dati/   # premesse di D.L. e D.Lgs.
+    python -m archivio premesse-carica --da dati/   # dopo carica; DATABASE_URL nell'ambiente
+
     python -m archivio senato-estrai --legislature 13-19 --uscita dati/
     python -m archivio senato-persone --uscita dati/
     python -m archivio senato-carica --da dati/     # DATABASE_URL nell'ambiente
@@ -26,7 +29,7 @@ from pathlib import Path
 
 from normattiva import Normattiva
 
-from archivio import camera, db, parlamento, senato
+from archivio import camera, contesto, db, parlamento, senato
 from archivio.pipeline import PERIMETRO, Rapporto, carica, estrai, leggi_atti
 from archivio.sparql import USER_AGENT
 
@@ -56,6 +59,11 @@ def main(argomenti: list[str] | None = None) -> int:
     p_carica = comandi.add_parser("carica", help="dai JSONL al database")
     p_carica.add_argument("--da", type=Path, required=True)
     p_carica.add_argument("--senza-api", action="store_true", help="non chiamare Normattiva per i riferimenti")
+    p_premesse = comandi.add_parser("premesse-estrai", help="premesse dei D.L. e dei D.Lgs. da Normattiva, un JSONL per anno")
+    p_premesse.add_argument("--anni", nargs="+", required=True, help="es. 2006, 1990-1995, 1990-")
+    p_premesse.add_argument("--uscita", type=Path, required=True)
+    p_premesse_carica = comandi.add_parser("premesse-carica", help="dai JSONL delle premesse al database (dopo carica)")
+    p_premesse_carica.add_argument("--da", type=Path, required=True)
     p_senato = comandi.add_parser("senato-estrai", help="iter e votazioni da dati.senato.it, un JSON per legislatura")
     p_senato.add_argument("--legislature", nargs="+", required=True, help="es. 15, 13-19")
     p_senato.add_argument("--uscita", type=Path, required=True)
@@ -81,6 +89,12 @@ def main(argomenti: list[str] | None = None) -> int:
         with Normattiva(user_agent=USER_AGENT, timeout=300.0) as client:
             rapporto = estrai(client, elenco, opzioni.uscita, opzioni.tipi)
         pubblica(f"Estrazione {elenco[0]}–{elenco[-1]}", rapporto.testo())
+        return 0
+    if opzioni.comando == "premesse-estrai":
+        elenco = sorted({anno for testo in opzioni.anni for anno in anni(testo)})
+        with Normattiva(user_agent=USER_AGENT, timeout=120.0) as client:
+            rapporto = contesto.estrai_premesse(client, elenco, opzioni.uscita)
+        pubblica(f"Premesse {elenco[0]}–{elenco[-1]}", rapporto.testo())
         return 0
     if opzioni.comando == "senato-estrai":
         rapporto = Rapporto()
@@ -145,6 +159,11 @@ def main(argomenti: list[str] | None = None) -> int:
     if not dsn:
         print("DATABASE_URL non impostata", file=sys.stderr)
         return 2
+    if opzioni.comando == "premesse-carica":
+        with db.connetti(dsn) as conn:
+            rapporto = contesto.carica_premesse(conn, contesto.leggi_premesse(opzioni.da))
+        pubblica("Caricamento premesse", rapporto.testo())
+        return 0
     if opzioni.comando == "camera-carica":
         with db.connetti(dsn) as conn:
             rapporto = parlamento.carica_camera(conn, opzioni.da)

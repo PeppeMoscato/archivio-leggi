@@ -79,6 +79,25 @@ def test_dettaglio(client):
     }
 
 
+def test_premessa(client):
+    premessa = client.get(f"/leggi/{DL1}").json()["premessa"]
+    assert premessa["motivazioni"] == ["Ritenuta la straordinaria necessità ed urgenza di adottare misure di prova;"]
+    assert premessa["citazioni"][0] == "Visti gli articoli 77 e 87 della Costituzione;"
+    assert premessa["proposta"].startswith("Sulla proposta")
+    assert client.get(f"/leggi/{L241}").json()["premessa"] is None
+
+
+def test_premessa_senza_schema_v14(client):
+    # Su un database con lo schema v1.3 (tabella e colonna assenti) il dettaglio e l'iter rispondono lo stesso.
+    from archivio_api import query
+
+    with client.app.state.pool.connection() as conn:
+        conn.execute("SAVEPOINT prima")
+        conn.execute("SET LOCAL search_path TO pg_catalog")  # premessa, legge, ... non si vedono più
+        assert query.premessa(conn, DL1) is None
+        conn.execute("ROLLBACK TO SAVEPOINT prima")
+
+
 def test_urn_con_punto_e_virgola_codificato(client):
     # Un client può codificare ";" e ":" nel percorso: l'URN arriva uguale.
     assert client.get("/leggi/urn%3Anir%3Astato%3Alegge%3A1990-08-07%3B241").json()["urn"] == L241
@@ -119,6 +138,8 @@ def test_iter(client):
     assert (iter_["legislatura"], iter_["iniziativa"]) == (14, "governativa")
     assert [(f["ramo"], f["numero"], f["numero_votazioni"]) for f in iter_["fasi"]] == [("senato", "S.795", 2), ("camera", "C.2122", 0)]
     assert iter_["fasi"][0]["firmatari"][0]["primo_firmatario"] is True
+    assert iter_["fasi"][0]["testo_presentato"] == "urn:nir:senato.repubblica:disegno.legge:14.legislatura;795"
+    assert iter_["fasi"][1]["testo_presentato"] is None
     assert client.get(f"/leggi/{L241}/iter").json() == []
 
 

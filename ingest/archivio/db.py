@@ -119,7 +119,8 @@ def sostituisci_relazioni(
     """Cancella relazioni in entrata e pronunce degli atti indicati e scrive quelle nuove."""
     urn_atti = list(urn_atti)
     with conn.cursor() as cur:
-        cur.execute("DELETE FROM relazione_normativa WHERE urn_destinazione = ANY(%s)", (urn_atti,))
+        # Le relazioni `delega` vengono dalle premesse (pipeline `premesse-carica`), non dalle note: restano.
+        cur.execute("DELETE FROM relazione_normativa WHERE urn_destinazione = ANY(%s) AND tipo <> 'delega'", (urn_atti,))
         cur.execute("DELETE FROM pronuncia_costituzionale WHERE urn_legge = ANY(%s)", (urn_atti,))
         cur.executemany(
             """

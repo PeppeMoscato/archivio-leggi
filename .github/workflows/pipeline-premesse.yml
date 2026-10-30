@@ -1,0 +1,171 @@
+name: Pipeline premesse
+
+# Premesse dei decreti-legge e dei decreti legislativi da Normattiva → Postgres (contesto delle leggi, schema v1.4):
+# motivazioni ("Ritenuta la straordinaria necessità ed urgenza di..."), citazioni, proposta e legge delega.
+# Un job di estrazione per anno, poi un caricamento unico. Lanciato a mano scrive su Neon solo con "scrivi_su_neon"
+# spuntato e il secret DATABASE_URL (le leggi devono essere già su Neon); altrimenti, e sulle pull request, usa un
+# Postgres temporaneo con gli atti dell'anno di prova e pubblica il dump come artifact.
+on:
+  workflow_dispatch:
+    inputs:
+      anni:
+        description: "Anni da estrarre: 2006, 1990-1995, 1990- (fino a oggi)"
+        default: "1990-"
+      scrivi_su_neon:
+        description: "Scrivi su Neon (secret DATABASE_URL)"
+        type: boolean
+        default: false
+  pull_request:
+    paths:
+      - "ingest/archivio/premesse.py"
+      - "ingest/archivio/contesto.py"
+      - "ingest/archivio/schema.sql"
+      - ".github/workflows/pipeline-premesse.yml"
+
+concurrency:
+  group: pipeline-premesse-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  anni:
+    runs-on: ubuntu-latest
+    outputs:
+      elenco: ${{ steps.elenco.outputs.elenco }}
+    steps:
+      - id: elenco
+        env:
+          # Sulle pull request basta un anno di prova (2006: c'è il D.L. Bersani, n. 11 dell'MVP).
+          ANNI: ${{ inputs.anni || '2006' }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import datetime, json, os
+          inizio, _, fine = os.environ["ANNI"].partition("-")
+          fine = fine or (str(datetime.date.today().year) if "-" in os.environ["ANNI"] else inizio)
+          print("elenco=" + json.dumps(list(range(int(inizio), int(fine) + 1))))
+          PY
+
+  estrai:
+    needs: anni
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      max-parallel: 4  # una richiesta per atto: restiamo prudenti con Normattiva
+      matrix:
+        anno: ${{ fromJSON(needs.anni.outputs.elenco) }}
+    defaults:
+      run:
+        working-directory: ingest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - run: python -m archivio premesse-estrai --anni ${{ matrix.anno }} --uscita dati
+      - uses: actions/upload-artifact@v4
+        with:
+          name: premesse-${{ matrix.anno }}
+          path: ingest/dati/premesse_${{ matrix.anno }}.jsonl
+          retention-days: 30
+
+  # Solo per le prove: gli atti dell'anno da Normattiva, perché le premesse si caricano solo per atti già in `legge`.
+  normattiva:
+    needs: anni
+    if: ${{ !inputs.scrivi_su_neon }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        anno: ${{ fromJSON(needs.anni.outputs.elenco) }}
+    defaults:
+      run:
+        working-directory: ingest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - run: python -m archivio estrai --anni ${{ matrix.anno }} --uscita normattiva
+      - uses: actions/upload-artifact@v4
+        with:
+          name: normattiva-prova-${{ matrix.anno }}
+          path: ingest/normattiva/atti_*.jsonl
+          retention-days: 7
+
+  carica:
+    needs: [estrai, normattiva]
+    if: ${{ !cancelled() && needs.estrai.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: archivio
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      LOCALE: postgresql://postgres:postgres@localhost:5432/archivio
+      NEON: ${{ github.event_name == 'workflow_dispatch' && inputs.scrivi_su_neon && secrets.DATABASE_URL || '' }}
+    defaults:
+      run:
+        working-directory: ingest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: premesse-*
+          path: ingest/dati
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        if: env.NEON == ''
+        with:
+          pattern: normattiva-prova-*
+          path: ingest/normattiva
+          merge-multiple: true
+      - name: Atti di prova da Normattiva
+        if: env.NEON == ''
+        run: DATABASE_URL="$LOCALE" python -m archivio carica --da normattiva --senza-api
+      - name: Carica
+        run: |
+          if [ -n "$NEON" ]; then
+            echo "Destinazione: Neon (secret DATABASE_URL)" | tee -a "$GITHUB_STEP_SUMMARY"
+            export DATABASE_URL="$NEON"
+          else
+            echo "Destinazione: Postgres temporaneo del job" | tee -a "$GITHUB_STEP_SUMMARY"
+            export DATABASE_URL="$LOCALE"
+          fi
+          python -m archivio premesse-carica --da dati
+      - name: Esempi
+        if: env.NEON == ''
+        run: |
+          {
+            echo "## Esempi"
+            echo
+            PGPASSWORD=postgres psql -h localhost -U postgres -d archivio -At -c "
+              SELECT '- ' || l.tipo || ' ' || l.numero || '/' || extract(year FROM l.data) || ': ' || left(p.motivazioni[1], 300)
+              FROM premessa p JOIN legge l USING (urn) WHERE cardinality(p.motivazioni) > 0 ORDER BY l.data LIMIT 5"
+            PGPASSWORD=postgres psql -h localhost -U postgres -d archivio -At -c "
+              SELECT '- delega: ' || r.urn_origine || ' → ' || r.urn_destinazione || ' (' || left(r.nota, 200) || ')'
+              FROM relazione_normativa r WHERE r.tipo = 'delega' LIMIT 5"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Dump del Postgres temporaneo
+        if: env.NEON == ''
+        run: |
+          PGPASSWORD=postgres pg_dump -h localhost -U postgres -d archivio --no-owner -t premessa | gzip > premesse.sql.gz
+          ls -lh premesse.sql.gz
+      - uses: actions/upload-artifact@v4
+        if: env.NEON == ''
+        with:
+          name: premesse-db
+          path: ingest/premesse.sql.gz
+          retention-days: 30

@@ -27,9 +27,16 @@ ARTICOLO = "article-num-akn"
 _MOTIVAZIONE = re.compile(r"^ritenut[aoie]\b", re.I)
 _PROPOSTA = re.compile(r"^sulla\s+proposta\b", re.I)
 _DELEGA = re.compile(r"\bdeleg", re.I)
-_URN = re.compile(r"(urn:nir:[^~#\"'\s&]+)")
+_URN = re.compile(r"(urn:nir:[^~#\"'\s&]+)(?:~art(\w+))?")
 _SPAZI = re.compile(r"\s+")
 _VUOTI = frozenset({"br", "img", "hr", "input", "meta", "link", "col", "wbr"})
+
+
+@dataclass
+class Delega:
+    urn: str  # la legge citata, senza articolo
+    articolo: str | None  # "1", "14bis": dal link (~art1-com7), quando c'è
+    citazione: str  # la frase della premessa, da cui si verifica
 
 
 @dataclass
@@ -37,7 +44,7 @@ class Premessa:
     citazioni: list[str] = field(default_factory=list)  # "Visto ...", "Vista la deliberazione ...", "Acquisito il parere ..."
     motivazioni: list[str] = field(default_factory=list)  # "Ritenuta la straordinaria necessità ed urgenza di ..."
     proposta: str | None = None  # "Sulla proposta del Presidente del Consiglio dei Ministri ..."
-    urn_delega: list[str] = field(default_factory=list)  # atti citati in una premessa che parla di delega
+    deleghe: list[Delega] = field(default_factory=list)  # leggi citate in una premessa che parla di delega
 
     @property
     def vuota(self) -> bool:
@@ -47,11 +54,11 @@ class Premessa:
 class _Lettore(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
-        self.blocchi: list[tuple[str, str, list[str]]] = []  # (classe, testo, urn dei link)
+        self.blocchi: list[tuple[str, str, list[tuple[str, str]]]] = []  # (classe, testo, (urn, articolo) dei link)
         self._aperto: tuple[str, int] | None = None  # classe del blocco e profondità a cui si chiude
         self._profondita = 0
         self._testo: list[str] = []
-        self._link: list[str] = []
+        self._link: list[tuple[str, str]] = []
         self.finita = False
 
     def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
@@ -100,6 +107,9 @@ def premessa_da_html(testo_html: str) -> Premessa:
             premessa.proposta = testo
         else:
             premessa.citazioni.append(testo)
-        if _DELEGA.search(testo):
-            premessa.urn_delega += [urn for urn in link if urn.startswith("urn:nir:stato:legge") and urn not in premessa.urn_delega]
+        # La prima legge citata: "Vista la legge 10 dicembre 2014, n. 183, recante deleghe al Governo ...,
+        # e in particolare l'articolo 1, comma 7, come modificato dalla legge ..." → la 183/2014.
+        legge = next(((urn, articolo) for urn, articolo in link if urn.startswith("urn:nir:stato:legge")), None)
+        if legge and _DELEGA.search(testo) and legge[0] not in {d.urn for d in premessa.deleghe}:
+            premessa.deleghe.append(Delega(legge[0], legge[1] or None, testo))
     return premessa

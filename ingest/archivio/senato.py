@@ -64,6 +64,9 @@ class Fase:
     data_stato: date | None
     numeri_legge: list[int] = field(default_factory=list)
     date_legge: list[date] = field(default_factory=list)
+    # Identificativo del testo presentato (con la relazione illustrativa), es.
+    # urn:nir:senato.repubblica:disegno.legge:14.legislatura;1271; c'è in circa il 38% delle fasi (sonda del 29/10/2026).
+    testo_presentato: str | None = None
 
 
 @dataclass
@@ -258,13 +261,15 @@ def estrai_fasi(sparql: Sparql, leg: int) -> dict[str, Fase]:
     osr:numeroFase ?numero ; osr:titolo ?titolo ; osr:natura ?natura .
   {ITER_DIVENTATI_LEGGE.format(leg=leg)}
   OPTIONAL {{ ?fase osr:dataPresentazione ?pres }} OPTIONAL {{ ?fase osr:statoDdl ?stato }} OPTIONAL {{ ?fase osr:dataStatoDdl ?dataStato }}
+  OPTIONAL {{ ?fase osr:testoPresentato ?testo }}
   %DOPO% }}"""
     fasi: dict[str, Fase] = {}
     for r in scorri(sparql, modello, "fase"):
-        fasi.setdefault(r["fase"], Fase(
+        fase = fasi.setdefault(r["fase"], Fase(
             r["fase"], r["id"], _intero(r["progr"]) or 0, r["ramo"], r["numero"], r["titolo"], r["natura"],
             _data(r.get("pres")), r.get("stato"), _data(r.get("dataStato")),
         ))
+        fase.testo_presentato = fase.testo_presentato or r.get("testo")
     oggi = date.today()
     modello = f"""SELECT ?fase ?n ?d WHERE {{ ?fase a osr:Ddl ; osr:legislatura {leg} ; osr:numeroLegge ?n .
   OPTIONAL {{ ?fase osr:dataLegge ?d }} %DOPO% }}"""

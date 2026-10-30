@@ -96,7 +96,7 @@ Le tabelle delle schede non sono ancora nella DDL: si creano in Fase 2, dopo le 
 | `governo_id` | governo in carica alla data di emanazione |
 | `materia` | non disponibile da Normattiva: resta vuota |
 
-Le relazioni `converte` vengono dalle note di aggiornamento del D.L. e, perché le note la citano solo a volte, dal titolo della legge di conversione ("Conversione in legge, con modificazioni, del decreto-legge 28 gennaio 2019, n. 4"): in quel caso `nota` contiene il titolo della legge.
+Le relazioni `converte` vengono dalle note di aggiornamento del D.L. e, perché le note la citano solo a volte, dal titolo della legge di conversione ("Conversione in legge, con modificazioni, del decreto-legge 28 gennaio 2019, n. 4"): in quel caso `nota` contiene il titolo della legge. Dalle note conta come conversione solo un'azione che comincia con "la conversione ... del D.L." o "del presente decreto" (non le citazioni come "la legge di conversione del presente decreto"), e solo sul D.L. che la nota nomina: Normattiva mette la stessa nota anche sugli atti che il D.L. convertito modifica, e lì la relazione è una `modifica`.
 
 ## Storico modifiche dello schema
 - v1.4 (2026-10-30): contesto delle leggi. Nuova tabella `premessa` (motivazioni, citazioni e proposta dei D.L. e dei D.Lgs.); in `fase_iter` aggiunto `testo_presentato`; le relazioni `delega` vengono dalle premesse dei D.Lgs. e le scrive solo la pipeline premesse. In `schema.sql` (idempotente: `CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`).

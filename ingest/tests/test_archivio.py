@@ -6,9 +6,9 @@ from archivio.catalogo import numero_pulito, unisci_pubblicazioni
 from archivio.governi import carica as carica_governi
 from archivio.governi import governo_alla_data
 from archivio.modelli import Atto, Nota, Riferimento
-from archivio.note import PRONUNCIA, classifica
+from archivio.note import PRONUNCIA, classifica, nomina_conversione
 from archivio.pipeline import riga_legge, unisci
-from archivio.relazioni import Risolutore, conversioni_dai_titoli, convertito_dal_titolo, data_decadenza, relazioni_di, stato_di
+from archivio.relazioni import Risolutore, conversioni_dai_titoli, convertito_dal_titolo, convertito_dalla_nota, data_decadenza, relazioni_di, stato_di
 from archivio.storia import chiave_urn, leggi_storie
 from fixture_export import aggiornamento, articolo, metadati, scrivi_export
 
@@ -66,6 +66,19 @@ def atto(urn: str, tipo: str = "legge", **campi) -> Atto:
          [("modifica", "art. 1, comma 1", "tabelle dalla 1 alla 15")]),
         ("Il D.L. 30 dicembre 2005, n. 273 ha disposto (con l'art. 1, comma 1) la proroga del termine previsto dall'art. 3.",
          [("proroga", "art. 1, comma 1", "termine previsto dall'art. 3")]),
+        ("La L. 4 aprile 2012, n. 35 ha disposto la conversione in legge, con modificazioni, del D.L. 9 febbraio 2012, n. 5.",
+         [("converte", None, None)]),
+        # "conversione" in una citazione non è una conversione (L. 241/1990, 30/10/2026).
+        ("Il D.L. 9 febbraio 2012, n. 5, convertito con modificazioni dalla L. 4 aprile 2012, n. 35, ha disposto "
+         "(con l'art. 62, comma 2) che \"Le disposizioni di cui al comma 1 si applicano dalla data di entrata in vigore "
+         "della legge di conversione del presente decreto\".",
+         [("modifica", None, None)]),
+        ("ha disposto (con l'art. 1, comma 1) la conversione in legge, con modificazioni, del presente decreto.",
+         [("converte", "art. 1, comma 1", None)]),
+        ("ha disposto (con l'art. 51, comma 1) la conversione in euro degli importi espressi in lire.",
+         [("modifica", "art. 51, comma 1", "in euro degli importi espressi in lire")]),
+        ("ha disposto (con l'art. 3, comma 1) la modifica dell'art. 2, comma 2, nel testo risultante dalla legge di conversione.",
+         [("modifica", "art. 3, comma 1", "art. 2, comma 2, nel testo risultante dalla legge di conversione")]),
     ],
 )
 def test_classifica_note(testo, attese):
@@ -226,6 +239,53 @@ def test_decreto_legge_abrogato_senza_conversione_e_decaduto():
     assert stato_di(dl, []) == "abrogata"
     dl.abrogato = False
     assert stato_di(dl, relazioni) == "vigente"
+
+
+def test_converte_solo_verso_decreti_legge():
+    # La L. 241/1990 risultava "convertita": su un atto che non è un D.L. la conversione diventa una modifica.
+    legge = atto("urn:nir:stato:legge:1990-08-07;241")
+    legge.note = [
+        Nota("La L. 4 aprile 2012, n. 35 ha disposto (con l'art. 1, comma 1) la conversione, con modificazioni, del D.L. 9 febbraio 2012, n. 5.",
+             (Riferimento("12G00055", date(2012, 4, 6)),)),
+    ]
+    relazioni, _ = relazioni_di(legge, Risolutore({}, {}))
+    assert [r.tipo for r in relazioni] == ["modifica"]
+    assert stato_di(legge, relazioni) == "vigente"
+
+
+def test_nomina_conversione():
+    assert nomina_conversione("ha disposto (con l'art. 2) che \"... dalla legge di conversione del presente decreto\".")
+    assert nomina_conversione("ha disposto (con l'art. 51, comma 1) la conversione in euro degli importi.")
+    assert not nomina_conversione(", di conversione, ha disposto (con l'art. 1, comma 1) l'introduzione dell'art. 4-sexies.")
+
+
+def test_conversione_di_un_altro_decreto_legge_e_una_modifica():
+    # Nota vera sul D.Lgs. 504/1995 (prova del 1995, 30/10/2026); la stessa forma sta sui D.L. modificati da un altro D.L.
+    testo = ("ha disposto (con l'art. 1, comma 1) la conversione con modificazioni del D.L. 21 ottobre 2021, n. 146 "
+             "(in G.U. 21/10/2021, n. 252).")
+    assert convertito_dalla_nota(testo) == "urn:nir:stato:decreto.legge:2021-10-21;146"
+    assert convertito_dalla_nota("ha disposto la conversione in legge del presente decreto.") is None
+    dl = atto(RDC, "decreto-legge", data=date(2019, 1, 28))
+    dl.note = [Nota(testo, (Riferimento("21G00230", date(2021, 12, 20)),))]
+    relazioni, _ = relazioni_di(dl, Risolutore({}, {}))
+    assert [r.tipo for r in relazioni] == ["modifica"]
+    dl.note = [Nota("La L. 28 marzo 2019, n. 26 ha disposto (con l'art. 1, comma 1) la conversione con modificazioni "
+                    "del D.L. 28 gennaio 2019, n. 4.", (Riferimento("19G00033", date(2019, 3, 29)),))]
+    relazioni, _ = relazioni_di(dl, Risolutore({}, {}))
+    assert [r.tipo for r in relazioni] == ["converte"]
+
+
+def test_citazione_della_legge_di_conversione_non_salva_il_decreto_decaduto():
+    dl = atto("urn:nir:stato:decreto.legge:1995-01-07;1", "decreto-legge", data=date(1995, 1, 7), gazzetta_data=date(1995, 1, 7),
+              abrogato=True, decaduto=None)
+    dl.note = [
+        Nota("Il D.L. 7 marzo 1995, n. 66 ha disposto (con l'art. 1, comma 2) che \"restano validi gli atti adottati sulla base del "
+             "D.L. 7 gennaio 1995, n. 1, fino alla data di entrata in vigore della legge di conversione del presente decreto\".",
+             (Riferimento("095G0090", date(1995, 3, 8)),)),
+    ]
+    relazioni, _ = relazioni_di(dl, Risolutore({}, {}))
+    assert [r.tipo for r in relazioni] == ["modifica"]
+    assert stato_di(dl, relazioni) == "decaduta"
 
 
 def test_decreto_legge_decaduto_senza_frase_nel_titolo():

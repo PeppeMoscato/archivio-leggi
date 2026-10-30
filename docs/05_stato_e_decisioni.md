@@ -1,10 +1,10 @@
 # Stato del progetto e decisioni
 
-Ultimo aggiornamento: 29/10/2026
+Ultimo aggiornamento: 30/10/2026
 Aggiornare a fine di ogni sessione di lavoro.
 
 ## Fase attuale
-Fase 1 — Archivio. Schema dati v1.2 approvato e scritto. Task 1.1 completato: l'archivio Normattiva è su Neon (8.927 atti dal 1990, 43.726 relazioni, 471 pronunce della Consulta), caricato dal workflow "Pipeline Normattiva" (Actions → Run workflow) con il secret `DATABASE_URL`. Task 1.2, parte Senato, in revisione (PR #4): pipeline dati.senato.it → Postgres (`ingest/archivio/senato.py`, `parlamento.py`), workflow "Pipeline Senato", che scrive su Neon solo se lanciato a mano con `scrivi_su_neon`. API FastAPI (ricerca, dettaglio legge, votazioni con il voto per gruppo) unita (PR #7): pacchetto `api/archivio_api/`, in sola lettura. Online su Render (piano Free): https://archivio-leggi-api.onrender.com (documentazione su `/docs`), con il ruolo Neon `api_lettura` di sola lettura. Prossimi passi: unire la PR #4, lanciare la Pipeline Senato su Neon (legislature `13-19`), poi la Camera e la tabella dei partiti dei governi.
+Fase 1 — Archivio. Schema dati v1.2 approvato e scritto. Task 1.1 completato: l'archivio Normattiva è su Neon (8.927 atti dal 1990, 43.726 relazioni, 471 pronunce della Consulta), caricato dal workflow "Pipeline Normattiva" (Actions → Run workflow) con il secret `DATABASE_URL`. Task 1.2, parte Senato, unita (PR #4): pipeline dati.senato.it → Postgres (`ingest/archivio/senato.py`, `parlamento.py`), workflow "Pipeline Senato", che scrive su Neon solo se lanciato a mano con `scrivi_su_neon`. API FastAPI (ricerca, dettaglio legge, votazioni con il voto per gruppo) unita (PR #7): pacchetto `api/archivio_api/`, in sola lettura. Online su Render (piano Free): https://archivio-leggi-api.onrender.com (documentazione su `/docs`), con il ruolo Neon `api_lettura` di sola lettura. Task 1.2, parte Camera, in revisione (PR #5): pipeline dati.camera.it → Postgres (`ingest/archivio/camera.py`), workflow "Pipeline Camera"; votazioni e voti dei deputati XIII-XIX (XIII-XVI dalle schede HTML), iter dai lavori preparatori per X-XII. Tutto sta nel piano Free di Neon (Camera circa 215 MB). Prossimi passi: unire la PR #5, poi, con il via libera dell'autore, lanciare su Neon la Pipeline Senato (legislature `13-19`) e dopo la Pipeline Camera (`10-19`, una legislatura alla volta); poi la tabella dei partiti dei governi.
 
 ## Decisioni prese
 | Data | Decisione | Motivo |
@@ -53,6 +53,13 @@ Fase 1 — Archivio. Schema dati v1.2 approvato e scritto. Task 1.1 completato: 
 | 2026-10-29 | Il controllo di salute di Render chiama `/`, non `/salute` | `/salute` interroga il database: chiamato da Render ogni pochi secondi terrebbe sveglio il compute di Neon |
 | 2026-10-29 | Deploy automatico su push in `main` solo con la CI verde (`autoDeployTrigger: checksPass`); l'API pubblicata si prova con il workflow "Prova API online" | Dal container di Claude Code onrender.com non è raggiungibile |
 | 2026-10-29 | Frontend Next.js su Vercel (Hobby, regione `fra1`): i dati si leggono dal server di Next.js, con cache di un'ora sulle risposte dell'API; pagine di attesa con streaming mentre Render si sveglia (nuovi tentativi fino a 100 s); la home non chiama l'API e sveglia Render | Niente CORS e meno richieste a Render e Neon (i dati cambiano al massimo una volta a settimana). Il primo accesso dopo 15 minuti di pausa aspetta circa un minuto: meglio dirlo che mostrare una pagina bianca |
+| 2026-10-28 | Repository pubblico | GitHub Actions si era bloccato durante la prova della Camera; sui repository pubblici i minuti di Actions sono gratuiti e senza limite. Scelta dell'autore |
+| 2026-10-28 | Voti dei deputati dall'endpoint della Camera solo dalla XVII; per XIII-XVI dalle schede HTML delle votazioni su documenti.camera.it | Nell'endpoint XIII-XVI hanno le votazioni con i totali ma nessun voto individuale. Decisione dell'autore del 29/10/2026: prendere anche 1996-2013 dalle schede (circa 60.000 pagine) |
+| 2026-10-29 | Nominativi delle schede collegati ai deputati per cognome e nome; se non basta per il cognome più lungo che corrisponde, poi sigla del gruppo e iniziale del nome | Le schede usano il nome d'uso ("BINDI ROSY"), l'endpoint quello dell'anagrafe ("ROSARIA"): nella XV 88 nominativi non collegati con la sola chiave esatta, 5 dopo |
+| 2026-10-29 | Schede rallentate: una legislatura alla volta, circa 2 pagine al secondo, `Retry-After` rispettato, stop dopo 20 errori di fila, User-Agent con il link al repository; cache delle schede e dei voti salvata anche se il job fallisce | Verifica di liceità: le schede sono pagine per le persone, conviene non pesare. La cache serve anche per i guasti di dati.camera.it (502 per ore il 29/10/2026): rilanciando i job falliti si riparte da dove ci si era fermati |
+| 2026-10-29 | Dati della Camera con licenza CC BY-SA 4.0, attribuzione in `03_fonti.md`, nell'API e nella pagina /fonti | Licenza indicata da dati.camera.it; le schede HTML non ne indicano una propria e robots.txt non le esclude |
+| 2026-10-30 | Tutte le votazioni della Camera XIII-XIX su Neon (circa 100.000 votazioni, 38,9 milioni di voti, circa 215 MB) | Misurato sulla prova XV e XIX: circa 4 byte a voto più 380 a votazione. Con Senato (circa 70 MB) e Normattiva si resta ben sotto 1 GB del piano Free |
+| 2026-10-30 | Su Neon l'ordine di caricamento è Normattiva, poi Senato, poi Camera | La Camera aggancia le votazioni alle fasi Camera degli iter del Senato e alle leggi di Normattiva |
 | 2026-10-27 | Partiti dei governi compilati a mano (`ingest/archivio/governi_partiti.csv`, una fonte per riga) | Nessuna fonte strutturata; i siti utili (storia.camera.it, governo.it) non sono raggiungibili dal container |
 
 ## Ancora da decidere
@@ -64,8 +71,9 @@ Fase 1 — Archivio. Schema dati v1.2 approvato e scritto. Task 1.1 completato: 
 - Aggiornamento periodico: proposta GitHub Actions con cron settimanale che riesporta solo gli atti aggiornati (l'API ha un elenco degli atti modificati di recente).
 - Licenza del codice del repository.
 - Partiti di ciascun governo: compilare `governi_partiti.csv` (22 governi) con la fonte.
-- Questioni di fiducia prima del 2013: il Senato non le distingue nelle etichette; serve un'altra fonte (resoconti o Camera).
-- Leggi 1990-1996: il Senato non ha dati strutturati prima della XIII legislatura; verificare la Camera.
+- Questioni di fiducia prima del 2013: il Senato non le distingue nelle etichette; la Camera sì (14 nella XV), resta da usarle per gli iter del Senato.
+- Leggi 1990-1996: la Camera dà gli iter della X-XII dai lavori preparatori (XII: 295 iter, tutti collegati a Normattiva) ma nessuna votazione nominale strutturata: per i voti servirebbero i resoconti.
+- Voti XIII-XVI dalle schede: gli elenchi non tornano esattamente con i totali (XV: circa 7 voti a votazione); decidere se mostrarlo nel sito.
 - Ricerca: titoli con l'accento scritto come apostrofo ("pubblicita'") e parole accentate non si trovano a vicenda; si risolve con l'estensione `unaccent` (modifica dello schema).
 - Da rivedere al primo deploy: se il traffico supera il piano Free di Neon, passare al piano Launch (a consumo).
 
@@ -82,7 +90,7 @@ Fase 1 — Archivio. Schema dati v1.2 approvato e scritto. Task 1.1 completato: 
 ### Fase 1 — Archivio
 - [x] Pipeline Normattiva → Postgres (leggi dal 1990, stato, modifiche, abrogazioni) — Task 1.1, PR #2
 - [ ] Aggiornamento settimanale incrementale della pipeline
-- [ ] Ingestione iter da Camera e Senato (SPARQL) — Task 1.2: Senato in revisione (PR #4), Camera in PR #5
+- [ ] Ingestione iter da Camera e Senato (SPARQL) — Task 1.2: Senato unito (PR #4), Camera in revisione (PR #5); caricamento su Neon da fare
 - [x] API FastAPI: ricerca e dettaglio legge — PR #7, voto per gruppo (PR #8), online su Render (PR #9): https://archivio-leggi-api.onrender.com
 - [ ] Frontend: ricerca e pagina legge con timeline delle modifiche — app Next.js in `web/` in revisione; deploy su Vercel da fare a mano (`docs/deploy_frontend.md`)
 
@@ -114,3 +122,4 @@ Fase 1 — Archivio. Schema dati v1.2 approvato e scritto. Task 1.1 completato: 
 - 2026-10-29: frontend. App Next.js 16 in `web/`: home, ricerca con filtri (tipo, stato, governo, anno), pagina legge con timeline (nascita, modifiche ricevute o disposte, fine della vigenza; conversioni doppie mostrate una volta), iter con firmatari, votazioni con il voto per gruppo, pronunce della Consulta, pagina Fonti. Provata con l'API e Postgres 16 in locale (dati di prova) e con un risveglio simulato dell'API; 14 prove Vitest, job `web` nella CI. Guida al deploy in `docs/deploy_frontend.md`.
 - 2026-10-29: verifica di liceità e carico delle raccolte (rapporto nella cartella del progetto, `revisioni/2026-10-29_raccolte_dati_licenze_e_carico.md`). Fonti tutte open data: Normattiva e Istat CC BY 4.0, Camera CC BY-SA 4.0, Senato da confermare sulla pagina "Licenza d'uso" (non raggiungibile dal container). Carico leggero, tranne le ~60.000 schede HTML della Camera: rallentate (una legislatura alla volta, cache, Retry-After, stop dopo errori di fila) sulla PR della Camera. Attribuzione di Camera e Senato aggiunta all'API e alla pagina /fonti del sito. Istat, quando arriverà: al massimo 5 query al minuto per IP, oltre scatta un blocco di 1-2 giorni.
 - 2026-10-29: API online su https://archivio-leggi-api.onrender.com. L'autore ha creato su Neon il ruolo `api_lettura` e il servizio su Render dal Blueprint. Su Neon mancavano le tabelle dello schema v1.2 (il caricamento era stato fatto con la v1.1): dettaglio, iter e governi rispondevano 500; risolto eseguendo `schema.sql` nel SQL Editor. Prova "Prova API online" ([run 40893719302](https://github.com/PeppeMoscato/archivio-leggi/actions/runs/40893719302)): tutti gli endpoint 200, circa 0,25 s a richiesta con Neon sveglio; iter vuoti finché la Pipeline Senato non gira su Neon.
+- 2026-10-30: Task 1.2, parte Camera. Pipeline dati.camera.it → Postgres (iniziativa, fasi, governi, votazioni e voti dei deputati) con workflow "Pipeline Camera"; voti XIII-XVI dalle schede HTML, nomi d'uso collegati ai deputati dell'anagrafe, pagine rallentate e cache ripresa dopo i guasti dell'endpoint. Prova ([run 40930651361](https://github.com/PeppeMoscato/archivio-leggi/actions/runs/40930651361)): XV 3.431 votazioni e 1.543.636 voti (98% dei totali; 5 nominativi non collegati), XIX 13.883 votazioni e 3.620.791 voti (uguali ai totali), XII 295 iter. Spazio Camera circa 215 MB, nel piano Free. Dettagli in `docs/sonda_parlamento.md` (sez. 4). Niente ancora su Neon.

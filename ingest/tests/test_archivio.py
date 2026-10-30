@@ -8,7 +8,7 @@ from archivio.governi import governo_alla_data
 from archivio.modelli import Atto, Nota, Riferimento
 from archivio.note import PRONUNCIA, classifica, nomina_conversione
 from archivio.pipeline import riga_legge, unisci
-from archivio.relazioni import Risolutore, conversioni_dai_titoli, convertito_dal_titolo, data_decadenza, relazioni_di, stato_di
+from archivio.relazioni import Risolutore, conversioni_dai_titoli, convertito_dal_titolo, convertito_dalla_nota, data_decadenza, relazioni_di, stato_di
 from archivio.storia import chiave_urn, leggi_storie
 from fixture_export import aggiornamento, articolo, metadati, scrivi_export
 
@@ -257,6 +257,22 @@ def test_nomina_conversione():
     assert nomina_conversione("ha disposto (con l'art. 2) che \"... dalla legge di conversione del presente decreto\".")
     assert nomina_conversione("ha disposto (con l'art. 51, comma 1) la conversione in euro degli importi.")
     assert not nomina_conversione(", di conversione, ha disposto (con l'art. 1, comma 1) l'introduzione dell'art. 4-sexies.")
+
+
+def test_conversione_di_un_altro_decreto_legge_e_una_modifica():
+    # Nota vera sul D.Lgs. 504/1995 (prova del 1995, 30/10/2026); la stessa forma sta sui D.L. modificati da un altro D.L.
+    testo = ("ha disposto (con l'art. 1, comma 1) la conversione con modificazioni del D.L. 21 ottobre 2021, n. 146 "
+             "(in G.U. 21/10/2021, n. 252).")
+    assert convertito_dalla_nota(testo) == "urn:nir:stato:decreto.legge:2021-10-21;146"
+    assert convertito_dalla_nota("ha disposto la conversione in legge del presente decreto.") is None
+    dl = atto(RDC, "decreto-legge", data=date(2019, 1, 28))
+    dl.note = [Nota(testo, (Riferimento("21G00230", date(2021, 12, 20)),))]
+    relazioni, _ = relazioni_di(dl, Risolutore({}, {}))
+    assert [r.tipo for r in relazioni] == ["modifica"]
+    dl.note = [Nota("La L. 28 marzo 2019, n. 26 ha disposto (con l'art. 1, comma 1) la conversione con modificazioni "
+                    "del D.L. 28 gennaio 2019, n. 4.", (Riferimento("19G00033", date(2019, 3, 29)),))]
+    relazioni, _ = relazioni_di(dl, Risolutore({}, {}))
+    assert [r.tipo for r in relazioni] == ["converte"]
 
 
 def test_citazione_della_legge_di_conversione_non_salva_il_decreto_decaduto():

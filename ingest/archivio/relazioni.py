@@ -101,8 +101,12 @@ def relazioni_di(atto: Atto, risolutore: Risolutore) -> tuple[list[RigaRelazione
                 pronunce[riga] = None
                 continue
             tipo = esito.tipo
-            if tipo == "converte" and atto.tipo != "decreto-legge":
-                # Si converte solo un D.L. (art. 77 Cost.): su un altro atto la nota va letta come modifica.
+            if tipo == "converte" and (
+                atto.tipo != "decreto-legge" or convertito_dalla_nota(nota.testo) not in (None, atto.urn)
+            ):
+                # Normattiva mette la nota anche sugli atti che la legge di conversione di un ALTRO D.L.
+                # modifica ("la conversione ... del D.L. 21 ottobre 2021, n. 146" sul D.Lgs. 504/1995):
+                # per quell'atto è una modifica. Si converte solo il D.L. nominato (art. 77 Cost.).
                 tipo = "modifica"
             for riferimento in nota.riferimenti or (None,):
                 riga = RigaRelazione(
@@ -146,9 +150,24 @@ _CONVERSIONE = re.compile(
 )
 
 
+# Nota di conversione: "la conversione, con modificazioni, del D.L. 21 ottobre 2021, n. 146 (in G.U. ...)".
+_CONVERSIONE_NOTA = re.compile(
+    r"\bconversione\b.*?\bd\.\s*l\.\s*(?P<giorno>\d{1,2})[°º]?\s+(?P<mese>[a-z]+)\s+(?P<anno>\d{4})\W+n\.\s*(?P<numero>\d+)",
+    re.I,
+)
+
+
 def convertito_dal_titolo(titolo: str) -> str | None:
     """L'URN del D.L. che una legge converte, letto dal suo titolo; None se non è una legge di conversione."""
-    trovato = _CONVERSIONE.search(" ".join(titolo.split()))
+    return _urn_convertito(_CONVERSIONE.search(" ".join(titolo.split())))
+
+
+def convertito_dalla_nota(testo: str) -> str | None:
+    """L'URN del D.L. di cui la nota descrive la conversione; None se la nota non lo nomina ("del presente decreto")."""
+    return _urn_convertito(_CONVERSIONE_NOTA.search(" ".join(testo.split())))
+
+
+def _urn_convertito(trovato: re.Match | None) -> str | None:
     if trovato is None or (mese := _MESI.get(trovato.group("mese").lower())) is None:
         return None
     try:

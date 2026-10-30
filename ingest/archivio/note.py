@@ -32,8 +32,9 @@ _DICHIARATO = re.compile(r"\bha\s+dichiarato\b.*?illegittimit\S*\s+costituzional
 _SENTENZA = re.compile(r"sentenza\b.{0,60}?\bn\.\s*(?P<numero>\d+)", re.I)
 _ANNO_SENTENZA = re.compile(r"sentenza\b.{0,40}?(?P<anno>(?:19|20)\d{2})", re.I)
 # L'azione è una conversione solo se comincia così: "la conversione, con modificazioni, del D.L. ...".
-# Altrove la parola compare nelle citazioni ("dalla legge di conversione del presente decreto") o è
-# un'altra conversione ("la conversione in euro degli importi", sul D.Lgs. 504/1995 nella prova del 1995).
+# Altrove la parola compare nelle citazioni ("dalla legge di conversione del presente decreto") o indica
+# un'altra conversione ("la conversione in euro degli importi"). Quale D.L. si converte lo controlla
+# relazioni.relazioni_di: spesso la nota sta sull'atto che il D.L. convertito modifica.
 _CONVERSIONE = re.compile(
     r"^(?:la\s+)?conversione\b(?:\s+in\s+legge)?\W*(?:(?:con|senza)\s+modificazioni\W*)?"
     r"(?:del|dello)\s+(?:d\.\s*l\.|decreto|presente\s+decreto)",

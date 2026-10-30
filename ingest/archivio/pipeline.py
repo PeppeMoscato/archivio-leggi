@@ -143,6 +143,8 @@ def unisci(atti: dict[str, Atto], storie: Iterable[Storia], abrogati: set[str] |
 
     Con `abrogati` None (aggiornamento settimanale) non c'è il controllo incrociato con la classe
     della ricerca: gli atti senza export restano con `abrogato` None.
+    Un atto senza export ha `export_completo` falso: senza note, `carica` non lo riscrive se è già nel
+    database (gli cancellerebbe le relazioni); se è nuovo entra con i dati del catalogo.
     """
     conti: Counter = Counter()
     per_urn = {chiave_urn(urn): atto for urn, atto in atti.items()}
@@ -163,13 +165,13 @@ def unisci(atti: dict[str, Atto], storie: Iterable[Storia], abrogati: set[str] |
         atto.note = storia.note
         atto.export_completo = storia.completa
     for atto in per_urn.values():
+        if atto.abrogato is None:
+            conti["senza_export"] += 1
+            atto.export_completo = False
         if abrogati is None:
-            if atto.abrogato is None:
-                conti["senza_export"] += 1
             continue
         per_classe = atto.urn in abrogati
         if atto.abrogato is None:
-            conti["senza_export"] += 1
             atto.abrogato = per_classe
         elif atto.abrogato != per_classe:
             conti["abrogato_discorde"] += 1
@@ -244,8 +246,9 @@ def carica(
     db.salva_governi(conn, elenco_governi)
 
     noti = atti if noti is None else noti
-    # Un atto già nel database con l'export incompleto non si riscrive: le sue note verrebbero da una versione
-    # vecchia (30/10/2026: D.Lgs. 58/1998 con le versioni dal 2021 vuote). Un atto nuovo entra comunque.
+    # Un atto già nel database con l'export incompleto o mancante non si riscrive: le sue note verrebbero da una
+    # versione vecchia (30/10/2026: D.Lgs. 58/1998 con le versioni dal 2021 vuote) o mancherebbero del tutto
+    # (27/10/2026: 1998 LEGGE, un atto senza export). Un atto nuovo entra comunque.
     nel_database = {riga[0] for riga in db.leggi_catalogo(conn)}
     lasciati = [a for a in atti if not a.export_completo and a.urn in nel_database]
     atti = [a for a in atti if a.export_completo or a.urn not in nel_database]
@@ -290,10 +293,10 @@ def carica(
 
     rapporto.aggiungi(f"Atti caricati: {len(atti)}")
     rapporto.aggiungi(
-        f"- con l'export incompleto (versioni recenti vuote) e già nel database, lasciati come erano: {len(lasciati)}"
+        f"- con l'export incompleto o mancante e già nel database, lasciati come erano: {len(lasciati)}"
         + (f" ({', '.join(a.urn for a in lasciati[:10])}{', ...' if len(lasciati) > 10 else ''})" if lasciati else "")
     )
-    rapporto.aggiungi(f"- caricati con l'export incompleto perché nuovi: {sum(1 for a in atti if not a.export_completo)}")
+    rapporto.aggiungi(f"- caricati con l'export incompleto o mancante perché nuovi: {sum(1 for a in atti if not a.export_completo)}")
     for (tipo, stato), quanti in sorted(stati.items()):
         rapporto.aggiungi(f"- {tipo}, {stato}: {quanti}")
     rapporto.aggiungi(f"Relazioni: {sum(tipi.values())} ({', '.join(f'{t} {n}' for t, n in tipi.most_common())})")

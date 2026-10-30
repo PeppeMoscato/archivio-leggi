@@ -189,6 +189,8 @@ def test_unisci_conta_discrepanze():
     per_urn = {a.urn: a for a in uniti}
     assert per_urn[MERLONI].abrogato is True
     assert per_urn[RDC].abrogato is True  # nessun export: vale la classe della ricerca
+    assert per_urn[MERLONI].export_completo is True
+    assert per_urn[RDC].export_completo is False  # senza note: se è già nel database non si riscrive
     assert conti == {"senza_export": 1}
 
 

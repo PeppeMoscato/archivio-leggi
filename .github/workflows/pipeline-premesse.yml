@@ -157,7 +157,17 @@ jobs:
             PGPASSWORD=postgres psql -h localhost -U postgres -d archivio -At -c "
               SELECT '- delega: ' || r.urn_origine || ' → ' || r.urn_destinazione || ' (' || left(r.nota, 200) || ')'
               FROM relazione_normativa r WHERE r.tipo = 'delega' LIMIT 5"
-          } >> "$GITHUB_STEP_SUMMARY"
+            echo
+            echo "## Decreti legislativi senza legge delega riconosciuta"
+            echo
+            PGPASSWORD=postgres psql -h localhost -U postgres -d archivio -At -c "
+              SELECT '- ' || l.numero || '/' || extract(year FROM l.data) || ': ' || left(l.titolo, 120)
+                || chr(10) || coalesce((SELECT string_agg('  - ' || left(c, 220), chr(10)) FROM unnest(p.citazioni[1:4]) c), '')
+              FROM premessa p JOIN legge l USING (urn)
+              WHERE l.tipo = 'decreto legislativo'
+                AND NOT EXISTS (SELECT 1 FROM relazione_normativa r WHERE r.tipo = 'delega' AND r.urn_destinazione = p.urn)
+              ORDER BY l.data LIMIT 50"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Dump del Postgres temporaneo
         if: env.NEON == ''
         run: |

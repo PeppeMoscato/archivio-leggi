@@ -37,6 +37,10 @@ python -m archivio senato-estrai --legislature 15 --uscita dati   # iter, fasi, 
 python -m archivio senato-persone --uscita dati                   # senatori, gruppi, adesioni
 DATABASE_URL=... python -m archivio senato-carica --da dati
 
+# Aggiornamento settimanale (dopo i caricamenti completi)
+python -m archivio aggiorna-estrai --giorni 14 --uscita dati   # atti nuovi e modificati da Normattiva, premesse dei nuovi
+DATABASE_URL=... python -m archivio aggiorna-carica --da dati  # poi senato-carica e camera-carica della legislatura in corso
+
 # Pipeline premesse → Postgres (contesto delle leggi, schema v1.4; dopo Normattiva)
 python -m archivio premesse-estrai --anni 2006 --uscita dati      # premesse di D.L. e D.Lgs. dal testo originale, un JSONL per anno
 DATABASE_URL=... python -m archivio premesse-carica --da dati     # tabella premessa e relazioni delega
@@ -60,6 +64,7 @@ npm test && npm run typecheck
 API_URL=http://localhost:8000 npm run dev               # senza API_URL usa l'API su Render
 ```
 - Normattiva non è raggiungibile dal container di Claude Code: la pipeline gira sul workflow "Pipeline Normattiva" (Actions → Run workflow, campo `anni`). Con il secret `DATABASE_URL` scrive su Neon, altrimenti pubblica il dump `archivio-db` come artifact.
+- L'aggiornamento settimanale gira sul workflow "Aggiornamento settimanale" (cron il lunedì, o a mano con `giorni` e `legislatura`): Normattiva → premesse → Senato → Camera. Il cron scrive su Neon solo con la variabile del repository `AGGIORNAMENTO_SU_NEON` = `true`, a mano solo con `scrivi_su_neon`; non va lanciato mentre una pipeline completa scrive su Neon.
 - Anche le premesse girano su GitHub Actions: workflow "Pipeline premesse" (campo `anni`), scrive su Neon solo con `scrivi_su_neon` spuntato e dopo il caricamento Normattiva. Le relazioni `delega` le scrive solo questa pipeline.
 - www.senato.it (schede dei ddl, PDF) risponde con un controllo anti-robot: solo link, non va aggirato.
 - dati.senato.it e dati.camera.it non sono raggiungibili dal container: il Senato gira sul workflow "Pipeline Senato", la Camera su "Pipeline Camera" (campo `legislature`); scrivono su Neon solo con `scrivi_su_neon` spuntato. Su Neon la Camera va caricata dopo il Senato.

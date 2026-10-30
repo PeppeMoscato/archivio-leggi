@@ -138,8 +138,12 @@ class Rapporto:
         return "\n".join(self.righe) + "\n"
 
 
-def unisci(atti: dict[str, Atto], storie: Iterable[Storia], abrogati: set[str]) -> tuple[list[Atto], Counter]:
-    """Aggiunge la storia a ogni atto del catalogo; conta le discrepanze."""
+def unisci(atti: dict[str, Atto], storie: Iterable[Storia], abrogati: set[str] | None) -> tuple[list[Atto], Counter]:
+    """Aggiunge la storia a ogni atto del catalogo; conta le discrepanze.
+
+    Con `abrogati` None (aggiornamento settimanale) non c'è il controllo incrociato con la classe
+    della ricerca: gli atti senza export restano con `abrogato` None.
+    """
     conti: Counter = Counter()
     per_urn = {chiave_urn(urn): atto for urn, atto in atti.items()}
     for storia in storie:
@@ -158,6 +162,10 @@ def unisci(atti: dict[str, Atto], storie: Iterable[Storia], abrogati: set[str]) 
         atto.fine_vigore_originale = storia.fine_vigore_originale
         atto.note = storia.note
     for atto in per_urn.values():
+        if abrogati is None:
+            if atto.abrogato is None:
+                conti["senza_export"] += 1
+            continue
         per_classe = atto.urn in abrogati
         if atto.abrogato is None:
             conti["senza_export"] += 1
@@ -223,14 +231,20 @@ def riga_legge(atto: Atto, stato: str, elenco_governi: list[governi.Governo]) ->
     )
 
 
-def carica(conn, atti: list[Atto], client: Normattiva | None = None, blocco: int = 500) -> Rapporto:
+def carica(
+    conn, atti: list[Atto], client: Normattiva | None = None, blocco: int = 500, noti: list[Atto] | None = None
+) -> Rapporto:
+    """Scrive `atti` nel database. `noti` sono tutti gli atti conosciuti, per risolvere i riferimenti
+    in Gazzetta e le conversioni dai titoli: di default gli stessi `atti` (pipeline completa);
+    l'aggiornamento settimanale ci aggiunge il catalogo già nel database."""
     rapporto = Rapporto()
     db.crea_schema(conn)
     elenco_governi = governi.carica()
     db.salva_governi(conn, elenco_governi)
 
+    noti = atti if noti is None else noti
     locali = {
-        (a.gazzetta_codice, a.gazzetta_data): (a.urn, a.tipo) for a in atti if a.gazzetta_codice and a.gazzetta_data
+        (a.gazzetta_codice, a.gazzetta_data): (a.urn, a.tipo) for a in noti if a.gazzetta_codice and a.gazzetta_data
     }
     risolutore = Risolutore(
         locali, db.leggi_cache_gazzetta(conn), client, lambda *riga: db.salva_cache_gazzetta(conn, *riga)
@@ -238,7 +252,7 @@ def carica(conn, atti: list[Atto], client: Normattiva | None = None, blocco: int
     stati: Counter = Counter()
     tipi: Counter = Counter()
     pronunce_totali = senza_origine = dai_titoli = citano_conversione = 0
-    conversioni = conversioni_dai_titoli(atti)
+    conversioni = conversioni_dai_titoli(noti)
     # Prima tutte le leggi (le relazioni hanno la FK su urn_destinazione), poi le relazioni a blocchi.
     calcolate = []
     for atto in atti:

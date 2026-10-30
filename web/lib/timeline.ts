@@ -12,7 +12,8 @@ export interface Evento {
   tono: Tono;
   titolo: string;
   testo?: string;
-  relazione?: Relazione;
+  /** Le relazioni dell'evento: più di una quando lo stesso atto, lo stesso giorno, tocca più articoli. */
+  relazioni?: Relazione[];
 }
 
 const TONO: Record<Relazione["tipo"], Tono> = {
@@ -40,6 +41,13 @@ export function senzaConversioniDoppie(relazioni: Relazione[]): Relazione[] {
   });
 }
 
+// Relazioni consecutive dello stesso tipo, dello stesso giorno e con lo stesso altro atto diventano un evento solo:
+// una legge che modifica dieci articoli della 241/1990 è una riga nella timeline, non dieci.
+function chiaveGruppo(r: Relazione, verso: Verso): string {
+  const altro = (verso === "ricevute" ? r.urn_origine : r.urn_destinazione) ?? r.origine_gazzetta_codice;
+  return altro ? [r.tipo, r.data, altro].join("|") : `r${r.id}`;
+}
+
 export function eventiTimeline(
   legge: LeggeDettaglio,
   relazioni: Relazione[],
@@ -64,8 +72,22 @@ export function eventiTimeline(
     }
   }
 
+  let ultima: { evento: Evento; chiave: string } | null = null;
   for (const relazione of senzaConversioniDoppie(relazioni)) {
-    eventi.push({ chiave: `r${relazione.id}`, data: relazione.data, tono: TONO[relazione.tipo] ?? "modifica", titolo: "", relazione });
+    const chiave = chiaveGruppo(relazione, verso);
+    if (ultima && ultima.chiave === chiave) {
+      ultima.evento.relazioni!.push(relazione);
+      continue;
+    }
+    const evento: Evento = {
+      chiave: `r${relazione.id}`,
+      data: relazione.data,
+      tono: TONO[relazione.tipo] ?? "modifica",
+      titolo: "",
+      relazioni: [relazione],
+    };
+    eventi.push(evento);
+    ultima = { evento, chiave };
   }
 
   if (dellaLegge && ultimaPagina && legge.stato !== "vigente" && legge.data_abrogazione) {

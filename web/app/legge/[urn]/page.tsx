@@ -213,7 +213,8 @@ function sintesi(legge: LeggeDettaglio): string {
     .map(([tipo, n]) => quanteRelazioni(tipo, n));
   const disposte = somma(legge.conteggi.disposte);
   const parti = [voci.length ? `Ha ricevuto ${elenco(voci)}.` : "Non risultano modifiche ricevute."];
-  if (legge.conteggi.ricevute.converte) parti.unshift("È stato convertito in legge.");
+  // Solo un decreto-legge si converte: su altri atti una relazione "converte" è un errore di classificazione.
+  if (legge.tipo === "decreto-legge" && legge.conteggi.ricevute.converte) parti.unshift("È stato convertito in legge.");
   if (disposte > 0) parti.push(`A sua volta interviene su altri atti ${disposte.toLocaleString("it-IT")} volte.`);
   return parti.join(" ");
 }

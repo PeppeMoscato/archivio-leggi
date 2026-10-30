@@ -7,7 +7,9 @@ INSERT INTO governo (id, nome, presidente, inizio, fine, fonte_url) VALUES
     ('prodi-2', 'Prodi II', 'Romano Prodi', '2006-05-17', '2008-05-08', 'https://www.senato.it/legislature/repubblica/governi-della-repubblica');
 
 INSERT INTO governo_partito (governo_id, partito, ruolo, fonte_url) VALUES
-    ('berlusconi-2', 'Forza Italia', 'governo', 'https://example.org/fonte');
+    ('berlusconi-2', 'Forza Italia', 'governo', 'https://example.org/fonte'),
+    ('andreotti-6', 'Partito Repubblicano Italiano (PRI)', 'appoggio esterno', 'https://example.org/fonte'),
+    ('andreotti-6', 'Democrazia Cristiana (DC)', 'governo', 'https://example.org/fonte');
 
 INSERT INTO legge (urn, tipo, numero, data, titolo, link_normattiva, stato, data_abrogazione, data_entrata_vigore,
                    gazzetta_data, gazzetta_numero, gazzetta_codice, governo_id) VALUES

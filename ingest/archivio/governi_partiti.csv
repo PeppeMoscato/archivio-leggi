@@ -1,1 +1,126 @@
-governo_id,partito,ruolo,fonte_url
+governo_id,partito,ruolo,fonte_url,nota
+andreotti-6,Democrazia Cristiana (DC),governo,https://en.wikipedia.org/wiki/Sixth_Andreotti_government,
+andreotti-6,Partito Socialista Italiano (PSI),governo,https://en.wikipedia.org/wiki/Sixth_Andreotti_government,"Al giuramento anche un ministro di Unità e Democrazia Socialista, confluita nel PSI il 13/10/1989 (it.wikipedia, Governo Andreotti VI)"
+andreotti-6,Partito Socialista Democratico Italiano (PSDI),governo,https://en.wikipedia.org/wiki/Sixth_Andreotti_government,
+andreotti-6,Partito Repubblicano Italiano (PRI),governo,https://en.wikipedia.org/wiki/Sixth_Andreotti_government,
+andreotti-6,Partito Liberale Italiano (PLI),governo,https://en.wikipedia.org/wiki/Sixth_Andreotti_government,
+andreotti-7,Democrazia Cristiana (DC),governo,https://en.wikipedia.org/wiki/Seventh_Andreotti_government,"Il PRI aveva tre ministri designati che non giurarono: il partito uscì dalla maggioranza prima del giuramento (aprile 1991)"
+andreotti-7,Partito Socialista Italiano (PSI),governo,https://en.wikipedia.org/wiki/Seventh_Andreotti_government,
+andreotti-7,Partito Socialista Democratico Italiano (PSDI),governo,https://en.wikipedia.org/wiki/Seventh_Andreotti_government,
+andreotti-7,Partito Liberale Italiano (PLI),governo,https://en.wikipedia.org/wiki/Seventh_Andreotti_government,
+amato-1,Partito Socialista Italiano (PSI),governo,https://en.wikipedia.org/wiki/First_Amato_government,Anche due ministri indipendenti; PDS e PRI rifiutarono l'ingresso nel governo (agosto 1992; it.wikipedia, Governo Amato I)
+amato-1,Democrazia Cristiana (DC),governo,https://en.wikipedia.org/wiki/First_Amato_government,
+amato-1,Partito Socialista Democratico Italiano (PSDI),governo,https://en.wikipedia.org/wiki/First_Amato_government,
+amato-1,Partito Liberale Italiano (PLI),governo,https://en.wikipedia.org/wiki/First_Amato_government,
+ciampi,Democrazia Cristiana (DC),governo,https://en.wikipedia.org/wiki/Ciampi_government,"Governo guidato da un non parlamentare, con otto ministri indipendenti. PDS (tre ministri) e Verdi (un ministro) ritirarono i ministri subito dopo il giuramento (29 aprile-4 maggio 1993; it.wikipedia, Governo Ciampi) e si astennero; astenuti anche Lega Nord e PRI, che aveva un sottosegretario"
+ciampi,Partito Socialista Italiano (PSI),governo,https://en.wikipedia.org/wiki/Ciampi_government,
+ciampi,Partito Socialista Democratico Italiano (PSDI),governo,https://en.wikipedia.org/wiki/Ciampi_government,
+ciampi,Partito Liberale Italiano (PLI),governo,https://en.wikipedia.org/wiki/Ciampi_government,
+berlusconi-1,Forza Italia (FI),governo,https://en.wikipedia.org/wiki/First_Berlusconi_government,
+berlusconi-1,Lega Nord (LN),governo,https://en.wikipedia.org/wiki/First_Berlusconi_government,"Esce dalla maggioranza il 17/12/1994, il governo si dimette il 22/12/1994"
+berlusconi-1,Alleanza Nazionale (AN),governo,https://en.wikipedia.org/wiki/First_Berlusconi_government,"Nel 1994 AN era la lista elettorale del MSI, che vi confluì nel gennaio 1995"
+berlusconi-1,Centro Cristiano Democratico (CCD),governo,https://en.wikipedia.org/wiki/First_Berlusconi_government,
+berlusconi-1,Unione di Centro (UdC),governo,https://en.wikipedia.org/wiki/First_Berlusconi_government,"Il partito liberale nato nel 1993, non l'UdC del 2008"
+berlusconi-1,Federazione dei Liberaldemocratici (FLD),governo,https://en.wikipedia.org/wiki/First_Berlusconi_government,
+dini,Partito Democratico della Sinistra (PDS),appoggio esterno,https://en.wikipedia.org/wiki/Dini_government,"Governo tecnico: tutti i ministri indipendenti. FI, AN e CCD si astennero alla fiducia, Rifondazione votò contro"
+dini,Lega Nord (LN),appoggio esterno,https://en.wikipedia.org/wiki/Dini_government,
+dini,Partito Popolare Italiano (PPI),appoggio esterno,https://en.wikipedia.org/wiki/Dini_government,"Il 24/6/1995 il PPI si divide: la parte di Buttiglione (CDU) passa all'opposizione (it.wikipedia, Governo Dini)"
+dini,Federazione dei Verdi (FdV),appoggio esterno,https://en.wikipedia.org/wiki/Dini_government,
+dini,Patto Segni (Patto),appoggio esterno,https://en.wikipedia.org/wiki/Dini_government,
+dini,Alleanza Democratica (AD),appoggio esterno,https://en.wikipedia.org/wiki/Dini_government,
+dini,Socialisti Italiani (SI),appoggio esterno,https://en.wikipedia.org/wiki/Dini_government,
+dini,La Rete (Rete),appoggio esterno,https://en.wikipedia.org/wiki/Dini_government,Dal 14/6/1995 entrano nella maggioranza anche i Comunisti Unitari usciti da Rifondazione (it.wikipedia, Governo Dini)
+prodi-1,Partito Democratico della Sinistra (PDS),governo,https://en.wikipedia.org/wiki/First_Prodi_government,"Coalizione dell'Ulivo. Sottosegretari anche di Patto Segni, Comunisti Unitari, Alleanza Democratica, Socialisti Italiani e Sinistra Repubblicana"
+prodi-1,Partito Popolare Italiano (PPI),governo,https://en.wikipedia.org/wiki/First_Prodi_government,
+prodi-1,Rinnovamento Italiano (RI),governo,https://en.wikipedia.org/wiki/First_Prodi_government,
+prodi-1,Federazione dei Verdi (FdV),governo,https://en.wikipedia.org/wiki/First_Prodi_government,
+prodi-1,Unione Democratica (UD),governo,https://en.wikipedia.org/wiki/First_Prodi_government,
+prodi-1,Partito della Rifondazione Comunista (PRC),appoggio esterno,https://en.wikipedia.org/wiki/First_Prodi_government,"Ritira l'appoggio nell'ottobre 1998: il governo perde la fiducia alla Camera (312 a 313) il 9/10/1998 (it.wikipedia, Governo Prodi I)"
+dalema-1,Democratici di Sinistra (DS),governo,https://en.wikipedia.org/wiki/First_D%27Alema_government,
+dalema-1,Partito Popolare Italiano (PPI),governo,https://en.wikipedia.org/wiki/First_D%27Alema_government,
+dalema-1,Unione Democratica per la Repubblica (UDR),governo,https://en.wikipedia.org/wiki/First_D%27Alema_government,"Nel 1999 l'UDR si divide: i CDU di Buttiglione e l'Unione per la Repubblica di Cossiga escono dalla maggioranza, l'UDEUR resta"
+dalema-1,Rinnovamento Italiano (RI),governo,https://en.wikipedia.org/wiki/First_D%27Alema_government,
+dalema-1,Partito dei Comunisti Italiani (PdCI),governo,https://en.wikipedia.org/wiki/First_D%27Alema_government,
+dalema-1,Federazione dei Verdi (FdV),governo,https://en.wikipedia.org/wiki/First_D%27Alema_government,
+dalema-1,Socialisti Democratici Italiani (SDI),governo,https://en.wikipedia.org/wiki/First_D%27Alema_government,
+dalema-2,Democratici di Sinistra (DS),governo,https://en.wikipedia.org/wiki/Second_D%27Alema_government,"Lo SDI non entrò nel governo e si astenne alla fiducia; un sottosegretario dell'Union Valdôtaine"
+dalema-2,Partito Popolare Italiano (PPI),governo,https://en.wikipedia.org/wiki/Second_D%27Alema_government,
+dalema-2,I Democratici (Dem),governo,https://en.wikipedia.org/wiki/Second_D%27Alema_government,
+dalema-2,Unione Democratici per l'Europa (UDEUR),governo,https://en.wikipedia.org/wiki/Second_D%27Alema_government,
+dalema-2,Partito dei Comunisti Italiani (PdCI),governo,https://en.wikipedia.org/wiki/Second_D%27Alema_government,
+dalema-2,Rinnovamento Italiano (RI),governo,https://en.wikipedia.org/wiki/Second_D%27Alema_government,
+dalema-2,Federazione dei Verdi (FdV),governo,https://en.wikipedia.org/wiki/Second_D%27Alema_government,
+amato-2,Democratici di Sinistra (DS),governo,https://en.wikipedia.org/wiki/Second_Amato_government,"Presidente del Consiglio indipendente"
+amato-2,Partito Popolare Italiano (PPI),governo,https://en.wikipedia.org/wiki/Second_Amato_government,
+amato-2,I Democratici (Dem),governo,https://en.wikipedia.org/wiki/Second_Amato_government,
+amato-2,Federazione dei Verdi (FdV),governo,https://en.wikipedia.org/wiki/Second_Amato_government,
+amato-2,Partito dei Comunisti Italiani (PdCI),governo,https://en.wikipedia.org/wiki/Second_Amato_government,
+amato-2,Unione Democratici per l'Europa (UDEUR),governo,https://en.wikipedia.org/wiki/Second_Amato_government,
+amato-2,Rinnovamento Italiano (RI),governo,https://en.wikipedia.org/wiki/Second_Amato_government,
+amato-2,Socialisti Democratici Italiani (SDI),governo,https://en.wikipedia.org/wiki/Second_Amato_government,
+berlusconi-2,Forza Italia (FI),governo,https://en.wikipedia.org/wiki/Second_Berlusconi_government,Sottosegretari anche del Nuovo PSI e del PRI
+berlusconi-2,Alleanza Nazionale (AN),governo,https://en.wikipedia.org/wiki/Second_Berlusconi_government,
+berlusconi-2,Lega Nord (LN),governo,https://en.wikipedia.org/wiki/Second_Berlusconi_government,
+berlusconi-2,Centro Cristiano Democratico (CCD),governo,https://en.wikipedia.org/wiki/Second_Berlusconi_government,Nel dicembre 2002 CCD e CDU confluiscono nell'UDC
+berlusconi-2,Cristiani Democratici Uniti (CDU),governo,https://en.wikipedia.org/wiki/Second_Berlusconi_government,Nel dicembre 2002 CCD e CDU confluiscono nell'UDC
+berlusconi-3,Forza Italia (FI),governo,https://en.wikipedia.org/wiki/Third_Berlusconi_government,
+berlusconi-3,Alleanza Nazionale (AN),governo,https://en.wikipedia.org/wiki/Third_Berlusconi_government,
+berlusconi-3,Unione dei Democratici Cristiani e di Centro (UDC),governo,https://en.wikipedia.org/wiki/Third_Berlusconi_government,
+berlusconi-3,Lega Nord (LN),governo,https://en.wikipedia.org/wiki/Third_Berlusconi_government,
+berlusconi-3,Nuovo PSI (NPSI),governo,https://en.wikipedia.org/wiki/Third_Berlusconi_government,
+berlusconi-3,Partito Repubblicano Italiano (PRI),governo,https://en.wikipedia.org/wiki/Third_Berlusconi_government,
+prodi-2,Democratici di Sinistra (DS),governo,https://en.wikipedia.org/wiki/Second_Prodi_government,"Coalizione dell'Unione. Il 14/10/2007 DS e Margherita confluiscono nel Partito Democratico"
+prodi-2,Democrazia è Libertà - La Margherita (DL),governo,https://en.wikipedia.org/wiki/Second_Prodi_government,"Il 14/10/2007 DS e Margherita confluiscono nel Partito Democratico"
+prodi-2,Partito della Rifondazione Comunista (PRC),governo,https://en.wikipedia.org/wiki/Second_Prodi_government,
+prodi-2,Rosa nel Pugno (RnP),governo,https://en.wikipedia.org/wiki/Second_Prodi_government,"Lista di Radicali Italiani (un ministro) e SDI (un viceministro e sottosegretari)"
+prodi-2,Italia dei Valori (IdV),governo,https://en.wikipedia.org/wiki/Second_Prodi_government,
+prodi-2,Partito dei Comunisti Italiani (PdCI),governo,https://en.wikipedia.org/wiki/Second_Prodi_government,Il ministro in quota PdCI era un indipendente
+prodi-2,Federazione dei Verdi (FdV),governo,https://en.wikipedia.org/wiki/Second_Prodi_government,
+prodi-2,Unione Democratici per l'Europa (UDEUR),governo,https://en.wikipedia.org/wiki/Second_Prodi_government,"Il ministro Mastella lascia il 17/1/2008; il governo perde la fiducia al Senato il 24/1/2008"
+berlusconi-4,Il Popolo della Libertà (PdL),governo,https://en.wikipedia.org/wiki/Fourth_Berlusconi_government,"Nel 2008 lista unitaria di Forza Italia, Alleanza Nazionale e alleati minori, partito dal marzo 2009. Nel novembre 2010 esce Futuro e Libertà (FLI); dal marzo 2011 entra Popolo e Territorio (PT)"
+berlusconi-4,Lega Nord (LN),governo,https://en.wikipedia.org/wiki/Fourth_Berlusconi_government,
+berlusconi-4,Movimento per le Autonomie (MpA),governo,https://en.wikipedia.org/wiki/Fourth_Berlusconi_government,"Caso dubbio: alleato dalla nascita con due sottosegretari e voto di fiducia, ma la fonte non lo elenca tra i partiti di governo; all'opposizione da novembre 2010"
+monti,Il Popolo della Libertà (PdL),appoggio esterno,https://en.wikipedia.org/wiki/Monti_government,Governo tecnico: tutti i ministri indipendenti. La Lega Nord votò contro la fiducia
+monti,Partito Democratico (PD),appoggio esterno,https://en.wikipedia.org/wiki/Monti_government,
+monti,Unione di Centro (UdC),appoggio esterno,https://en.wikipedia.org/wiki/Monti_government,
+monti,Futuro e Libertà per l'Italia (FLI),appoggio esterno,https://en.wikipedia.org/wiki/Monti_government,"Votarono la fiducia anche Italia dei Valori, poi all'opposizione, e Alleanza per l'Italia"
+letta,Partito Democratico (PD),governo,https://en.wikipedia.org/wiki/Letta_government,
+letta,Il Popolo della Libertà (PdL),governo,https://en.wikipedia.org/wiki/Letta_government,"A novembre 2013 il PdL si divide: Forza Italia passa all'opposizione, i cinque ministri vanno nel Nuovo Centrodestra (NCD), che resta nel governo"
+letta,Scelta Civica (SC),governo,https://en.wikipedia.org/wiki/Letta_government,A novembre 2013 il ministro Mauro lascia SC e fonda i Popolari per l'Italia
+letta,Unione di Centro (UdC),governo,https://en.wikipedia.org/wiki/Letta_government,
+letta,Radicali Italiani (RI),governo,https://en.wikipedia.org/wiki/Letta_government,Il ministro Emma Bonino
+renzi,Partito Democratico (PD),governo,https://en.wikipedia.org/wiki/Renzi_government,"Viceministri o sottosegretari anche di Popolari per l'Italia (fino a giugno 2015) e PSI; dal luglio 2014 Democrazia Solidale, dall'ottobre 2015 Centro Democratico"
+renzi,Nuovo Centrodestra (NCD),governo,https://en.wikipedia.org/wiki/Renzi_government,
+renzi,Unione di Centro (UdC),governo,https://en.wikipedia.org/wiki/Renzi_government,
+renzi,Scelta Civica (SC),governo,https://en.wikipedia.org/wiki/Renzi_government,
+gentiloni,Partito Democratico (PD),governo,https://en.wikipedia.org/wiki/Gentiloni_government,"Viceministri o sottosegretari anche di Democrazia Solidale, PSI, Centro Democratico e Civici e Innovatori. Nel 2017 Articolo Uno (MDP) esce dal PD e dalla maggioranza (ottobre 2017)"
+gentiloni,Nuovo Centrodestra (NCD),governo,https://en.wikipedia.org/wiki/Gentiloni_government,Dal 18/3/2017 Alternativa Popolare (AP)
+gentiloni,Centristi per l'Europa (CpE),governo,https://en.wikipedia.org/wiki/Gentiloni_government,
+conte-1,Movimento 5 Stelle (M5S),governo,https://en.wikipedia.org/wiki/First_Conte_government,"Presidente del Consiglio indipendente; un sottosegretario del MAIE"
+conte-1,Lega,governo,https://en.wikipedia.org/wiki/First_Conte_government,"Con la Lega anche eletti di PSd'Az, PLI e MNS"
+conte-2,Movimento 5 Stelle (M5S),governo,https://en.wikipedia.org/wiki/Second_Conte_government,"Presidente del Consiglio indipendente; un sottosegretario del MAIE"
+conte-2,Partito Democratico (PD),governo,https://en.wikipedia.org/wiki/Second_Conte_government,
+conte-2,Liberi e Uguali (LeU),governo,https://en.wikipedia.org/wiki/Second_Conte_government,Articolo Uno e Sinistra Italiana
+conte-2,Italia Viva (IV),governo,https://en.wikipedia.org/wiki/Second_Conte_government,"Nasce dalla scissione del PD il 18/9/2019, dopo il giuramento; esce dal governo il 14/1/2021"
+conte-2,Civica Popolare (CP),appoggio esterno,https://en.wikipedia.org/wiki/Second_Conte_government,Caso dubbio: indicato dalla fonte nel testo e non nel riquadro
+conte-2,Partito Socialista Italiano (PSI),appoggio esterno,https://en.wikipedia.org/wiki/Second_Conte_government,Caso dubbio: indicato dalla fonte nel testo e non nel riquadro
+conte-2,Italia in Comune (IiC),appoggio esterno,https://en.wikipedia.org/wiki/Second_Conte_government,Caso dubbio: indicato dalla fonte nel testo e non nel riquadro
+conte-2,Südtiroler Volkspartei (SVP),appoggio esterno,https://en.wikipedia.org/wiki/Second_Conte_government,Caso dubbio: indicato dalla fonte nel testo e non nel riquadro
+conte-2,Partito Autonomista Trentino Tirolese (PATT),appoggio esterno,https://en.wikipedia.org/wiki/Second_Conte_government,Caso dubbio: indicato dalla fonte nel testo e non nel riquadro
+draghi,Lega,governo,https://en.wikipedia.org/wiki/Draghi_government,"Governo di unità nazionale con otto ministri indipendenti. Lega, M5S e FI tolgono l'appoggio nel luglio 2022"
+draghi,Movimento 5 Stelle (M5S),governo,https://en.wikipedia.org/wiki/Draghi_government,"Il 21/6/2022 Di Maio esce dal M5S e fonda Insieme per il Futuro, che resta nel governo"
+draghi,Partito Democratico (PD),governo,https://en.wikipedia.org/wiki/Draghi_government,
+draghi,Forza Italia (FI),governo,https://en.wikipedia.org/wiki/Draghi_government,"Nel luglio 2022 i ministri Gelmini, Brunetta e Carfagna lasciano FI"
+draghi,Italia Viva (IV),governo,https://en.wikipedia.org/wiki/Draghi_government,
+draghi,Articolo Uno (Art.1),governo,https://en.wikipedia.org/wiki/Draghi_government,
+draghi,Centro Democratico (CD),governo,https://en.wikipedia.org/wiki/Draghi_government,Un sottosegretario
+draghi,Noi con l'Italia (NcI),governo,https://en.wikipedia.org/wiki/Draghi_government,Un sottosegretario
+draghi,Più Europa (+E),governo,https://en.wikipedia.org/wiki/Draghi_government,Un sottosegretario
+meloni,Fratelli d'Italia (FdI),governo,https://en.wikipedia.org/wiki/Meloni_government,
+meloni,Lega,governo,https://en.wikipedia.org/wiki/Meloni_government,
+meloni,Forza Italia (FI),governo,https://en.wikipedia.org/wiki/Meloni_government,
+meloni,Noi Moderati (NM),governo,https://en.wikipedia.org/wiki/Meloni_government,Un sottosegretario
+meloni,Unione di Centro (UdC),appoggio esterno,https://en.wikipedia.org/wiki/Meloni_government,"Caso dubbio: indicato dalla fonte nella tabella dei partiti, non nel riquadro; eletti nelle liste del centrodestra"
+meloni,Coraggio Italia (CI),appoggio esterno,https://en.wikipedia.org/wiki/Meloni_government,"Caso dubbio: indicato dalla fonte nella tabella dei partiti, non nel riquadro; eletti nelle liste del centrodestra"
+meloni,Movimento Associativo Italiani all'Estero (MAIE),appoggio esterno,https://en.wikipedia.org/wiki/Meloni_government,"Caso dubbio: indicato dalla fonte nella tabella dei partiti, non nel riquadro"
+meloni,Movimento Animalista (MA),appoggio esterno,https://en.wikipedia.org/wiki/Meloni_government,"Caso dubbio: indicato dalla fonte nella tabella dei partiti, non nel riquadro; eletti nelle liste del centrodestra"

@@ -1,0 +1,65 @@
+name: Partiti dei governi
+
+# Governi e partiti dei governi (ingest/archivio/governi.csv e governi_partiti.csv, compilati a mano) → Postgres.
+# Lanciato a mano scrive su Neon solo con "scrivi_su_neon" spuntato e il secret DATABASE_URL; altrimenti, e sulle
+# pull request, carica in un Postgres temporaneo e scrive l'elenco nel riepilogo del job. Li carica anche la
+# Pipeline Senato.
+on:
+  workflow_dispatch:
+    inputs:
+      scrivi_su_neon:
+        description: "Scrivi su Neon (secret DATABASE_URL)"
+        type: boolean
+        default: false
+  pull_request:
+    paths:
+      - "ingest/archivio/governi.csv"
+      - "ingest/archivio/governi_partiti.csv"
+      - ".github/workflows/partiti-governi.yml"
+
+jobs:
+  carica:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: archivio
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      LOCALE: postgresql://postgres:postgres@localhost:5432/archivio
+      NEON: ${{ github.event_name == 'workflow_dispatch' && inputs.scrivi_su_neon && secrets.DATABASE_URL || '' }}
+    defaults:
+      run:
+        working-directory: ingest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - name: Carica
+        run: |
+          if [ -n "$NEON" ]; then
+            echo "Destinazione: Neon (secret DATABASE_URL)" | tee -a "$GITHUB_STEP_SUMMARY"
+            export DATABASE_URL="$NEON"
+          else
+            echo "Destinazione: Postgres temporaneo del job" | tee -a "$GITHUB_STEP_SUMMARY"
+            export DATABASE_URL="$LOCALE"
+          fi
+          python -m archivio partiti-carica
+      - name: Elenco
+        if: env.NEON == ''
+        run: |
+          {
+            echo "## Partiti per governo"
+            echo
+            PGPASSWORD=postgres psql -h localhost -U postgres -d archivio -At -c "
+              SELECT '- ' || g.nome || ': ' || coalesce(string_agg(p.partito, ', ' ORDER BY p.partito) FILTER (WHERE p.ruolo = 'governo'), 'governo tecnico')
+                || coalesce('; appoggio esterno: ' || string_agg(p.partito, ', ' ORDER BY p.partito) FILTER (WHERE p.ruolo = 'appoggio esterno'), '')
+              FROM governo g LEFT JOIN governo_partito p ON p.governo_id = g.id
+              GROUP BY g.id, g.nome, g.inizio ORDER BY g.inizio"
+          } | tee -a "$GITHUB_STEP_SUMMARY"

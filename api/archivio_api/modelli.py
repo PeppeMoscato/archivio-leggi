@@ -81,9 +81,14 @@ class PartitoGoverno(BaseModel):
     fonte_url: str
 
 
-class GovernoConAtti(Governo):
+class GovernoConPartiti(Governo):
+    partiti: list[PartitoGoverno] = Field(
+        description="Partiti con ministri al giuramento (governo) e partiti che votarono la fiducia senza ministri (appoggio esterno)"
+    )
+
+
+class GovernoConAtti(GovernoConPartiti):
     numero_atti: int
-    partiti: list[PartitoGoverno]
 
 
 class Conteggi(BaseModel):
@@ -111,7 +116,7 @@ class LeggeDettaglio(LeggeSintesi):
     gazzetta_numero: int | None
     gazzetta_codice: str | None
     aggiornato_il: datetime
-    governo: Governo | None
+    governo: GovernoConPartiti | None
     premessa: Premessa | None = Field(description="Solo decreti-legge e decreti legislativi; le leggi non hanno premesse")
     conteggi: Conteggi
 

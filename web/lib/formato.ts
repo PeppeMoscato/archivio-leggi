@@ -133,3 +133,6 @@ export function urnDaParametro(parametro: string): string {
     return parametro;
   }
 }
+
+/** "Democrazia Cristiana (DC)" → "DC"; un nome senza sigla resta com'è. */
+export const siglaPartito = (partito: string) => /\(([^()]+)\)$/.exec(partito)?.[1] ?? partito;

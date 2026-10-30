@@ -64,3 +64,22 @@ def test_carica_e_ricarica(conn):
         cur.execute("SELECT count(*) FROM gazzetta_urn WHERE urn IS NULL")
         assert cur.fetchone() == (1,)
     assert "Atti caricati: 3" in rapporto.testo()
+
+
+def test_export_incompleto_non_riscrive_un_atto_gia_caricato(conn):
+    carica(conn, atti(), ClientFinto())
+    vecchio = atti()[0]
+    # Stesso atto, ma l'export ha le versioni recenti vuote: note e stato vengono da una versione vecchia.
+    vecchio.abrogato, vecchio.note, vecchio.export_completo = False, [], False
+    nuovo = Atto("urn:nir:stato:legge:2026-10-28;210", "legge", "210", date(2026, 10, 28), "Nuova", export_completo=False)
+    rapporto = carica(conn, [vecchio, nuovo], ClientFinto())
+    with conn.cursor() as cur:
+        cur.execute("SELECT stato FROM legge WHERE urn = %s", (MERLONI,))
+        assert cur.fetchone() == ("abrogata",)
+        cur.execute("SELECT count(*) FROM relazione_normativa WHERE urn_destinazione = %s", (MERLONI,))
+        assert cur.fetchone() == (2,)
+        cur.execute("SELECT stato FROM legge WHERE urn = %s", (nuovo.urn,))
+        assert cur.fetchone() == ("vigente",)
+    testo = rapporto.testo()
+    assert f"già nel database, lasciati come erano: 1 ({MERLONI})" in testo
+    assert "caricati con l'export incompleto perché nuovi: 1" in testo

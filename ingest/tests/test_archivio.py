@@ -337,7 +337,7 @@ def test_riga_legge():
 
 
 def test_atto_json_andata_e_ritorno():
-    originale = atto(MERLONI, abrogato=True, note=[Nota("testo", (Riferimento("X", date(2006, 5, 2), "art_1"),))])
+    originale = atto(MERLONI, abrogato=True, export_completo=False, note=[Nota("testo", (Riferimento("X", date(2006, 5, 2), "art_1"),))])
     assert Atto.da_json(originale.in_json()) == originale
 
 

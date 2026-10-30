@@ -161,6 +161,7 @@ def unisci(atti: dict[str, Atto], storie: Iterable[Storia], abrogati: set[str] |
         atto.data_entrata_vigore = storia.data_entrata_vigore
         atto.fine_vigore_originale = storia.fine_vigore_originale
         atto.note = storia.note
+        atto.export_completo = storia.completa
     for atto in per_urn.values():
         if abrogati is None:
             if atto.abrogato is None:
@@ -243,6 +244,11 @@ def carica(
     db.salva_governi(conn, elenco_governi)
 
     noti = atti if noti is None else noti
+    # Un atto già nel database con l'export incompleto non si riscrive: le sue note verrebbero da una versione
+    # vecchia (30/10/2026: D.Lgs. 58/1998 con le versioni dal 2021 vuote). Un atto nuovo entra comunque.
+    nel_database = {riga[0] for riga in db.leggi_catalogo(conn)}
+    lasciati = [a for a in atti if not a.export_completo and a.urn in nel_database]
+    atti = [a for a in atti if a.export_completo or a.urn not in nel_database]
     locali = {
         (a.gazzetta_codice, a.gazzetta_data): (a.urn, a.tipo) for a in noti if a.gazzetta_codice and a.gazzetta_data
     }
@@ -283,6 +289,11 @@ def carica(
         )
 
     rapporto.aggiungi(f"Atti caricati: {len(atti)}")
+    rapporto.aggiungi(
+        f"- con l'export incompleto (versioni recenti vuote) e già nel database, lasciati come erano: {len(lasciati)}"
+        + (f" ({', '.join(a.urn for a in lasciati[:10])}{', ...' if len(lasciati) > 10 else ''})" if lasciati else "")
+    )
+    rapporto.aggiungi(f"- caricati con l'export incompleto perché nuovi: {sum(1 for a in atti if not a.export_completo)}")
     for (tipo, stato), quanti in sorted(stati.items()):
         rapporto.aggiungi(f"- {tipo}, {stato}: {quanti}")
     rapporto.aggiungi(f"Relazioni: {sum(tipi.values())} ({', '.join(f'{t} {n}' for t, n in tipi.most_common())})")

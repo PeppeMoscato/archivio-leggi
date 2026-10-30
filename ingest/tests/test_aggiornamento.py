@@ -122,10 +122,11 @@ def test_estrai_aggiornamento(tmp_path, cataloghi):
 
     # Un giorno alla volta, dal 16 al 29 ottobre (il 30 è l'ultimo giorno della finestra).
     assert len(client.giorni) == 14 and client.giorni[-1] == (date(2026, 10, 29), AL)
-    # Modificati nel perimetro e atti degli ultimi 90 giorni; senza export (abrogato None) la L. 7/2010 e il CAD,
-    # che ha l'ultima versione vuota.
+    # Modificati nel perimetro e atti degli ultimi 90 giorni; senza export (abrogato None) la L. 7/2010; il CAD ha
+    # l'ultima versione vuota e il caricamento non lo riscrive se è già nel database.
     assert set(atti) == {SIRCHIA, DL_100, DL_150, LEGGE_200, LEGGE_2010, CAD}
-    assert atti[LEGGE_2010].abrogato is None and atti[CAD].abrogato is None and atti[CAD].note == []
+    assert atti[LEGGE_2010].abrogato is None
+    assert atti[CAD].export_completo is False and atti[SIRCHIA].export_completo is True
     assert atti[SIRCHIA].note[0].riferimenti[0].codice == "26G00200"
     assert atti[DL_100].abrogato is False
     # Gruppi piccoli: un export per atto, con le coordinate dell'atto.
@@ -137,8 +138,8 @@ def test_estrai_aggiornamento(tmp_path, cataloghi):
     testo = rapporto.testo()
     assert "atti modificati nel flusso di Normattiva: 5, nel perimetro: 3" in testo
     assert "atti pubblicati negli ultimi 90 giorni: 3" in testo
-    assert "2010 LEGGE: senza export 1 su 1" in testo
-    assert "2005 DECRETO LEGISLATIVO: senza export 1 su 1, di cui con l'ultima versione illeggibile 1" in testo
+    assert "2010 LEGGE: senza export completo 1 su 1" in testo
+    assert "2005 DECRETO LEGISLATIVO: senza export completo 1 su 1, di cui con le versioni recenti vuote 1" in testo
     assert "Atti riesportati: 4 su 6" in testo
 
 

@@ -58,6 +58,8 @@ class Atto:
     # Ultimo giorno di vigenza del testo originale (per i D.L. decaduti: 60 giorni dalla pubblicazione).
     fine_vigore_originale: date | None = None
     note: list[Nota] = field(default_factory=list)
+    # False se nell'export le versioni più recenti erano vuote: note e stato vengono da una versione vecchia.
+    export_completo: bool = True
 
     def in_json(self) -> dict[str, Any]:
         return _in_json(asdict(self))
@@ -89,6 +91,7 @@ class Atto:
                 )
                 for nota in dati.get("note", ())
             ],
+            export_completo=dati.get("export_completo", True),
         )
 
 

@@ -13,9 +13,9 @@ Come la pipeline completa, due fasi: `estrai_aggiornamento` scrive
 `atti_aggiornati.jsonl` (e le premesse dei D.L. e D.Lgs. nuovi in
 `premesse_aggiornate.jsonl`); `carica_aggiornamento` li scrive nel database con
 `pipeline.carica`, usando il catalogo già nel database per i riferimenti in
-Gazzetta e le conversioni dai titoli. Un atto senza export completo (versioni
-recenti vuote o illeggibili) non si riscrive: se è già nel database resta com'è,
-se è nuovo entra con i dati del catalogo. Ogni scrittura è idempotente: una
+Gazzetta e le conversioni dai titoli. Un atto senza export, o con le versioni
+recenti dell'export vuote, non si riscrive se è già nel database; se è nuovo
+entra con quel che c'è (dati del catalogo o versione leggibile più recente). Ogni scrittura è idempotente: una
 finestra più lunga della settimana (14 giorni di default) recupera un giro
 fallito senza doppioni.
 """
@@ -39,7 +39,6 @@ from archivio.modelli import TIPI, Atto
 from archivio.pipeline import (
     ATTESA_ATTO, PERIMETRO, ExportNonRiuscito, Rapporto, carica, esporta, leggi_atti, storie_dell_anno, unisci,
 )
-from archivio.storia import chiave_urn
 
 logger = logging.getLogger(__name__)
 
@@ -143,18 +142,16 @@ def estrai_aggiornamento(
     with tempfile.TemporaryDirectory() as temporanea:
         for (denominazione, anno), gruppo in gruppi.items():
             storie, mancanti = storie_del_gruppo(client, Path(temporanea), denominazione, anno, gruppo)
-            # Con le versioni recenti illeggibili note e stato sarebbero vecchi: l'atto conta come senza export.
-            complete = [s for s in storie if s.completa]
-            uniti, discrepanze = unisci(gruppo, complete, None)
+            # Con le versioni recenti illeggibili l'atto ha `export_completo` False: `carica` non lo riscrive se c'è già.
+            uniti, discrepanze = unisci(gruppo, storie, None)
             # Gli atti senza export restano nel file con `abrogato` None: il caricamento decide (vedi sopra).
             righe += uniti
-            esportati = sum(1 for a in uniti if a.abrogato is not None)
-            nel_gruppo = {chiave_urn(urn) for urn in gruppo}
-            illeggibili = sum(1 for s in storie if not s.completa and s.urn in nel_gruppo)
+            esportati = sum(1 for a in uniti if a.abrogato is not None and a.export_completo)
+            illeggibili = sum(1 for a in uniti if a.abrogato is not None and not a.export_completo)
             if esportati < len(gruppo):
                 rapporto.aggiungi(
-                    f"- {anno} {denominazione}: senza export {len(gruppo) - esportati} su {len(gruppo)}"
-                    + (f", di cui con l'ultima versione illeggibile {illeggibili}" if illeggibili else "")
+                    f"- {anno} {denominazione}: senza export completo {len(gruppo) - esportati} su {len(gruppo)}"
+                    + (f", di cui con le versioni recenti vuote {illeggibili}" if illeggibili else "")
                     + (f" ({', '.join(mancanti)})" if mancanti else "")
                 )
             esportati_totale += esportati
@@ -200,7 +197,7 @@ def carica_aggiornamento(conn: psycopg.Connection, cartella: Path, client: Norma
     noti = list((nel_database | {a.urn: a for a in atti}).values())
     rapporto = carica(conn, atti, client, noti=noti)
     rapporto.aggiungi(
-        f"- già nel database: {sum(1 for a in atti if a.urn in nel_database)}; "
+        f"- già nel database e riscritti: {sum(1 for a in atti if a.urn in nel_database and a.export_completo)}; "
         f"nuovi: {sum(1 for a in atti if a.urn not in nel_database)} "
         f"(di cui senza export, solo dal catalogo: {sum(1 for a in atti if a.abrogato is None)}); "
         f"senza export e lasciati come erano: {len(letti) - len(atti)}; atti nel database prima: {len(nel_database)}"

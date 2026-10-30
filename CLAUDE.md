@@ -18,7 +18,7 @@ App gratuita e non commerciale che archivia le leggi statali italiane (dal 1990)
 - `docs/` — documenti di progetto (fonte di verità).
 - `ingest/` — pipeline Python di ingestione (Normattiva, Camera, Senato, Istat). Pacchetto `ingest/archivio/`: pipeline Normattiva → Postgres.
 - `api/` — FastAPI in sola lettura (pacchetto `api/archivio_api/`): ricerca e dettaglio delle leggi.
-- `web/` — Next.js (da creare, Fase 1).
+- `web/` — Next.js (ricerca e pagina legge), legge solo l'API dal server; deploy su Vercel (`docs/deploy_frontend.md`).
 
 ## Comandi
 ```bash
@@ -48,11 +48,18 @@ cd ../api
 pip install -e ".[dev]"
 pytest                                                  # con TEST_DATABASE_URL anche le prove sul database
 DATABASE_URL=... uvicorn archivio_api.app:app --reload  # documentazione interattiva su /docs
+
+# Frontend Next.js
+cd ../web
+npm ci
+npm test && npm run typecheck
+API_URL=http://localhost:8000 npm run dev               # senza API_URL usa l'API su Render
 ```
 - Normattiva non è raggiungibile dal container di Claude Code: la pipeline gira sul workflow "Pipeline Normattiva" (Actions → Run workflow, campo `anni`). Con il secret `DATABASE_URL` scrive su Neon, altrimenti pubblica il dump `archivio-db` come artifact.
 - dati.senato.it e dati.camera.it non sono raggiungibili dal container: il Senato gira sul workflow "Pipeline Senato", la Camera su "Pipeline Camera" (campo `legislature`); scrivono su Neon solo con `scrivi_su_neon` spuntato. Su Neon la Camera va caricata dopo il Senato.
 - La DDL è `ingest/archivio/schema.sql`: va tenuta allineata a `docs/01_schema_dati.md`. L'API la usa anche nelle sue prove.
 - L'API non scrive mai: ogni transazione è `READ ONLY`, e su Neon usa il ruolo `api_lettura` (`api/deploy/ruolo_sola_lettura.sql`).
+- Il frontend gira su Vercel, piano Hobby (`web/vercel.json`, guida in `docs/deploy_frontend.md`). Chiama l'API solo dal server con cache di un'ora: non serve CORS.
 - L'API gira su Render, piano Free (`render.yaml`, guida in `docs/deploy_api.md`): onrender.com non è raggiungibile dal container, si prova con il workflow "Prova API online" (campo `url`).
 
 ## Fonti e licenze

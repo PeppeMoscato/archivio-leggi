@@ -40,7 +40,9 @@ from archivio_api.modelli import (
 ATTRIBUZIONE = (
     "Fonte: Normattiva (https://www.normattiva.it), Istituto Poligrafico e Zecca dello Stato, in licenza CC BY 4.0. "
     "Testo non autentico e gratuito: l'unico testo ufficiale è quello pubblicato sulla Gazzetta Ufficiale a mezzo stampa. "
-    "Iter e votazioni: dati.senato.it e dati.camera.it (linked open data)."
+    "Iter e votazioni: Senato della Repubblica (https://dati.senato.it), licenza su "
+    "https://dati.senato.it/sito/19?testo_generico=24; Camera dei deputati (https://dati.camera.it), "
+    "in licenza CC BY-SA 4.0: i dati della Camera, anche rielaborati, si riusano con la stessa licenza."
 )
 
 Connessione = Annotated[psycopg.Connection, Depends(connessione)]

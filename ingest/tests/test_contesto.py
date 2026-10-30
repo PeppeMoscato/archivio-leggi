@@ -5,7 +5,7 @@ import os
 from datetime import date
 
 import pytest
-from normattiva import AmbiguityError, NotFoundError
+from normattiva import AmbiguityError, ConnectionError, NotFoundError
 
 from archivio import contesto
 from archivio.modelli import Atto
@@ -29,11 +29,15 @@ class RispostaFinta:
 
 
 class ClientFinto:
-    def __init__(self):
+    def __init__(self, guasti=0):
         self.chiamate = []
+        self.guasti = guasti  # le prime chiamate a dettaglio falliscono come un servizio che non risponde
 
     def dettaglio(self, urn, vigenza=None):
         self.chiamate.append((urn, vigenza))
+        if self.guasti:
+            self.guasti -= 1
+            raise ConnectionError("il servizio non risponde: Server disconnected without sending a response.")
         if urn == RIPUBBLICATO.urn:
             raise AmbiguityError("due atti")
         if urn == MANCANTE.urn:
@@ -48,8 +52,8 @@ class ClientFinto:
 def test_estrai_premesse(tmp_path, monkeypatch):
     cataloghi = {"DECRETO-LEGGE": [DL, RIPUBBLICATO, MANCANTE], "DECRETO LEGISLATIVO": [DLGS_ATTO]}
     monkeypatch.setattr(contesto, "catalogo", lambda client, denominazione, anno: {a.urn: a for a in cataloghi[denominazione]})
-    client = ClientFinto()
-    rapporto = contesto.estrai_premesse(client, [2006], tmp_path, pausa=0)
+    client = ClientFinto(guasti=2)  # il primo atto riesce al terzo tentativo
+    rapporto = contesto.estrai_premesse(client, [2006], tmp_path, pausa=0, attese=(0, 0))
     righe = [json.loads(r) for r in (tmp_path / "premesse_2006.jsonl").read_text().splitlines()]
     assert [r["urn"] for r in righe] == [DL.urn, DLGS_ATTO.urn]
     assert righe[0]["motivazioni"][0].startswith("Ritenuta la straordinaria necessità ed urgenza di rafforzare")
@@ -61,6 +65,13 @@ def test_estrai_premesse(tmp_path, monkeypatch):
     assert "testo non letto 1" in rapporto.testo() and "senza premessa 1" in rapporto.testo()
 
 
+def test_servizio_che_non_risponde_si_arrende():
+    client = ClientFinto(guasti=3)
+    with pytest.raises(ConnectionError):
+        contesto.testo_originale(client, DL, attese=(0, 0))
+    assert len(client.chiamate) == 3
+
+
 DSN = os.environ.get("TEST_DATABASE_URL")
 
 
@@ -70,7 +81,7 @@ def test_carica_premesse_e_ricarica_normattiva(conn, tmp_path, monkeypatch):
     monkeypatch.setattr(contesto, "catalogo", lambda client, denominazione, anno: {
         a.urn: a for a in {"DECRETO-LEGGE": [DL], "DECRETO LEGISLATIVO": [DLGS_ATTO]}[denominazione]
     })
-    contesto.estrai_premesse(ClientFinto(), [2006], tmp_path, pausa=0)
+    contesto.estrai_premesse(ClientFinto(), [2006], tmp_path, pausa=0, attese=())
     righe = contesto.leggi_premesse(tmp_path)
     righe.append({**righe[0], "urn": "urn:nir:stato:decreto.legge:1999-01-01;1"})  # non nell'archivio: si scarta
     carica(conn, [DL, DLGS_ATTO, LEGGE_DELEGA])

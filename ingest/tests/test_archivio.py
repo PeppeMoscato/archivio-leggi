@@ -66,6 +66,15 @@ def atto(urn: str, tipo: str = "legge", **campi) -> Atto:
          [("modifica", "art. 1, comma 1", "tabelle dalla 1 alla 15")]),
         ("Il D.L. 30 dicembre 2005, n. 273 ha disposto (con l'art. 1, comma 1) la proroga del termine previsto dall'art. 3.",
          [("proroga", "art. 1, comma 1", "termine previsto dall'art. 3")]),
+        ("La L. 4 aprile 2012, n. 35 ha disposto la conversione in legge, con modificazioni, del D.L. 9 febbraio 2012, n. 5.",
+         [("converte", None, None)]),
+        # "conversione" in una citazione non è una conversione (L. 241/1990, 30/10/2026).
+        ("Il D.L. 9 febbraio 2012, n. 5, convertito con modificazioni dalla L. 4 aprile 2012, n. 35, ha disposto "
+         "(con l'art. 62, comma 2) che \"Le disposizioni di cui al comma 1 si applicano dalla data di entrata in vigore "
+         "della legge di conversione del presente decreto\".",
+         [("modifica", None, None)]),
+        ("ha disposto (con l'art. 3, comma 1) la modifica dell'art. 2, comma 2, nel testo risultante dalla legge di conversione.",
+         [("modifica", "art. 3, comma 1", "art. 2, comma 2, nel testo risultante dalla legge di conversione")]),
     ],
 )
 def test_classifica_note(testo, attese):
@@ -226,6 +235,31 @@ def test_decreto_legge_abrogato_senza_conversione_e_decaduto():
     assert stato_di(dl, []) == "abrogata"
     dl.abrogato = False
     assert stato_di(dl, relazioni) == "vigente"
+
+
+def test_converte_solo_verso_decreti_legge():
+    # La L. 241/1990 risultava "convertita": su un atto che non è un D.L. la conversione diventa una modifica.
+    legge = atto("urn:nir:stato:legge:1990-08-07;241")
+    legge.note = [
+        Nota("La L. 4 aprile 2012, n. 35 ha disposto (con l'art. 1, comma 1) la conversione, con modificazioni, del D.L. 9 febbraio 2012, n. 5.",
+             (Riferimento("12G00055", date(2012, 4, 6)),)),
+    ]
+    relazioni, _ = relazioni_di(legge, Risolutore({}, {}))
+    assert [r.tipo for r in relazioni] == ["modifica"]
+    assert stato_di(legge, relazioni) == "vigente"
+
+
+def test_citazione_della_legge_di_conversione_non_salva_il_decreto_decaduto():
+    dl = atto("urn:nir:stato:decreto.legge:1995-01-07;1", "decreto-legge", data=date(1995, 1, 7), gazzetta_data=date(1995, 1, 7),
+              abrogato=True, decaduto=None)
+    dl.note = [
+        Nota("Il D.L. 7 marzo 1995, n. 66 ha disposto (con l'art. 1, comma 2) che \"restano validi gli atti adottati sulla base del "
+             "D.L. 7 gennaio 1995, n. 1, fino alla data di entrata in vigore della legge di conversione del presente decreto\".",
+             (Riferimento("095G0090", date(1995, 3, 8)),)),
+    ]
+    relazioni, _ = relazioni_di(dl, Risolutore({}, {}))
+    assert [r.tipo for r in relazioni] == ["modifica"]
+    assert stato_di(dl, relazioni) == "decaduta"
 
 
 def test_decreto_legge_decaduto_senza_frase_nel_titolo():

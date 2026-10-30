@@ -10,6 +10,9 @@ Forme reali, osservate con la sonda del 27/10/2026 (leggi 2003, D.L. 1995):
 - "ha disposto (con l'art. 24, comma 1) la modifica dell'art. 51, comma 1-bis; (con l'art. 24, comma 2) l'introduzione ..."
   → più azioni nella stessa nota: una classificazione per azione
 - "ha dichiarato l'illegittimita' costituzionale dell'art. 10, comma 6." → pronuncia della Consulta
+- "... che "Le disposizioni ... si applicano dalla data di entrata in vigore della legge di conversione del
+  presente decreto"." → modifica: "conversione" in una citazione non è una conversione (errore visto sulla
+  L. 241/1990, 30/10/2026)
 
 La nota non nomina l'atto che dispone (lo identificano i riferimenti in
 Gazzetta). Il tipo si ricava solo dal testo: ogni relazione conserva la nota
@@ -28,6 +31,9 @@ _VERBO = re.compile(r"\bha\s+(?:conseguentemente\s+)?(?:disposto|confermato)\b",
 _DICHIARATO = re.compile(r"\bha\s+dichiarato\b.*?illegittimit\S*\s+costituzionale\s*(?P<oggetto>.*)", re.I)
 _SENTENZA = re.compile(r"sentenza\b.{0,60}?\bn\.\s*(?P<numero>\d+)", re.I)
 _ANNO_SENTENZA = re.compile(r"sentenza\b.{0,40}?(?P<anno>(?:19|20)\d{2})", re.I)
+# L'azione è una conversione solo se comincia così: "la conversione, con modificazioni, del D.L. ...".
+# Altrove la parola compare nelle citazioni ("dalla legge di conversione del presente decreto").
+_CONVERSIONE = re.compile(r"^(?:la\s+)?conversione\b", re.I)
 _INTERO = re.compile(r"\bintero\s+provvedimento\b|\bdel\s+provvedimento\b|\bdel\s+presente\s+(?:decreto|atto)\b", re.I)
 _AZIONE = re.compile(r"^(?:la|l'|il|lo|i|gli|le)?\s*[a-zàèéìòù]+\s*", re.I)
 _PREPOSIZIONE = re.compile(r"^(?:dell'|dello|della|delle|degli|dei|del|di)\s*", re.I)
@@ -70,7 +76,7 @@ def oggetto(azione: str) -> str | None:
 
 def tipo_di(azione: str) -> str:
     azione = azione.lower()
-    if "conversione" in azione:
+    if _CONVERSIONE.match(azione.strip()):
         return "converte"
     if "abrogazione" in azione:
         return "abroga" if _INTERO.search(azione) else "abroga_parziale"

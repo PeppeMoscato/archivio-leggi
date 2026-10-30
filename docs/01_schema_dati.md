@@ -84,7 +84,7 @@ Le tabelle delle schede non sono ancora nella DDL: si creano in Fase 2, dopo le 
 | `governo_id` | governo in carica alla data di emanazione |
 | `materia` | non disponibile da Normattiva: resta vuota |
 
-Le relazioni `converte` vengono dalle note di aggiornamento del D.L. e, perché le note la citano solo a volte, dal titolo della legge di conversione ("Conversione in legge, con modificazioni, del decreto-legge 28 gennaio 2019, n. 4"): in quel caso `nota` contiene il titolo della legge.
+Le relazioni `converte` vengono dalle note di aggiornamento del D.L. e, perché le note la citano solo a volte, dal titolo della legge di conversione ("Conversione in legge, con modificazioni, del decreto-legge 28 gennaio 2019, n. 4"): in quel caso `nota` contiene il titolo della legge. Dalle note conta come conversione solo un'azione che comincia con "la conversione" (non le citazioni come "la legge di conversione del presente decreto"), e solo se la destinazione è un decreto-legge: altrimenti la nota diventa `modifica`.
 
 ## Storico modifiche dello schema
 - v1.3 (2026-10-29): dopo la revisione della scheda Sirchia. In `misura` aggiunti `fonte_url`, `fonte_primaria` e `nota`; in `verdetto` `confidenza` diventa `confidenza_min` e `confidenza_max` (confidenza con un range). Le tabelle delle schede non sono ancora nella DDL: nessuna modifica a `schema.sql`.

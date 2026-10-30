@@ -100,11 +100,16 @@ def relazioni_di(atto: Atto, risolutore: Risolutore) -> tuple[list[RigaRelazione
                 )
                 pronunce[riga] = None
                 continue
+            tipo = esito.tipo
+            if tipo == "converte" and atto.tipo != "decreto-legge":
+                # Si converte solo un D.L. (art. 77 Cost.): su un altro atto la nota va letta come modifica.
+                logger.warning("conversione su %s, che non è un decreto-legge: registrata come modifica", atto.urn)
+                tipo = "modifica"
             for riferimento in nota.riferimenti or (None,):
                 riga = RigaRelazione(
                     urn_origine=risolutore.risolvi(riferimento) if riferimento else None,
                     urn_destinazione=atto.urn,
-                    tipo=esito.tipo,
+                    tipo=tipo,
                     data=riferimento.data if riferimento else None,
                     articolo_origine=esito.articolo_origine or (riferimento.articolo if riferimento else None),
                     articolo_destinazione=esito.articolo_destinazione,

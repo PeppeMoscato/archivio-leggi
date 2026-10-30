@@ -80,3 +80,57 @@ def test_decreto_legislativo_legge_delega():
     assert [(d.urn, d.articolo) for d in premessa.deleghe] == [("urn:nir:stato:legge:2014-12-10;183", None)]
     assert premessa.deleghe[0].citazione.startswith("Vista la legge 10 dicembre 2014, n. 183, recante deleghe")
     assert "fine" not in " ".join(premessa.citazioni)
+
+
+def _dlgs(*citazioni: str) -> str:
+    righe = "".join(f'<div class="preamble-citation-akn">{c}</div>' for c in citazioni)
+    return f'<div class="bodyTesto">{righe}<h2 class="preamble-end-akn">Emana</h2></div>'
+
+
+def _link(urn: str, testo: str) -> str:
+    return f'<a href="http://www.normattiva.it/uri-res/N2Ls?{urn}">{testo}</a>'
+
+
+ART_76 = "Visti gli articoli 76 e 87 della Costituzione;"
+
+
+def test_delega_da_legge_comunitaria():
+    # Forma del D.Lgs. 150/2006 (Pipeline premesse sul 2006, 30/10/2026).
+    premessa = premessa_da_html(_dlgs(
+        ART_76,
+        "Vista la " + _link("urn:nir:stato:legge:2005-04-18;62", "legge 18 aprile 2005, n. 62") + ", recante disposizioni"
+        " per l'adempimento di obblighi derivanti dall'appartenenza dell'Italia alle Comunità europee. Legge comunitaria 2004;",
+        "Visto il nuovo codice della strada di cui al " + _link("urn:nir:stato:decreto.legislativo:1992-04-30;285", "decreto legislativo 30 aprile 1992, n. 285") + ";",
+    ))
+    assert [d.urn for d in premessa.deleghe] == ["urn:nir:stato:legge:2005-04-18;62"]
+
+
+def test_delega_citata_per_articolo_senza_leggi_generali():
+    # Forma del D.Lgs. 159/2006: l'art. 14 della legge 400/1988 si cita sempre e non è la delega.
+    premessa = premessa_da_html(_dlgs(
+        ART_76,
+        "Visto l'" + _link("urn:nir:stato:legge:1988-08-23;400~art14", "articolo 14 della legge 23 agosto 1988, n. 400") + ";",
+        "Visto l'" + _link("urn:nir:stato:legge:2003-07-29;229~art10", "articolo 10 della legge 29 luglio 2003, n. 229") + ";",
+        "Vista la " + _link("urn:nir:stato:legge:1990-08-07;241", "legge 7 agosto 1990, n. 241") + ";",
+    ))
+    assert [(d.urn, d.articolo) for d in premessa.deleghe] == [("urn:nir:stato:legge:2003-07-29;229", "10")]
+
+
+def test_statuto_speciale_senza_delega():
+    # Norme di attuazione degli statuti speciali (D.Lgs. 176/2006): solo l'art. 87, nessuna legge delega.
+    premessa = premessa_da_html(_dlgs(
+        "Visto l'articolo 87, comma quinto, della Costituzione;",
+        "Vista la " + _link("urn:nir:stato:legge:1950-01-01;1~art3", "legge ..., ed in particolare l'articolo 3") + ";",
+    ))
+    assert premessa.deleghe == []
+
+
+def test_delega_citata_due_volte():
+    # D.Lgs. 20/2006: "Visto, in particolare, l'articolo 2, comma 10, della citata legge n. 150 del 2005" ha un URN senza giorno.
+    premessa = premessa_da_html(_dlgs(
+        ART_76,
+        "Vista la " + _link("urn:nir:stato:legge:2005-07-25;150", "legge 25 luglio 2005, n. 150") + ", recante delega al Governo;",
+        "Visto l'" + _link("urn:nir:stato:legge:2005;150~art2", "articolo 2, comma 10, della citata legge n. 150 del 2005")
+        + ", che conferisce al Governo la delega;",
+    ))
+    assert [d.urn for d in premessa.deleghe] == ["urn:nir:stato:legge:2005-07-25;150"]

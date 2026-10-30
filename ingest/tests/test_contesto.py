@@ -86,3 +86,18 @@ def test_carica_premesse_e_ricarica_normattiva(conn, tmp_path, monkeypatch):
     assert (origine, destinazione, giorno) == (LEGGE_DELEGA.urn, DLGS_ATTO.urn, date(2014, 12, 15))
     assert nota.startswith("Vista la legge 10 dicembre 2014, n. 183")
     assert "Premesse caricate: 2 (atti non in archivio: 1)" in rapporto.testo()
+
+
+@pytest.mark.db
+@pytest.mark.skipif(not DSN, reason="TEST_DATABASE_URL non impostata")
+def test_carica_premesse_urn_senza_data(conn):
+    carica(conn, [DLGS_ATTO, LEGGE_DELEGA])
+    riga = {"urn": DLGS_ATTO.urn, "tipo": "decreto legislativo", "motivazioni": [], "citazioni": [], "proposta": None,
+            "fonte_url": "https://www.normattiva.it/", "deleghe": [
+                {"urn": "urn:nir:stato:legge:2014;183", "articolo": "1", "citazione": "della citata legge n. 183 del 2014"},
+                {"urn": LEGGE_DELEGA.urn, "articolo": None, "citazione": "Vista la legge 10 dicembre 2014, n. 183"},
+            ]}
+    contesto.carica_premesse(conn, [riga])
+    with conn.cursor() as cur:
+        cur.execute("SELECT urn_origine, articolo_origine FROM relazione_normativa WHERE tipo = 'delega'")
+        assert cur.fetchall() == [(LEGGE_DELEGA.urn, "1")]

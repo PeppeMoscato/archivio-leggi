@@ -26,7 +26,20 @@ ARTICOLO = "article-num-akn"
 
 _MOTIVAZIONE = re.compile(r"^ritenut[aoie]\b", re.I)
 _PROPOSTA = re.compile(r"^sulla\s+proposta\b", re.I)
-_DELEGA = re.compile(r"\bdeleg", re.I)
+# Citazioni che indicano la legge delega di un decreto legislativo. Prova 2006 (Pipeline premesse, 30/10/2026):
+# con il solo "deleg" 33 D.Lgs. su 73; mancavano le leggi comunitarie ("Vista la legge 18 aprile 2005, n. 62,
+# ... Legge comunitaria 2004"), i correttivi ("che consente di apportare disposizioni integrative e correttive")
+# e le deleghe citate per articolo ("Visto l'articolo 10 della legge 29 luglio 2003, n. 229").
+_DELEGA = re.compile(r"\bdeleg|comunitari|delegazione europea|appartenenza dell.italia|correttiv|integrativ", re.I)
+_PER_ARTICOLO = re.compile(r"\bin particolare\b|^vist[oi] (l'|gli )articol", re.I)
+_ART_76 = re.compile(r"\b76\b.*costituzione", re.I)  # "Visti gli articoli 76 e 87 della Costituzione"
+# Leggi generali sui decreti legislativi e sugli obblighi europei: citate quasi sempre, non sono la delega.
+LEGGI_GENERALI = frozenset({
+    ("1988", "400"),  # disciplina dell'attività di governo (art. 14: i decreti legislativi)
+    ("2005", "11"),  # partecipazione al processo normativo dell'Unione europea
+    ("2012", "234"),  # partecipazione alla formazione e all'attuazione del diritto dell'Unione europea
+})
+_LEGGE = re.compile(r"^urn:nir:stato:legge:(\d{4})(?:-\d\d-\d\d)?;(\d+)")
 _URN = re.compile(r"(urn:nir:[^~#\"'\s&]+)(?:~art(\w+))?")
 _SPAZI = re.compile(r"\s+")
 _VUOTI = frozenset({"br", "img", "hr", "input", "meta", "link", "col", "wbr"})
@@ -107,9 +120,33 @@ def premessa_da_html(testo_html: str) -> Premessa:
             premessa.proposta = testo
         else:
             premessa.citazioni.append(testo)
-        # La prima legge citata: "Vista la legge 10 dicembre 2014, n. 183, recante deleghe al Governo ...,
-        # e in particolare l'articolo 1, comma 7, come modificato dalla legge ..." → la 183/2014.
-        legge = next(((urn, articolo) for urn, articolo in link if urn.startswith("urn:nir:stato:legge")), None)
-        if legge and _DELEGA.search(testo) and legge[0] not in {d.urn for d in premessa.deleghe}:
-            premessa.deleghe.append(Delega(legge[0], legge[1] or None, testo))
+    premessa.deleghe = _deleghe(lettore.blocchi)
     return premessa
+
+
+def _deleghe(blocchi: list[tuple[str, str, list[tuple[str, str]]]]) -> list[Delega]:
+    """Le leggi delega citate. Per ogni citazione conta la prima legge: "Vista la legge 10 dicembre 2014,
+    n. 183, recante deleghe al Governo ..., e in particolare l'articolo 1, comma 7, come modificato dalla
+    legge ..." → la 183/2014. Senza una citazione esplicita, e solo se l'atto cita l'art. 76 della
+    Costituzione, la prima legge citata per articolo ("Vista la legge ..., ed in particolare l'articolo 1")."""
+    citazioni = []
+    for classe, testo, link in blocchi:
+        legge = next(((urn, articolo) for urn, articolo in link if (chiave := chiave_legge(urn))
+                      and chiave not in LEGGI_GENERALI), None)
+        if classe == CITAZIONE and legge:
+            citazioni.append((testo, legge))
+    scelte = [(testo, legge) for testo, legge in citazioni if _DELEGA.search(testo)]
+    if not scelte and any(_ART_76.search(testo) for classe, testo, _ in blocchi if classe == CITAZIONE):
+        scelte = [(testo, legge) for testo, legge in citazioni if _PER_ARTICOLO.search(testo)][:1]
+    deleghe: dict[tuple[str, str], Delega] = {}
+    for testo, (urn, articolo) in scelte:
+        # "della citata legge n. 150 del 2005" ha un URN senza giorno (legge:2005;150): è la stessa legge
+        # della citazione prima, si tiene quella.
+        deleghe.setdefault(chiave_legge(urn), Delega(urn, articolo or None, testo))
+    return list(deleghe.values())
+
+
+def chiave_legge(urn: str) -> tuple[str, str] | None:
+    """(anno, numero) di una legge: `urn:nir:stato:legge:2005-07-25;150` e `urn:nir:stato:legge:2005;150`."""
+    trovata = _LEGGE.match(urn)
+    return trovata.groups() if trovata else None

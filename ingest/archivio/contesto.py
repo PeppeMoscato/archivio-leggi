@@ -25,7 +25,7 @@ from archivio.catalogo import catalogo
 from archivio.db import crea_schema
 from archivio.modelli import Atto
 from archivio.pipeline import Rapporto
-from archivio.premesse import Delega, Premessa, premessa_da_html
+from archivio.premesse import Delega, Premessa, chiave_legge, premessa_da_html
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +117,7 @@ def carica_premesse(conn: psycopg.Connection, righe: list[dict]) -> Rapporto:
             "INSERT INTO premessa (urn, motivazioni, citazioni, proposta, fonte_url) VALUES (%s, %s, %s, %s, %s)",
             [(r["urn"], r["motivazioni"], r["citazioni"], r["proposta"], r["fonte_url"]) for r in tenute],
         )
-        deleghe = [(r["urn"], Delega(**d)) for r in tenute for d in r["deleghe"]]
+        deleghe = _risolvi_senza_data(cur, [(r["urn"], Delega(**d)) for r in tenute for d in r["deleghe"]])
         cur.executemany(
             """
             INSERT INTO relazione_normativa (urn_origine, urn_destinazione, tipo, data, articolo_origine, nota)
@@ -132,3 +132,21 @@ def carica_premesse(conn: psycopg.Connection, righe: list[dict]) -> Rapporto:
     rapporto.aggiungi(f"- con motivazioni: {sum(1 for r in tenute if r['motivazioni'])}")
     rapporto.aggiungi(f"Relazioni delega: {len(deleghe)}; leggi delega distinte nell'archivio: {deleghe_in_archivio}")
     return rapporto
+
+
+def _risolvi_senza_data(cur: psycopg.Cursor, deleghe: list[tuple[str, Delega]]) -> list[tuple[str, Delega]]:
+    """Gli URN senza giorno (`legge:2005;150`, da "la citata legge n. 150 del 2005") diventano quello
+    dell'archivio con lo stesso anno e numero, se c'è; poi una sola relazione per decreto e legge."""
+    risolte: dict[tuple[str, str], tuple[str, Delega]] = {}
+    for decreto, delega in deleghe:
+        urn = delega.urn
+        if ";" in urn and "-" not in urn.rsplit(":", 1)[1] and (chiave := chiave_legge(urn)):
+            cur.execute(
+                "SELECT urn FROM legge WHERE tipo = 'legge' AND numero = %s AND extract(year FROM data) = %s",
+                (chiave[1], int(chiave[0])),
+            )
+            if (trovata := cur.fetchone()):
+                urn = trovata[0]
+        risolte.setdefault((decreto, urn), (decreto, Delega(urn, delega.articolo, delega.citazione)))
+    return list(risolte.values())
+

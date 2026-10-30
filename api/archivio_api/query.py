@@ -141,6 +141,12 @@ def cerca_leggi(
         return totale, cur.fetchall()
 
 
+# I partiti di un governo `g`: prima quelli con ministri, poi l'appoggio esterno.
+PARTITI = """(SELECT coalesce(json_agg(json_build_object('partito', p.partito, 'ruolo', p.ruolo, 'fonte_url', p.fonte_url)
+                                ORDER BY p.ruolo = 'appoggio esterno', p.partito), '[]')
+              FROM governo_partito p WHERE p.governo_id = g.id)"""
+
+
 def legge(conn: psycopg.Connection, urn: str) -> dict | None:
     with conn.cursor() as cur:
         cur.execute("SELECT * FROM legge_estesa WHERE urn = %s", (urn,))
@@ -149,7 +155,10 @@ def legge(conn: psycopg.Connection, urn: str) -> dict | None:
             return None
         riga["governo"] = None
         if riga["governo_id"]:
-            cur.execute("SELECT id, nome, presidente, inizio, fine, fonte_url FROM governo WHERE id = %s", (riga["governo_id"],))
+            cur.execute(
+                f"SELECT g.id, g.nome, g.presidente, g.inizio, g.fine, g.fonte_url, {PARTITI} AS partiti FROM governo g WHERE g.id = %s",
+                (riga["governo_id"],),
+            )
             riga["governo"] = cur.fetchone()
         cur.execute(
             """
@@ -364,12 +373,10 @@ def voto_per_gruppo(conn: psycopg.Connection, ids: list[str]) -> dict[str, list[
 def governi(conn: psycopg.Connection) -> list[dict]:
     with conn.cursor() as cur:
         cur.execute(
-            """
+            f"""
             SELECT g.id, g.nome, g.presidente, g.inizio, g.fine, g.fonte_url,
                    (SELECT count(*) FROM legge l WHERE l.governo_id = g.id) AS numero_atti,
-                   (SELECT coalesce(json_agg(json_build_object('partito', p.partito, 'ruolo', p.ruolo, 'fonte_url', p.fonte_url)
-                                    ORDER BY p.ruolo, p.partito), '[]')
-                    FROM governo_partito p WHERE p.governo_id = g.id) AS partiti
+                   {PARTITI} AS partiti
             FROM governo g
             ORDER BY g.inizio
             """

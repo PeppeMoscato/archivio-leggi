@@ -47,6 +47,9 @@ python -m archivio camera-persone --uscita dati                   # deputati, gr
 python -m archivio camera-stima --legislature 13-19               # votazioni e voti da caricare, senza scaricare i voti
 DATABASE_URL=... python -m archivio camera-carica --da dati
 
+# Partiti dei governi (CSV compilati a mano; li carica anche senato-carica)
+DATABASE_URL=... python -m archivio partiti-carica
+
 # API FastAPI, sola lettura
 cd ../api
 pip install -e ".[dev]"
@@ -62,6 +65,7 @@ API_URL=http://localhost:8000 npm run dev               # senza API_URL usa l'AP
 - Normattiva non è raggiungibile dal container di Claude Code: la pipeline gira sul workflow "Pipeline Normattiva" (Actions → Run workflow, campo `anni`). Con il secret `DATABASE_URL` scrive su Neon, altrimenti pubblica il dump `archivio-db` come artifact.
 - Anche le premesse girano su GitHub Actions: workflow "Pipeline premesse" (campo `anni`), scrive su Neon solo con `scrivi_su_neon` spuntato e dopo il caricamento Normattiva. Le relazioni `delega` le scrive solo questa pipeline.
 - www.senato.it (schede dei ddl, PDF) risponde con un controllo anti-robot: solo link, non va aggirato.
+- I partiti dei governi (`ingest/archivio/governi_partiti.csv`) si compilano a mano, una fonte per riga; regola in `docs/05_stato_e_decisioni.md`. Su Neon: workflow "Partiti dei governi" con `scrivi_su_neon`.
 - dati.senato.it e dati.camera.it non sono raggiungibili dal container: il Senato gira sul workflow "Pipeline Senato", la Camera su "Pipeline Camera" (campo `legislature`); scrivono su Neon solo con `scrivi_su_neon` spuntato. Su Neon la Camera va caricata dopo il Senato.
 - La Camera XIII-XVI legge i voti dalle schede HTML (circa 2 pagine al secondo, circa 2 ore per la XIII): una legislatura alla volta. Schede e voti vanno nella cache `dati/cache/`, salvata dal workflow anche se il job fallisce: dopo un guasto di dati.camera.it basta rilanciare i job falliti.
 - La DDL è `ingest/archivio/schema.sql`: va tenuta allineata a `docs/01_schema_dati.md`. L'API la usa anche nelle sue prove.

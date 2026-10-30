@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import AttesaRisveglio from "@/components/AttesaRisveglio";
 import Avviso from "@/components/Avviso";
 import EtichettaStato from "@/components/EtichettaStato";
+import PartitiGoverno from "@/components/PartitiGoverno";
 import SezioneIter from "@/components/SezioneIter";
 import SezionePerche from "@/components/SezionePerche";
 import SezioneVotazioni, { tipoVotazione } from "@/components/SezioneVotazioni";
@@ -102,6 +103,7 @@ export default async function PaginaLegge({ params, searchParams }: Props) {
               <>
                 <Link href={`/cerca${parametri({ governo: legge.governo.id })}`}>{legge.governo.nome}</Link> (
                 {legge.governo.presidente})
+                <PartitiGoverno partiti={legge.governo.partiti ?? []} />
               </>
             ) : (
               "Dato non disponibile"

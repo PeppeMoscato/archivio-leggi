@@ -15,6 +15,8 @@
     python -m archivio camera-stima --legislature 13-19   # spazio delle votazioni, senza scaricare i voti
     python -m archivio camera-carica --da dati/     # dopo senato-carica; DATABASE_URL nell'ambiente
 
+    python -m archivio partiti-carica               # governi e loro partiti dai CSV; DATABASE_URL nell'ambiente
+
 Il rapporto finisce su stdout e, su GitHub Actions, nel riepilogo del job.
 """
 
@@ -29,7 +31,7 @@ from pathlib import Path
 
 from normattiva import Normattiva
 
-from archivio import camera, contesto, db, parlamento, senato
+from archivio import camera, contesto, db, governi, parlamento, senato
 from archivio.pipeline import PERIMETRO, Rapporto, carica, estrai, leggi_atti
 from archivio.sparql import USER_AGENT
 
@@ -81,6 +83,7 @@ def main(argomenti: list[str] | None = None) -> int:
     p_stima.add_argument("--legislature", nargs="+", default=["13-19"])
     p_camera_carica = comandi.add_parser("camera-carica", help="dai JSON della Camera al database (dopo il Senato)")
     p_camera_carica.add_argument("--da", type=Path, required=True)
+    comandi.add_parser("partiti-carica", help="governi e partiti dei governi dai CSV al database (li carica anche senato-carica)")
     opzioni = parser.parse_args(argomenti)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -159,6 +162,13 @@ def main(argomenti: list[str] | None = None) -> int:
     if not dsn:
         print("DATABASE_URL non impostata", file=sys.stderr)
         return 2
+    if opzioni.comando == "partiti-carica":
+        with db.connetti(dsn) as conn:
+            db.crea_schema(conn)
+            db.salva_governi(conn, governi.carica())
+            righe = parlamento.salva_partiti(conn)
+        pubblica("Partiti dei governi", f"Governi: {len(governi.carica())}; partiti dei governi: {righe} righe\n")
+        return 0
     if opzioni.comando == "premesse-carica":
         with db.connetti(dsn) as conn:
             rapporto = contesto.carica_premesse(conn, contesto.leggi_premesse(opzioni.da))

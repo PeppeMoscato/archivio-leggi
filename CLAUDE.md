@@ -37,6 +37,12 @@ python -m archivio senato-estrai --legislature 15 --uscita dati   # iter, fasi, 
 python -m archivio senato-persone --uscita dati                   # senatori, gruppi, adesioni
 DATABASE_URL=... python -m archivio senato-carica --da dati
 
+# Pipeline Camera → Postgres (Task 1.2, dopo il Senato)
+python -m archivio camera-estrai --legislature 15 --uscita dati   # votazioni (XIII-XIX) o iter dai lavori preparatori (X-XII)
+python -m archivio camera-persone --uscita dati                   # deputati, gruppi, adesioni, governi
+python -m archivio camera-stima --legislature 13-19               # votazioni e voti da caricare, senza scaricare i voti
+DATABASE_URL=... python -m archivio camera-carica --da dati
+
 # API FastAPI, sola lettura
 cd ../api
 pip install -e ".[dev]"
@@ -50,7 +56,8 @@ npm test && npm run typecheck
 API_URL=http://localhost:8000 npm run dev               # senza API_URL usa l'API su Render
 ```
 - Normattiva non è raggiungibile dal container di Claude Code: la pipeline gira sul workflow "Pipeline Normattiva" (Actions → Run workflow, campo `anni`). Con il secret `DATABASE_URL` scrive su Neon, altrimenti pubblica il dump `archivio-db` come artifact.
-- dati.senato.it e dati.camera.it non sono raggiungibili dal container: il Senato gira sul workflow "Pipeline Senato" (campo `legislature`); scrive su Neon solo con `scrivi_su_neon` spuntato.
+- dati.senato.it e dati.camera.it non sono raggiungibili dal container: il Senato gira sul workflow "Pipeline Senato", la Camera su "Pipeline Camera" (campo `legislature`); scrivono su Neon solo con `scrivi_su_neon` spuntato. Su Neon la Camera va caricata dopo il Senato.
+- La Camera XIII-XVI legge i voti dalle schede HTML (circa 2 pagine al secondo, circa 2 ore per la XIII): una legislatura alla volta. Schede e voti vanno nella cache `dati/cache/`, salvata dal workflow anche se il job fallisce: dopo un guasto di dati.camera.it basta rilanciare i job falliti.
 - La DDL è `ingest/archivio/schema.sql`: va tenuta allineata a `docs/01_schema_dati.md`. L'API la usa anche nelle sue prove.
 - L'API non scrive mai: ogni transazione è `READ ONLY`, e su Neon usa il ruolo `api_lettura` (`api/deploy/ruolo_sola_lettura.sql`).
 - Il frontend gira su Vercel, piano Hobby (`web/vercel.json`, guida in `docs/deploy_frontend.md`). Chiama l'API solo dal server con cache di un'ora: non serve CORS.

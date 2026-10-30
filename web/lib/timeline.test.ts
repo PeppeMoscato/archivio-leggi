@@ -68,6 +68,22 @@ describe("timeline", () => {
     expect(eventiTimeline(decreto, [], { primaPagina: true, ultimaPagina: true, verso: "disposte" })).toEqual([]);
   });
 
+  it("unisce le modifiche dello stesso atto nello stesso giorno", () => {
+    const l15 = "urn:nir:stato:legge:2005-02-11;15";
+    const eventi = eventiTimeline(
+      decreto,
+      [
+        relazione(1, "modifica", "2005-02-21", l15),
+        relazione(2, "modifica", "2005-02-21", l15),
+        relazione(3, "abroga_parziale", "2005-02-21", l15),
+        relazione(4, "modifica", "2005-02-21", null),
+        relazione(5, "modifica", "2005-02-21", null),
+      ],
+      { verso: "ricevute", primaPagina: false, ultimaPagina: false },
+    );
+    expect(eventi.map((e) => e.relazioni?.map((r) => r.id))).toEqual([[1, 2], [3], [4], [5]]);
+  });
+
   it("raggruppa per anno", () => {
     const eventi = eventiTimeline(decreto, [relazione(1, "modifica", "2005-01-01", null)], {
       verso: "ricevute",

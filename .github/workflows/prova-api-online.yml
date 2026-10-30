@@ -39,7 +39,7 @@ jobs:
           errori=0
           for percorso in \
             "/salute" \
-            "/leggi?q=fumo%20locali%20pubblici&per_pagina=3" \
+            "/leggi?q=pubblica%20amministrazione&per_pagina=3" \
             "/leggi?q=L.%203%2F2003" \
             "/leggi/urn:nir:stato:legge:2003-01-16;3" \
             "/leggi/urn:nir:stato:legge:2003-01-16;3/relazioni?per_pagina=5" \

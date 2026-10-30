@@ -1,4 +1,4 @@
-"""Riga di comando delle pipeline Normattiva e Senato → Postgres.
+"""Riga di comando delle pipeline Normattiva, Senato e Camera → Postgres.
 
     python -m archivio estrai --anni 2003 2004 --uscita dati/
     python -m archivio carica --da dati/            # DATABASE_URL nell'ambiente
@@ -6,6 +6,11 @@
     python -m archivio senato-estrai --legislature 13-19 --uscita dati/
     python -m archivio senato-persone --uscita dati/
     python -m archivio senato-carica --da dati/     # DATABASE_URL nell'ambiente
+
+    python -m archivio camera-estrai --legislature 10-19 --uscita dati/
+    python -m archivio camera-persone --uscita dati/
+    python -m archivio camera-stima --legislature 13-19   # spazio delle votazioni, senza scaricare i voti
+    python -m archivio camera-carica --da dati/     # dopo senato-carica; DATABASE_URL nell'ambiente
 
 Il rapporto finisce su stdout e, su GitHub Actions, nel riepilogo del job.
 """
@@ -21,10 +26,9 @@ from pathlib import Path
 
 from normattiva import Normattiva
 
-from archivio import db, parlamento, senato
+from archivio import camera, db, parlamento, senato
 from archivio.pipeline import PERIMETRO, Rapporto, carica, estrai, leggi_atti
-
-USER_AGENT = "archivio-leggi pipeline (+https://github.com/PeppeMoscato/archivio-leggi)"
+from archivio.sparql import USER_AGENT
 
 
 def anni(testo: str) -> list[int]:
@@ -59,6 +63,16 @@ def main(argomenti: list[str] | None = None) -> int:
     p_persone.add_argument("--uscita", type=Path, required=True)
     p_senato_carica = comandi.add_parser("senato-carica", help="dai JSON del Senato al database")
     p_senato_carica.add_argument("--da", type=Path, required=True)
+    p_camera = comandi.add_parser("camera-estrai", help="votazioni (XIII-XIX) e iter (X-XII) da dati.camera.it, un JSON per legislatura")
+    p_camera.add_argument("--legislature", nargs="+", required=True, help="es. 15, 10-19")
+    p_camera.add_argument("--uscita", type=Path, required=True)
+    p_deputati = comandi.add_parser("camera-persone", help="deputati, gruppi e adesioni da dati.camera.it")
+    p_deputati.add_argument("--legislature", nargs="+", default=["10-19"])
+    p_deputati.add_argument("--uscita", type=Path, required=True)
+    p_stima = comandi.add_parser("camera-stima", help="quante votazioni e voti della Camera si caricherebbero")
+    p_stima.add_argument("--legislature", nargs="+", default=["13-19"])
+    p_camera_carica = comandi.add_parser("camera-carica", help="dai JSON della Camera al database (dopo il Senato)")
+    p_camera_carica.add_argument("--da", type=Path, required=True)
     opzioni = parser.parse_args(argomenti)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -90,10 +104,52 @@ def main(argomenti: list[str] | None = None) -> int:
         )
         return 0
 
+    if opzioni.comando == "camera-estrai":
+        rapporto = Rapporto()
+        client_camera, client_senato = camera.client(), senato.client()
+        for leg in sorted({n for testo in opzioni.legislature for n in anni(testo)}):
+            dati = camera.estrai_legislatura(client_camera, client_senato, leg, opzioni.uscita / "cache")
+            camera.scrivi(opzioni.uscita / f"camera_{leg}.json", dati)
+            rapporto.aggiungi(
+                f"Legislatura {leg}: {len(dati.leggi)} leggi dal 1990, {len(dati.atti)} atti dei lavori preparatori, "
+                f"{len(dati.votazioni)} votazioni ({sum(len(e) for v in dati.votazioni for e in v.voti.values())} voti individuali), "
+                f"{dati.votazioni_scartate} su altri atti; fasi Camera negli iter del Senato: {len(dati.fasi_senato)}"
+            )
+        pubblica("Estrazione Camera", rapporto.testo())
+        return 0
+    if opzioni.comando == "camera-persone":
+        legislature = sorted({n for testo in opzioni.legislature for n in anni(testo)})
+        persone = camera.estrai_persone(camera.client(), legislature)
+        camera.scrivi(opzioni.uscita / "camera_persone.json", persone)
+        pubblica(
+            "Deputati e gruppi",
+            f"Deputati: {len(persone.deputati)}; adesioni: {len(persone.adesioni)}; gruppi: {len(persone.gruppi)}; "
+            f"governi dal 1989: {len(persone.governi)}\n",
+        )
+        return 0
+    if opzioni.comando == "camera-stima":
+        righe = ["| Legislatura | Votazioni da caricare | Palesi | Voti individuali (totali della fonte) | Voti nell'endpoint |",
+                 "|---|---|---|---|---|"]
+        somma = [0, 0, 0]
+        client_camera, client_senato = camera.client(), senato.client()
+        for leg in sorted({n for testo in opzioni.legislature for n in anni(testo)}):
+            conti = camera.stima_legislatura(client_camera, client_senato, leg)
+            somma = [a + b for a, b in zip(somma, conti)]
+            nell_endpoint = "sì" if leg >= camera.PRIMA_CON_VOTI_INDIVIDUALI else "no, solo nelle schede HTML"
+            righe.append(f"| {leg} | {conti[0]} | {conti[1]} | {conti[2]} | {nell_endpoint} |")
+        righe.append(f"| Totale | {somma[0]} | {somma[1]} | {somma[2]} | |")
+        pubblica("Stima delle votazioni della Camera", "\n".join(righe) + "\n")
+        return 0
+
     dsn = os.environ.get("DATABASE_URL")
     if not dsn:
         print("DATABASE_URL non impostata", file=sys.stderr)
         return 2
+    if opzioni.comando == "camera-carica":
+        with db.connetti(dsn) as conn:
+            rapporto = parlamento.carica_camera(conn, opzioni.da)
+        pubblica("Caricamento Camera", rapporto.testo())
+        return 0
     if opzioni.comando == "senato-carica":
         with db.connetti(dsn) as conn:
             rapporto = parlamento.carica_senato(conn, opzioni.da)

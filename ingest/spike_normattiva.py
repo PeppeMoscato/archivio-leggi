@@ -298,7 +298,7 @@ def report(risultati: dict[str, Any]) -> str:
 
 
 def main() -> int:
-    user_agent = "archivio-leggi spike (+https://github.com/PeppeMoscato/archivio-leggi)"
+    user_agent = "archivio-leggi (progetto non commerciale; +https://github.com/PeppeMoscato/archivio-leggi)"
     with Normattiva(user_agent=user_agent, timeout=120.0) as client:
         risultati = esegui(client)
     CARTELLA_SAMPLES.mkdir(exist_ok=True)

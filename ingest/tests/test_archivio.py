@@ -6,7 +6,7 @@ from archivio.catalogo import numero_pulito, unisci_pubblicazioni
 from archivio.governi import carica as carica_governi
 from archivio.governi import governo_alla_data
 from archivio.modelli import Atto, Nota, Riferimento
-from archivio.note import PRONUNCIA, classifica
+from archivio.note import PRONUNCIA, cita_conversione, classifica
 from archivio.pipeline import riga_legge, unisci
 from archivio.relazioni import Risolutore, conversioni_dai_titoli, convertito_dal_titolo, data_decadenza, relazioni_di, stato_di
 from archivio.storia import chiave_urn, leggi_storie
@@ -247,6 +247,12 @@ def test_converte_solo_verso_decreti_legge():
     relazioni, _ = relazioni_di(legge, Risolutore({}, {}))
     assert [r.tipo for r in relazioni] == ["modifica"]
     assert stato_di(legge, relazioni) == "vigente"
+
+
+def test_cita_conversione():
+    assert cita_conversione("ha disposto (con l'art. 2) che \"... dalla legge di conversione del presente decreto\".")
+    assert not cita_conversione("ha disposto (con l'art. 1, comma 1) la conversione, con modificazioni, del D.L. 9 febbraio 2012, n. 5.")
+    assert not cita_conversione(", di conversione, ha disposto (con l'art. 1, comma 1) l'introduzione dell'art. 4-sexies.")
 
 
 def test_citazione_della_legge_di_conversione_non_salva_il_decreto_decaduto():

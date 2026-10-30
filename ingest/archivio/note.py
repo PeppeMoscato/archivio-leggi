@@ -130,3 +130,13 @@ def classifica(testo: str) -> list[Classificazione]:
         )
         for origine, azione in clausole
     ]
+
+
+def cita_conversione(testo: str) -> bool:
+    """La nota nomina la conversione senza disporla: fino al 30/10/2026 diventava, a torto, `converte`."""
+    testo = normalizza(testo)
+    if _DICHIARATO.search(testo):
+        return False
+    verbo = _VERBO.search(testo)
+    corpo = testo[verbo.end() :] if verbo else testo
+    return "conversione" in corpo.lower() and all(c.tipo != "converte" for c in classifica(testo))

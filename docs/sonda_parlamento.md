@@ -83,7 +83,7 @@ Dati dalla **XIII legislatura (9 maggio 1996)** in poi. Per le leggi 1990-1996 (
 - I partiti dei governi si compilano a mano, con la fonte, come la tabella `governo`.
 - La Camera entra nelle stesse tabelle: votazioni sulle fasi Camera degli iter del Senato (XIII-XIX), iter propri per la X-XII.
 
-## 4. Camera: votazioni da caricare e voti dei deputati (28-29/10/2026)
+## 4. Camera: votazioni da caricare e voti dei deputati (28-30/10/2026)
 
 **Stima** (`camera-stima`, [run 40717998103](https://github.com/PeppeMoscato/archivio-leggi/actions/runs/40717998103), job `stima`): votazioni sulle fasi Camera degli iter diventati legge e voti individuali ricavati dai totali della fonte (favorevoli + contrari + astenuti).
 
@@ -98,11 +98,24 @@ Dati dalla **XIII legislatura (9 maggio 1996)** in poi. Per le leggi 1990-1996 (
 | XIX | 13.883 | 13.879 | 3.620.791 | sì |
 | Totale | 100.085 | 99.169 | 38.890.887 | |
 
-**Prova della XV** nel Postgres temporaneo (stesso run, job `carica`): 3.431 votazioni (2.023 emendamenti, 437 articoli, 116 finali, 14 fiducie, 14 pregiudiziali, 827 altre) su 123 fasi Camera degli iter del Senato, 114 con una votazione finale nominale; 1,2 MB di righe. Nessun voto individuale. XII: 295 iter dai lavori preparatori, tutti collegati a una legge di Normattiva.
+**Prima prova della XV** nel Postgres temporaneo (stesso run, job `carica`, prima di leggere le schede): 3.431 votazioni (2.023 emendamenti, 437 articoli, 116 finali, 14 fiducie, 14 pregiudiziali, 827 altre) su 123 fasi Camera degli iter del Senato, 114 con una votazione finale nominale; 1,2 MB di righe. Nessun voto individuale (vedi sotto). XII: 295 iter dai lavori preparatori, tutti collegati a una legge di Normattiva.
 
 **Voti dei deputati** (sonda `camera-voti`, [run 40881947732](https://github.com/PeppeMoscato/archivio-leggi/actions/runs/40881947732)): per XVII, XVIII e XIX ogni votazione ha i suoi `ocd:voto` e ogni deputato ha i suoi voti; per XIII, XIV, XV e XVI nessuna tripla punta alle votazioni e i deputati non hanno voti. La pipeline chiede i voti all'endpoint dalla XVII (`PRIMA_CON_VOTI_INDIVIDUALI`) e li legge dalle schede HTML per XIII-XVI.
 
-**Schede HTML** (sonda `camera-schede`, [run 40885410769](https://github.com/PeppeMoscato/archivio-leggi/actions/runs/40885410769)): la scheda di ogni votazione su documenti.camera.it (l'URL in `dc:relation`) ha l'elenco completo anche per XIII-XVI: nominativo (COGNOME NOME), sigla del gruppo e voto (Favorevole, Contrario, Astensione, Non ha partecipato, In missione). Circa 75 KB a pagina, una pagina per votazione: circa 60.000 pagine per XIII-XVI. I nomi non hanno identificativi: la pipeline li collega ai deputati della legislatura per cognome e nome, senza accenti né apostrofi, e usa la sigla del gruppo per gli omonimi. Decisione del 29/10/2026 (utente): si leggono le schede per avere i voti dei deputati anche per XIII-XVI. Tre pagine alla volta con mezzo secondo di pausa: circa due ore per la XIII.
+**Schede HTML** (sonda `camera-schede`, [run 40885410769](https://github.com/PeppeMoscato/archivio-leggi/actions/runs/40885410769)): la scheda di ogni votazione su documenti.camera.it (l'URL in `dc:relation`) ha l'elenco completo anche per XIII-XVI: nominativo (COGNOME NOME), sigla del gruppo e voto (Favorevole, Contrario, Astensione, Non ha partecipato, In missione). Circa 75 KB a pagina, una pagina per votazione: circa 60.000 pagine per XIII-XVI. I nomi non hanno identificativi e sono i nomi d'uso ("BINDI ROSY", "CAPARINI DAVIDE"), mentre l'endpoint ha quelli dell'anagrafe ("ROSARIA", "DAVIDE CARLO"): la pipeline li collega ai deputati della legislatura per cognome e nome, senza accenti né apostrofi; se non basta, per il cognome più lungo che corrisponde (anche un doppio cognome accorciato) e, tra più candidati, per sigla del gruppo e poi iniziale del nome. Decisione del 29/10/2026 (utente): si leggono le schede per avere i voti dei deputati anche per XIII-XVI.
 
-**Spazio su Neon.** Al Senato 370.149 voti della XV occupano 1,76 MB di righe (circa 4,8 byte a voto, array di interi). Per la Camera: circa 100.000 votazioni (circa 36 MB di righe senza voti) più 14,5 milioni di voti XVII-XIX (circa 70 MB), circa 110 MB in tutto; con i voti XIII-XVI dalle schede (24,4 milioni) circa 230 MB. Il conto esatto viene dalla prova della XIX.
+**Carico sul sito** (verifica di liceità del 29/10/2026): una legislatura alla volta (`max-parallel: 1`), tre pagine alla volta con mezzo secondo di pausa (circa 2 pagine al secondo), `Retry-After` rispettato su 429 e 503 (al massimo 10 minuti), stop dopo 20 errori di fila, un User-Agent con il link al repository. Schede e voti dell'endpoint vanno in una cache (`dati/cache/camera_<leg>_*.jsonl.gz`) salvata dal workflow anche quando il job fallisce: rilanciando i job falliti si riparte da dove ci si era fermati. Serviva anche per i guasti dell'endpoint: il 29/10/2026 ha risposto 502 per oltre 11 minuti nel pomeriggio e poi dalle 18:25 UTC fino alla notte.
 
+**Prova della XV e della XIX** ([run 40930651361](https://github.com/PeppeMoscato/archivio-leggi/actions/runs/40930651361), 30/10/2026, Postgres temporaneo):
+
+| | XV (schede HTML) | XIX (endpoint) |
+|---|---|---|
+| Votazioni | 3.431 | 13.883 |
+| Voti individuali caricati | 1.543.636 (98% dei 1.574.899 dei totali) | 3.620.791 (uguale ai totali) |
+| Righe di `votazione` | 7,4 MB | 19 MB |
+| Tempo di estrazione | circa 21 minuti di schede | |
+| Votazioni con elenchi diversi dai totali | 3.328 | 0 |
+
+XV: 50 schede senza tabella dei voti; 5 nominativi non collegati (6.450 voti), tra cui D'ANTONA OLGA, ROSSI GASPARRINI FEDERICA e CATANOSO BASILIO; 58 nominativi collegati per cognome, controllati uno per uno (es. BINDI ROSY → ROSARIA, MINNITI MARCO → DOMENICO). Oltre ai nomi non collegati mancano circa 24.800 voti, circa 7 per votazione: gli elenchi delle schede non tornano esattamente con i totali della fonte. È un limite noto dei voti XIII-XVI: i totali della votazione restano quelli ufficiali, gli elenchi servono al voto per gruppo e per deputato. XIX: 112 voti di deputati che non risultano tra i deputati caricati (su 3,6 milioni).
+
+**Spazio su Neon.** Dalle prove: circa 4 byte a voto più circa 380 byte a votazione, più il 9% per indici e tabelle collegate. Camera XIII-XIX: 100.085 votazioni e 38,9 milioni di voti, circa 195 MB di righe, **circa 215 MB** in tutto. Senato XIII-XIX circa 70 MB. Con Normattiva (qualche decina di MB) l'archivio resta ben sotto 1 GB del piano Free: si caricano tutte le votazioni.

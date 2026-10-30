@@ -17,6 +17,9 @@ from pathlib import Path
 FONTE_URL = "https://www.senato.it/legislature/repubblica/governi-della-repubblica"
 FILE = Path(__file__).with_name("governi.csv")
 # Partiti di ogni governo: nessuna fonte strutturata, si compila a mano con la fonte di ogni riga.
+# Regola (30/10/2026): "governo" sono i partiti che la fonte elenca come membri al giuramento (in pratica,
+# con almeno un ministro); "appoggio esterno" quelli che la fonte indica come sostegno senza ministri.
+# I cambi successivi (uscite, scissioni, ingressi) e i casi dubbi vanno nella colonna `nota`, che non si carica.
 FILE_PARTITI = Path(__file__).with_name("governi_partiti.csv")
 
 

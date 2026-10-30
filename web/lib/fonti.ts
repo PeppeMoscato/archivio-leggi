@@ -35,6 +35,12 @@ export const FONTI: Fonte[] = [
       "Fonte: Camera dei deputati (https://dati.camera.it), in licenza CC BY-SA 4.0. " +
       "I dati della Camera, anche rielaborati, si riusano con la stessa licenza.",
   },
+  {
+    nome: "Wikipedia",
+    url: "https://en.wikipedia.org",
+    cosa: "Partiti dei governi: ogni governo rimanda alla sua pagina",
+    licenza: "CC BY-SA 4.0",
+  },
 ];
 
 export const REPOSITORY = "https://github.com/PeppeMoscato/archivio-leggi";

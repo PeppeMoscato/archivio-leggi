@@ -69,6 +69,10 @@ def test_dettaglio(client):
     assert corpo["titolo"].startswith("Nuove norme in materia di procedimento amministrativo")
     assert (corpo["stato"], corpo["numero_modifiche"], corpo["modificata"]) == ("vigente", 2, True)
     assert corpo["governo"]["nome"] == "Andreotti VI"
+    assert [(p["partito"], p["ruolo"]) for p in corpo["governo"]["partiti"]] == [
+        ("Democrazia Cristiana (DC)", "governo"),
+        ("Partito Repubblicano Italiano (PRI)", "appoggio esterno"),
+    ]
     assert corpo["gazzetta_codice"] == "090G0294"
     assert corpo["conteggi"] == {"ricevute": {"modifica": 2}, "disposte": {}, "pronunce": 1, "iter": 0}
     assert client.get(f"/leggi/{L3}").json()["conteggi"] == {

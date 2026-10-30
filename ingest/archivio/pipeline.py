@@ -27,6 +27,7 @@ from normattiva.modelli import ExportMode
 from archivio import db, governi
 from archivio.catalogo import PER_PAGINA, atto_da_ricerca, catalogo
 from archivio.modelli import TIPI, Atto
+from archivio.note import nomina_conversione
 from archivio.relazioni import Risolutore, conversioni_dai_titoli, data_decadenza, relazioni_di, stato_di
 from archivio.storia import Storia, chiave_urn, decaduto, leggi_storie
 
@@ -236,7 +237,7 @@ def carica(conn, atti: list[Atto], client: Normattiva | None = None, blocco: int
     )
     stati: Counter = Counter()
     tipi: Counter = Counter()
-    pronunce_totali = senza_origine = dai_titoli = 0
+    pronunce_totali = senza_origine = dai_titoli = citano_conversione = 0
     conversioni = conversioni_dai_titoli(atti)
     # Prima tutte le leggi (le relazioni hanno la FK su urn_destinazione), poi le relazioni a blocchi.
     calcolate = []
@@ -252,6 +253,11 @@ def carica(conn, atti: list[Atto], client: Normattiva | None = None, blocco: int
         tipi.update(r.tipo for r in relazioni)
         pronunce_totali += len(pronunce)
         senza_origine += sum(1 for r in relazioni if r.urn_origine is None)
+        for r in relazioni:
+            if r.tipo != "converte" and nomina_conversione(r.nota):
+                if citano_conversione < 10:
+                    logger.info("conversione letta come modifica, su %s: %s", atto.urn, r.nota[:300])
+                citano_conversione += 1
     db.salva_leggi(conn, [riga_legge(atto, stato_di(atto, relazioni), elenco_governi) for atto, relazioni, _ in calcolate])
     for inizio in range(0, len(calcolate), blocco):
         parte = calcolate[inizio : inizio + blocco]
@@ -267,6 +273,7 @@ def carica(conn, atti: list[Atto], client: Normattiva | None = None, blocco: int
         rapporto.aggiungi(f"- {tipo}, {stato}: {quanti}")
     rapporto.aggiungi(f"Relazioni: {sum(tipi.values())} ({', '.join(f'{t} {n}' for t, n in tipi.most_common())})")
     rapporto.aggiungi(f"- converte ricavate dal titolo della legge di conversione: {dai_titoli}")
+    rapporto.aggiungi(f"- note che nominano una conversione ma non convertono un D.L. (lette come modifica): {citano_conversione}")
     rapporto.aggiungi(f"- senza atto di origine risolto: {senza_origine}")
     rapporto.aggiungi(f"Pronunce della Corte costituzionale: {pronunce_totali}")
     rapporto.aggiungi(f"Chiamate API per risolvere riferimenti: {risolutore.chiamate} (non risolti: {risolutore.non_risolti})")

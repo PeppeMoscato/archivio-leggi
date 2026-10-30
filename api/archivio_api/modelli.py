@@ -95,6 +95,15 @@ class Conteggi(BaseModel):
     iter: int
 
 
+class Premessa(BaseModel):
+    """Le premesse del testo originale di un decreto-legge o di un decreto legislativo, così come sono scritte."""
+
+    motivazioni: list[str] = Field(description='Le frasi "Ritenuta la straordinaria necessità ed urgenza di...", in ordine')
+    citazioni: list[str] = Field(description='Le frasi "Visto..." e "Acquisito il parere...": basi giuridiche, delega, pareri')
+    proposta: str | None = Field(description='"Sulla proposta del Presidente del Consiglio dei ministri ..."')
+    fonte_url: str
+
+
 class LeggeDettaglio(LeggeSintesi):
     materia: str | None
     data_entrata_vigore: date | None
@@ -103,6 +112,7 @@ class LeggeDettaglio(LeggeSintesi):
     gazzetta_codice: str | None
     aggiornato_il: datetime
     governo: Governo | None
+    premessa: Premessa | None = Field(description="Solo decreti-legge e decreti legislativi; le leggi non hanno premesse")
     conteggi: Conteggi
 
 
@@ -157,6 +167,9 @@ class Fase(BaseModel):
     stato: str | None
     data_stato: date | None
     fonte_url: str
+    testo_presentato: str | None = Field(
+        default=None, description="Il testo presentato, con la relazione illustrativa, come lo identifica la fonte (URN del Senato)"
+    )
     numero_votazioni: int
     firmatari: list[Firmatario]
 

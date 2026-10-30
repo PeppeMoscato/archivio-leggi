@@ -9,6 +9,7 @@ import type {
   Pagina,
   Pronuncia,
   Relazione,
+  TipoRelazione,
   TipoVotazione,
   Verso,
   Votazione,
@@ -104,8 +105,8 @@ export const cercaLeggi = (filtri: FiltriRicerca, perPagina = 20) =>
 
 export const dettaglioLegge = (urn: string) => chiama<LeggeDettaglio>(legge(urn));
 
-export const relazioni = (urn: string, verso: Verso, pagina: number, perPagina = 50) =>
-  chiama<Pagina<Relazione>>(`${legge(urn)}/relazioni${parametri({ verso, pagina, per_pagina: perPagina })}`);
+export const relazioni = (urn: string, verso: Verso, pagina: number, perPagina = 50, tipo?: TipoRelazione) =>
+  chiama<Pagina<Relazione>>(`${legge(urn)}/relazioni${parametri({ verso, tipo, pagina, per_pagina: perPagina })}`);
 
 export const pronunce = (urn: string) => chiama<Pronuncia[]>(`${legge(urn)}/pronunce`);
 

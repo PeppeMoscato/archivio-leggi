@@ -57,7 +57,7 @@ const RELAZIONE_RICEVUTA: Record<TipoRelazione, string> = {
   converte: "Convertito in legge",
   attua: "Attuata",
   proroga: "Prorogata",
-  delega: "Collegata a una delega",
+  delega: "Adottato su delega",
 };
 
 const RELAZIONE_DISPOSTA: Record<TipoRelazione, string> = {

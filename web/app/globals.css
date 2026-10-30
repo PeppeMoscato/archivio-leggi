@@ -503,6 +503,24 @@ select:focus {
   color: var(--inchiostro-2);
 }
 
+/* Perché è nata: le premesse citate come sono scritte */
+blockquote.premessa {
+  margin: 0.5rem 0;
+  padding: 0.6rem 0.9rem;
+  border-left: 3px solid var(--accento);
+  background: var(--accento-tenue);
+  border-radius: 0 var(--raggio) var(--raggio) 0;
+  font-family: var(--serif);
+  color: var(--inchiostro);
+}
+
+.citazioni {
+  margin: 0.25rem 0 0.5rem;
+  padding-left: 1.2rem;
+  font-size: 0.9rem;
+  color: var(--inchiostro-2);
+}
+
 /* Timeline */
 .timeline {
   list-style: none;

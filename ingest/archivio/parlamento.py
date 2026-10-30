@@ -220,7 +220,7 @@ def salva_legislatura(
             iter_di_fase[f.id] = riga.id
             fasi_righe.append((
                 codice(f.id, DDL), riga.id, f.progressivo, RAMI.get(f.ramo.upper(), f.ramo.lower()), f.numero, f.titolo,
-                f.data_presentazione, f.stato, f.data_stato, f.id,
+                f.data_presentazione, f.stato, f.data_stato, f.id, f.testo_presentato,
             ))
     firmatari = [
         (codice(i.fase_id, DDL), i.nome, INIZIATIVE.get((i.tipo or "").strip().lower(), i.tipo), i.primo_firmatario,
@@ -269,11 +269,13 @@ def salva_legislatura(
         )
         cur.executemany(
             """
-            INSERT INTO fase_iter (id, iter_id, progressivo, ramo, numero, titolo, data_presentazione, stato, data_stato, fonte_url)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO fase_iter (id, iter_id, progressivo, ramo, numero, titolo, data_presentazione, stato, data_stato, fonte_url,
+                testo_presentato)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (id) DO UPDATE SET iter_id = EXCLUDED.iter_id, progressivo = EXCLUDED.progressivo, ramo = EXCLUDED.ramo,
                 numero = EXCLUDED.numero, titolo = EXCLUDED.titolo, data_presentazione = EXCLUDED.data_presentazione,
-                stato = EXCLUDED.stato, data_stato = EXCLUDED.data_stato, fonte_url = EXCLUDED.fonte_url
+                stato = EXCLUDED.stato, data_stato = EXCLUDED.data_stato, fonte_url = EXCLUDED.fonte_url,
+                testo_presentato = EXCLUDED.testo_presentato
             """,
             fasi_righe,
         )

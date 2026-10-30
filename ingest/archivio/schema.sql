@@ -1,4 +1,4 @@
--- Schema dati v1.2, parte "archivio" (docs/01_schema_dati.md).
+-- Schema dati v1.4, parte "archivio" (docs/01_schema_dati.md).
 -- Idempotente: si può eseguire più volte. Le tabelle delle schede arrivano in Fase 2.
 
 CREATE TABLE IF NOT EXISTS governo (
@@ -64,6 +64,15 @@ CREATE TABLE IF NOT EXISTS pronuncia_costituzionale (
 
 CREATE INDEX IF NOT EXISTS pronuncia_legge ON pronuncia_costituzionale (urn_legge);
 
+-- v1.4: premesse del testo originale di decreti-legge e decreti legislativi (perché il governo li ha adottati).
+CREATE TABLE IF NOT EXISTS premessa (
+    urn          text PRIMARY KEY REFERENCES legge (urn) ON DELETE CASCADE,
+    motivazioni  text[] NOT NULL DEFAULT '{}',
+    citazioni    text[] NOT NULL DEFAULT '{}',
+    proposta     text,
+    fonte_url    text NOT NULL
+);
+
 -- Parlamento e governi (Task 1.2): dati.senato.it, poi dati.camera.it.
 
 CREATE TABLE IF NOT EXISTS governo_partito (
@@ -104,6 +113,8 @@ CREATE TABLE IF NOT EXISTS fase_iter (
 );
 
 CREATE INDEX IF NOT EXISTS fase_iter_iter ON fase_iter (iter_id);
+-- v1.4: il testo presentato (con la relazione illustrativa), come lo identifica la fonte.
+ALTER TABLE fase_iter ADD COLUMN IF NOT EXISTS testo_presentato text;
 
 CREATE TABLE IF NOT EXISTS parlamentare (
     id         serial PRIMARY KEY,

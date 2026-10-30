@@ -162,6 +162,7 @@ def legge(conn: psycopg.Connection, urn: str) -> dict | None:
         conteggi: dict = {"ricevute": {}, "disposte": {}}
         for conteggio in cur.fetchall():
             conteggi[conteggio["verso"]][conteggio["tipo"]] = conteggio["numero"]
+        riga["premessa"] = premessa(conn, urn)
         cur.execute(
             """
             SELECT (SELECT count(*) FROM pronuncia_costituzionale WHERE urn_legge = %(urn)s) AS pronunce,
@@ -172,6 +173,16 @@ def legge(conn: psycopg.Connection, urn: str) -> dict | None:
         conteggi.update(cur.fetchone())
         riga["conteggi"] = conteggi
         return riga
+
+
+def premessa(conn: psycopg.Connection, urn: str) -> dict | None:
+    """La premessa dell'atto, o None. Anche None se su Neon lo schema v1.4 non è ancora stato applicato."""
+    try:
+        with conn.transaction(), conn.cursor() as cur:
+            cur.execute("SELECT motivazioni, citazioni, proposta, fonte_url FROM premessa WHERE urn = %s", (urn,))
+            return cur.fetchone()
+    except psycopg.errors.UndefinedTable:
+        return None
 
 
 def esiste(conn: psycopg.Connection, urn: str) -> bool:
@@ -236,6 +247,8 @@ def iter_parlamentari(conn: psycopg.Connection, urn: str) -> list[dict]:
                        'id', f.id, 'progressivo', f.progressivo, 'ramo', f.ramo, 'numero', f.numero,
                        'titolo', f.titolo, 'data_presentazione', f.data_presentazione, 'stato', f.stato,
                        'data_stato', f.data_stato, 'fonte_url', f.fonte_url,
+                       -- Da to_jsonb: la colonna (schema v1.4) può mancare su un database non ancora aggiornato.
+                       'testo_presentato', to_jsonb(f) ->> 'testo_presentato',
                        'numero_votazioni', (SELECT count(*) FROM votazione v WHERE v.fase_id = f.id),
                        'firmatari', (
                            SELECT coalesce(json_agg(json_build_object(

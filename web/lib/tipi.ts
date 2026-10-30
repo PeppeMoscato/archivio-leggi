@@ -41,6 +41,14 @@ export interface GovernoConAtti extends Governo {
   partiti: { partito: string; ruolo: string; fonte_url: string }[];
 }
 
+/** Premesse del testo originale di D.L. e D.Lgs., come sono scritte (schema v1.4). */
+export interface Premessa {
+  motivazioni: string[];
+  citazioni: string[];
+  proposta: string | null;
+  fonte_url: string;
+}
+
 export interface LeggeDettaglio extends LeggeSintesi {
   materia: string | null;
   data_entrata_vigore: string | null;
@@ -49,6 +57,7 @@ export interface LeggeDettaglio extends LeggeSintesi {
   gazzetta_codice: string | null;
   aggiornato_il: string;
   governo: Governo | null;
+  premessa?: Premessa | null;
   conteggi: {
     ricevute: Partial<Record<TipoRelazione, number>>;
     disposte: Partial<Record<TipoRelazione, number>>;
@@ -106,6 +115,7 @@ export interface Fase {
   stato: string | null;
   data_stato: string | null;
   fonte_url: string;
+  testo_presentato?: string | null;
   numero_votazioni: number;
   firmatari: Firmatario[];
 }

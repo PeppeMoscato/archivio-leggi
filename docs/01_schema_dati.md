@@ -1,4 +1,4 @@
-# Schema dati — v1.3
+# Schema dati — v1.4
 
 Database: PostgreSQL (Neon). Chiave unica di ogni legge: URN NIR di Normattiva (es. `urn:nir:stato:legge:1990-08-07;241`).
 
@@ -27,7 +27,7 @@ Da dati.senato.it e da dati.camera.it (`docs/sonda_parlamento.md`). Gli `id` di 
 |---|---|---|
 | `governo_partito` | `governo_id` (FK governo), `partito`, `ruolo`, `fonte_url` | PK (`governo_id`, `partito`). `ruolo`: governo / appoggio esterno. Compilata a mano (`ingest/archivio/governi_partiti.csv`): nessuna fonte strutturata |
 | `iter` | `id` (PK), `urn` (FK legge), `legislatura`, `natura`, `titolo`, `iniziativa`, `data_presentazione`, `data_approvazione`, `numero_legge`, `data_legge`, `fonte_url` | Un procedimento parlamentare, dalla prima presentazione all'approvazione definitiva. `natura`: ordinaria / costituzionale / conversione di decreto-legge / bilancio. `iniziativa`: governativa / parlamentare / popolare / regionale / CNEL / di ente / di commissione (quella della prima fase). `numero_legge` e `data_legge` come li dà la fonte: servono a costruire `urn` e a verificarlo. `urn` vuoto se la legge non si trova in `legge` |
-| `fase_iter` | `id` (PK), `iter_id` (FK iter), `progressivo`, `ramo`, `numero`, `titolo`, `data_presentazione`, `stato`, `data_stato`, `fonte_url` | Una lettura in un ramo. `ramo`: camera / senato. `numero` come lo scrive la fonte (`C.2122-BIS`, `S.1271-B`). `stato` è il testo della fonte (es. "approvato con modificazioni") |
+| `fase_iter` | `id` (PK), `iter_id` (FK iter), `progressivo`, `ramo`, `numero`, `titolo`, `data_presentazione`, `stato`, `data_stato`, `testo_presentato`, `fonte_url` | Una lettura in un ramo. `ramo`: camera / senato. `numero` come lo scrive la fonte (`C.2122-BIS`, `S.1271-B`). `stato` è il testo della fonte (es. "approvato con modificazioni"). `testo_presentato`: identificativo del testo presentato (con la relazione illustrativa) come lo dà dati.senato.it (`osr:testoPresentato`); solo fasi del Senato, vuoto se la fonte non lo dà |
 | `firmatario` | `id` (PK), `fase_id` (FK fase_iter), `nome`, `tipo`, `primo_firmatario`, `parlamentare_id` (FK parlamentare) | `nome` è il presentatore come lo scrive la fonte (es. "Pres. Consiglio Silvio Berlusconi (Gov. Berlusconi-II)"). `tipo` = tipo di iniziativa. `parlamentare_id` solo se la fonte collega la persona |
 | `parlamentare` | `id` (PK, numero), `codice` (unico), `ramo`, `nome`, `cognome`, `fonte_url` | `codice` è l'identificativo della fonte con il ramo davanti (`senato:274`; per la Camera la persona, uguale in tutte le legislature: `camera:305578`). Un deputato e un senatore sono righe diverse anche se è la stessa persona (le fonti non le uniscono) |
 | `gruppo` | `id` (PK), `ramo`, `nome`, `sigla` | `nome` e `sigla` = denominazione più recente |
@@ -46,6 +46,18 @@ Regole:
 - Leggi senza voto nominale (approvate in commissione o per alzata di mano): l'iter c'è, la votazione no. L'app scrive "voto non nominale", non zero.
 - Leggi 1990-1996: nessun dato del Senato (copre dalla XIII legislatura, maggio 1996) e nessuna votazione nominale alla Camera (dalla XIII). Gli iter vengono dai lavori preparatori della Camera (`camera:L1990_241`): solo le letture alla Camera, con iniziativa e firmatari, senza voti.
 - Decreti-legge: iter e voti sono quelli della legge di conversione (relazione `converte`). Decreti legislativi: nessun voto finale in Parlamento.
+
+### Contesto delle leggi (v1.4)
+
+Perché un atto è nato, solo come fatto dichiarato con fonte (nessun giudizio: quello sta nelle schede approvate).
+
+| Tabella | Campi | Note |
+|---|---|---|
+| `premessa` | `urn` (PK, FK legge), `motivazioni`, `citazioni`, `proposta`, `fonte_url` | Premesse del testo originale di decreti-legge e decreti legislativi, parola per parola da Normattiva. `motivazioni`: i capoversi "Ritenuta la straordinaria necessità ed urgenza di..." (array di testi; vuoto se il decreto non li ha, come quasi tutti i D.Lgs.). `citazioni`: gli altri capoversi (basi giuridiche, leggi delega, pareri, deliberazioni). `proposta`: "Sulla proposta del Presidente del Consiglio...". `fonte_url` = permalink Normattiva. Nessuna riga = premessa non estratta o assente |
+
+Regole:
+- Le leggi ordinarie non hanno premesse utili: il loro perché è nella relazione illustrativa del ddl, che si raggiunge dall'iter (`fase_iter.testo_presentato` e `fonte_url`). Il testo della relazione non si salva: senato.it lo protegge con un controllo anti-robot e non si aggira.
+- Le relazioni `delega` (legge delega → decreto legislativo) vengono dalle citazioni delle premesse dei D.Lgs.: la prima legge di ogni citazione che parla di delega, legge comunitaria o di delegazione europea, correttivi ("Vista la legge ..., recante delega..."); se non ce ne sono e il decreto cita l'art. 76 della Costituzione, la prima legge citata per articolo ("Visto l'articolo 10 della legge ..."). Le leggi generali sempre citate (400/1988, 11/2005, 234/2012) non contano; le norme di attuazione degli statuti speciali non hanno legge delega. Un URN senza giorno ("la citata legge n. 150 del 2005") si risolve sull'archivio per anno e numero. Nella relazione `urn_origine` = legge delega, `urn_destinazione` = decreto legislativo, `articolo_origine` = articolo della delega se il link lo indica, `nota` = la citazione, `data` = Gazzetta della legge delega. Le scrive solo la pipeline premesse (`premesse-carica`): il caricamento Normattiva non le cancella.
 
 ### Tabelle tecniche
 | Tabella | Campi | Note |
@@ -87,6 +99,7 @@ Le tabelle delle schede non sono ancora nella DDL: si creano in Fase 2, dopo le 
 Le relazioni `converte` vengono dalle note di aggiornamento del D.L. e, perché le note la citano solo a volte, dal titolo della legge di conversione ("Conversione in legge, con modificazioni, del decreto-legge 28 gennaio 2019, n. 4"): in quel caso `nota` contiene il titolo della legge. Dalle note conta come conversione solo un'azione che comincia con "la conversione ... del D.L." o "del presente decreto" (non le citazioni come "la legge di conversione del presente decreto"), e solo sul D.L. che la nota nomina: Normattiva mette la stessa nota anche sugli atti che il D.L. convertito modifica, e lì la relazione è una `modifica`.
 
 ## Storico modifiche dello schema
+- v1.4 (2026-10-30): contesto delle leggi. Nuova tabella `premessa` (motivazioni, citazioni e proposta dei D.L. e dei D.Lgs.); in `fase_iter` aggiunto `testo_presentato`; le relazioni `delega` vengono dalle premesse dei D.Lgs. e le scrive solo la pipeline premesse. In `schema.sql` (idempotente: `CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`).
 - v1.3 (2026-10-29): dopo la revisione della scheda Sirchia. In `misura` aggiunti `fonte_url`, `fonte_primaria` e `nota`; in `verdetto` `confidenza` diventa `confidenza_min` e `confidenza_max` (confidenza con un range). Le tabelle delle schede non sono ancora nella DDL: nessuna modifica a `schema.sql`.
 - v1.2, indice (2026-10-28): nessuna modifica alle tabelle. Indice full text `legge_titolo_fts` sul titolo, per la ricerca dell'API. Si crea su Neon al prossimo caricamento di una pipeline (`schema.sql` è idempotente).
 - v1.2, nota (2026-10-28): nessuna modifica alle tabelle. Regole per la Camera (votazioni sulle fasi del Senato, iter 1990-1996 dai lavori preparatori, codice dei deputati per persona, fiducia da `richiestaFiducia`); voti dei deputati dalla XVII, nota del 2026-10-29).

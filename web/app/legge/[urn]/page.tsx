@@ -6,6 +6,7 @@ import AttesaRisveglio from "@/components/AttesaRisveglio";
 import Avviso from "@/components/Avviso";
 import EtichettaStato from "@/components/EtichettaStato";
 import SezioneIter from "@/components/SezioneIter";
+import SezionePerche from "@/components/SezionePerche";
 import SezioneVotazioni, { tipoVotazione } from "@/components/SezioneVotazioni";
 import Timeline from "@/components/Timeline";
 import { dettaglioLegge, ErroreApi, parametri, pronunce as leggiPronunce } from "@/lib/api";
@@ -136,6 +137,9 @@ export default async function PaginaLegge({ params, searchParams }: Props) {
 
       <ul className="indice" aria-label="Sezioni">
         <li>
+          <a href="#perche">Perché è nata</a>
+        </li>
+        <li>
           <a href="#storia">Storia</a>
         </li>
         {conIter && (
@@ -154,6 +158,11 @@ export default async function PaginaLegge({ params, searchParams }: Props) {
           </li>
         )}
       </ul>
+
+      <section aria-labelledby="perche">
+        <h2 id="perche">Perché è nata</h2>
+        <SezionePerche legge={legge} />
+      </section>
 
       <section aria-labelledby="storia">
         <h2 id="storia">Storia dell&apos;atto</h2>
@@ -208,7 +217,7 @@ function somma(conteggi: Partial<Record<TipoRelazione, number>>): number {
 
 function sintesi(legge: LeggeDettaglio): string {
   const voci = (Object.entries(legge.conteggi.ricevute) as [TipoRelazione, number][])
-    .filter(([tipo, n]) => n > 0 && tipo !== "converte")
+    .filter(([tipo, n]) => n > 0 && tipo !== "converte" && tipo !== "delega")
     .sort((a, b) => b[1] - a[1])
     .map(([tipo, n]) => quanteRelazioni(tipo, n));
   const disposte = somma(legge.conteggi.disposte);

@@ -44,9 +44,19 @@ INSERT INTO iter (id, urn, legislatura, natura, titolo, iniziativa, data_present
     ('senato:15000', 'urn:nir:stato:legge:2003-01-16;3', 14, 'ordinaria', 'Disposizioni ordinamentali in materia di pubblica amministrazione',
      'governativa', '2001-09-12', '2002-12-18', 3, '2003-01-16', 'http://dati.senato.it/ddl/15000');
 
-INSERT INTO fase_iter (id, iter_id, progressivo, ramo, numero, titolo, data_presentazione, stato, data_stato, fonte_url) VALUES
-    ('senato:15001', 'senato:15000', 2, 'camera', 'C.2122', NULL, '2001-12-10', 'approvato con modificazioni', '2002-10-17', 'http://dati.senato.it/ddl/15001'),
-    ('senato:15002', 'senato:15000', 1, 'senato', 'S.795', NULL, '2001-09-12', 'approvato', '2001-11-28', 'http://dati.senato.it/ddl/15002');
+INSERT INTO fase_iter (id, iter_id, progressivo, ramo, numero, titolo, data_presentazione, stato, data_stato, fonte_url,
+                       testo_presentato) VALUES
+    ('senato:15001', 'senato:15000', 2, 'camera', 'C.2122', NULL, '2001-12-10', 'approvato con modificazioni', '2002-10-17', 'http://dati.senato.it/ddl/15001', NULL),
+    ('senato:15002', 'senato:15000', 1, 'senato', 'S.795', NULL, '2001-09-12', 'approvato', '2001-11-28', 'http://dati.senato.it/ddl/15002',
+     'urn:nir:senato.repubblica:disegno.legge:14.legislatura;795');
+
+-- Premessa inventata, nella forma reale (D.L. 223/2006).
+INSERT INTO premessa (urn, motivazioni, citazioni, proposta, fonte_url) VALUES
+    ('urn:nir:stato:decreto.legge:2003-01-02;1',
+     ARRAY['Ritenuta la straordinaria necessità ed urgenza di adottare misure di prova;'],
+     ARRAY['Visti gli articoli 77 e 87 della Costituzione;', 'Vista la deliberazione del Consiglio dei Ministri, adottata nella riunione del 30 dicembre 2002;'],
+     'Sulla proposta del Presidente del Consiglio dei Ministri;',
+     'https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legge:2003-01-02;1');
 
 INSERT INTO parlamentare (id, codice, ramo, nome, cognome, fonte_url) VALUES
     (1, 'senato:1', 'senato', 'Mario', 'Rossi', 'http://dati.senato.it/senatore/1'),

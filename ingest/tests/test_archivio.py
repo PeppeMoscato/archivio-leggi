@@ -6,7 +6,7 @@ from archivio.catalogo import numero_pulito, unisci_pubblicazioni
 from archivio.governi import carica as carica_governi
 from archivio.governi import governo_alla_data
 from archivio.modelli import Atto, Nota, Riferimento
-from archivio.note import PRONUNCIA, cita_conversione, classifica
+from archivio.note import PRONUNCIA, classifica, nomina_conversione
 from archivio.pipeline import riga_legge, unisci
 from archivio.relazioni import Risolutore, conversioni_dai_titoli, convertito_dal_titolo, data_decadenza, relazioni_di, stato_di
 from archivio.storia import chiave_urn, leggi_storie
@@ -73,6 +73,10 @@ def atto(urn: str, tipo: str = "legge", **campi) -> Atto:
          "(con l'art. 62, comma 2) che \"Le disposizioni di cui al comma 1 si applicano dalla data di entrata in vigore "
          "della legge di conversione del presente decreto\".",
          [("modifica", None, None)]),
+        ("ha disposto (con l'art. 1, comma 1) la conversione in legge, con modificazioni, del presente decreto.",
+         [("converte", "art. 1, comma 1", None)]),
+        ("ha disposto (con l'art. 51, comma 1) la conversione in euro degli importi espressi in lire.",
+         [("modifica", "art. 51, comma 1", "in euro degli importi espressi in lire")]),
         ("ha disposto (con l'art. 3, comma 1) la modifica dell'art. 2, comma 2, nel testo risultante dalla legge di conversione.",
          [("modifica", "art. 3, comma 1", "art. 2, comma 2, nel testo risultante dalla legge di conversione")]),
     ],
@@ -249,10 +253,10 @@ def test_converte_solo_verso_decreti_legge():
     assert stato_di(legge, relazioni) == "vigente"
 
 
-def test_cita_conversione():
-    assert cita_conversione("ha disposto (con l'art. 2) che \"... dalla legge di conversione del presente decreto\".")
-    assert not cita_conversione("ha disposto (con l'art. 1, comma 1) la conversione, con modificazioni, del D.L. 9 febbraio 2012, n. 5.")
-    assert not cita_conversione(", di conversione, ha disposto (con l'art. 1, comma 1) l'introduzione dell'art. 4-sexies.")
+def test_nomina_conversione():
+    assert nomina_conversione("ha disposto (con l'art. 2) che \"... dalla legge di conversione del presente decreto\".")
+    assert nomina_conversione("ha disposto (con l'art. 51, comma 1) la conversione in euro degli importi.")
+    assert not nomina_conversione(", di conversione, ha disposto (con l'art. 1, comma 1) l'introduzione dell'art. 4-sexies.")
 
 
 def test_citazione_della_legge_di_conversione_non_salva_il_decreto_decaduto():

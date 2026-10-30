@@ -32,8 +32,13 @@ _DICHIARATO = re.compile(r"\bha\s+dichiarato\b.*?illegittimit\S*\s+costituzional
 _SENTENZA = re.compile(r"sentenza\b.{0,60}?\bn\.\s*(?P<numero>\d+)", re.I)
 _ANNO_SENTENZA = re.compile(r"sentenza\b.{0,40}?(?P<anno>(?:19|20)\d{2})", re.I)
 # L'azione è una conversione solo se comincia così: "la conversione, con modificazioni, del D.L. ...".
-# Altrove la parola compare nelle citazioni ("dalla legge di conversione del presente decreto").
-_CONVERSIONE = re.compile(r"^(?:la\s+)?conversione\b", re.I)
+# Altrove la parola compare nelle citazioni ("dalla legge di conversione del presente decreto") o è
+# un'altra conversione ("la conversione in euro degli importi", sul D.Lgs. 504/1995 nella prova del 1995).
+_CONVERSIONE = re.compile(
+    r"^(?:la\s+)?conversione\b(?:\s+in\s+legge)?\W*(?:(?:con|senza)\s+modificazioni\W*)?"
+    r"(?:del|dello)\s+(?:d\.\s*l\.|decreto|presente\s+decreto)",
+    re.I,
+)
 _INTERO = re.compile(r"\bintero\s+provvedimento\b|\bdel\s+provvedimento\b|\bdel\s+presente\s+(?:decreto|atto)\b", re.I)
 _AZIONE = re.compile(r"^(?:la|l'|il|lo|i|gli|le)?\s*[a-zàèéìòù]+\s*", re.I)
 _PREPOSIZIONE = re.compile(r"^(?:dell'|dello|della|delle|degli|dei|del|di)\s*", re.I)
@@ -132,11 +137,11 @@ def classifica(testo: str) -> list[Classificazione]:
     ]
 
 
-def cita_conversione(testo: str) -> bool:
-    """La nota nomina la conversione senza disporla: fino al 30/10/2026 diventava, a torto, `converte`."""
+def nomina_conversione(testo: str) -> bool:
+    """La nota nomina una conversione dopo il verbo: fino al 30/10/2026 bastava per farne una `converte`."""
     testo = normalizza(testo)
     if _DICHIARATO.search(testo):
         return False
     verbo = _VERBO.search(testo)
     corpo = testo[verbo.end() :] if verbo else testo
-    return "conversione" in corpo.lower() and all(c.tipo != "converte" for c in classifica(testo))
+    return "conversione" in corpo.lower()

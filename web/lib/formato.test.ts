@@ -8,6 +8,7 @@ import {
   percorsoLegge,
   quanteRelazioni,
   romano,
+  siglaPartito,
   urnDaParametro,
 } from "./formato";
 
@@ -48,5 +49,11 @@ describe("formato", () => {
     expect(percorsoLegge(urn)).toBe("/legge/urn:nir:stato:legge:2003-01-16;3");
     expect(urnDaParametro(encodeURIComponent(urn))).toBe(urn);
     expect(urnDaParametro(urn)).toBe(urn);
+  });
+
+  it("ricava la sigla del partito tra parentesi", () => {
+    expect(siglaPartito("Democrazia Cristiana (DC)")).toBe("DC");
+    expect(siglaPartito("Più Europa (+E)")).toBe("+E");
+    expect(siglaPartito("Lega")).toBe("Lega");
   });
 });

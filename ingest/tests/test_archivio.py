@@ -4,6 +4,7 @@ import pytest
 
 from archivio.catalogo import numero_pulito, unisci_pubblicazioni
 from archivio.governi import carica as carica_governi
+from archivio.governi import carica_partiti
 from archivio.governi import governo_alla_data
 from archivio.modelli import Atto, Nota, Riferimento
 from archivio.note import PRONUNCIA, classifica, nomina_conversione
@@ -113,6 +114,17 @@ def test_governi_contigui_e_assegnazione():
     assert governo_alla_data(governi, date(2011, 11, 16)) == "monti"
     assert governo_alla_data(governi, date(1992, 5, 1)) == "andreotti-7"
     assert governo_alla_data(governi, date(1980, 1, 1)) is None
+
+
+def test_partiti_di_ogni_governo():
+    governi = {g.id for g in carica_governi()}
+    partiti = carica_partiti()
+    assert {p.governo_id for p in partiti} == governi
+    assert len({(p.governo_id, p.partito) for p in partiti}) == len(partiti)
+    assert all(p.ruolo in ("governo", "appoggio esterno") and p.fonte_url.startswith("https://") for p in partiti)
+    # Governi tecnici: nessun partito con ministri, solo appoggio esterno.
+    for tecnico in ("dini", "monti"):
+        assert {p.ruolo for p in partiti if p.governo_id == tecnico} == {"appoggio esterno"}
 
 
 # --- catalogo ----------------------------------------------------------------

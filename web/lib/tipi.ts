@@ -36,9 +36,19 @@ export interface Governo {
   fonte_url: string;
 }
 
-export interface GovernoConAtti extends Governo {
+/** Un partito del governo: con ministri al giuramento ("governo") o che votò la fiducia senza ministri. */
+export interface PartitoGoverno {
+  partito: string;
+  ruolo: "governo" | "appoggio esterno";
+  fonte_url: string;
+}
+
+export interface GovernoConPartiti extends Governo {
+  partiti: PartitoGoverno[];
+}
+
+export interface GovernoConAtti extends GovernoConPartiti {
   numero_atti: number;
-  partiti: { partito: string; ruolo: string; fonte_url: string }[];
 }
 
 /** Premesse del testo originale di D.L. e D.Lgs., come sono scritte (schema v1.4). */
@@ -56,7 +66,7 @@ export interface LeggeDettaglio extends LeggeSintesi {
   gazzetta_numero: number | null;
   gazzetta_codice: string | null;
   aggiornato_il: string;
-  governo: Governo | null;
+  governo: GovernoConPartiti | null;
   premessa?: Premessa | null;
   conteggi: {
     ricevute: Partial<Record<TipoRelazione, number>>;

@@ -10,6 +10,7 @@ Verificate il 27/10/2026. Il progetto è non commerciale, quindi sono utilizzabi
 | Relazioni AIR/VIR | Obiettivi e indicatori ex ante (AIR), verifiche ex post (VIR) | PDF: relazione annuale al Parlamento, piani biennali VIR dei ministeri | Pubbliche; estrazione con Claude + revisione |
 | Istat — https://esploradati.istat.it/SDMXWS/rest | Serie storiche per gli indicatori | API SDMX | Max 5 query/minuto per IP → cache locale obbligatoria |
 | Openpolis (OPDM API) | Dati parlamentari arricchiti | API, token opzionale | CC BY-NC: ok perché il progetto è non commerciale. Citare "Fonte: Openpolis" |
+| Wikipedia — https://en.wikipedia.org | Partiti di ciascun governo (`ingest/archivio/governi_partiti.csv`): riquadro "Member parties" ed "External support" della pagina del governo | Lettura a mano. Ripiego: senato.it, storia.camera.it e governo.it non si leggono dai programmi (30/10/2026); da confrontare con storia.camera.it | CC BY-SA 4.0: citare la pagina (una per riga del CSV) |
 | Corte dei conti, UPB, Banca d'Italia, studi accademici | Valutazioni e analisi controfattuali | Ricerca manuale, solo per le leggi delle schede | Citare sempre l'URL |
 
 ## Gerarchia delle fonti nelle schede

@@ -161,6 +161,22 @@ def test_json_andata_e_ritorno(tmp_path):
     assert senato.leggi_persone(tmp_path / "senato_persone.json") == persone
 
 
+def test_estrai_legislatura_senza_voti(monkeypatch, tmp_path):
+    f = fase("1271")
+    monkeypatch.setattr(senato, "estrai_fasi", lambda sparql, leg: {f.id: f})
+    monkeypatch.setattr(senato, "estrai_iniziative", lambda sparql, leg: [])
+
+    def nessuna_votazione(*_):
+        raise AssertionError("senza voti non si chiedono le votazioni")
+
+    monkeypatch.setattr(senato, "estrai_votazioni", nessuna_votazione)
+    monkeypatch.setattr(senato, "estrai_voti", nessuna_votazione)
+    leg = senato.estrai_legislatura(None, 15, voti=False)
+    assert (leg.fasi, leg.votazioni, leg.con_voti) == ([f], [], False)
+    senato.scrivi(tmp_path / "senato_15.json", leg)
+    assert senato.leggi_legislatura(tmp_path / "senato_15.json") == leg
+
+
 def test_per_iter_ordina_le_fasi():
     fasi = [fase("2122-BIS-B", "C", 3), fase("1271", "S", 2), fase("2122-BIS", "C", 1), fase("10", id_ddl="200")]
     gruppi = senato.per_iter(fasi)

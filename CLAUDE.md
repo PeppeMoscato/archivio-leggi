@@ -35,6 +35,7 @@ DATABASE_URL=... python -m archivio carica --da dati       # relazioni, stato, g
 # Pipeline Senato → Postgres (Task 1.2)
 python -m archivio senato-estrai --legislature 15 --uscita dati   # iter, fasi, firmatari, votazioni, un JSON per legislatura
 python -m archivio senato-persone --uscita dati                   # senatori, gruppi, adesioni
+python -m archivio senato-estrai --legislature 17 --senza-voti --uscita dati  # solo iter e fasi: le votazioni già nel database restano
 DATABASE_URL=... python -m archivio senato-carica --da dati
 
 # Pipeline premesse → Postgres (contesto delle leggi, schema v1.4; dopo Normattiva)

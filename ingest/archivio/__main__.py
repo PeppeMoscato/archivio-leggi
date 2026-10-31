@@ -69,6 +69,7 @@ def main(argomenti: list[str] | None = None) -> int:
     p_senato = comandi.add_parser("senato-estrai", help="iter e votazioni da dati.senato.it, un JSON per legislatura")
     p_senato.add_argument("--legislature", nargs="+", required=True, help="es. 15, 13-19")
     p_senato.add_argument("--uscita", type=Path, required=True)
+    p_senato.add_argument("--senza-voti", action="store_true", help="solo iter e fasi; il caricamento lascia le votazioni nel database")
     p_persone = comandi.add_parser("senato-persone", help="senatori, gruppi e adesioni da dati.senato.it")
     p_persone.add_argument("--uscita", type=Path, required=True)
     p_senato_carica = comandi.add_parser("senato-carica", help="dai JSON del Senato al database")
@@ -103,7 +104,7 @@ def main(argomenti: list[str] | None = None) -> int:
         rapporto = Rapporto()
         client = senato.client()
         for leg in sorted({n for testo in opzioni.legislature for n in anni(testo)}):
-            dati = senato.estrai_legislatura(client, leg)
+            dati = senato.estrai_legislatura(client, leg, voti=not opzioni.senza_voti)
             senato.scrivi(opzioni.uscita / f"senato_{leg}.json", dati)
             rapporto.aggiungi(
                 f"Legislatura {leg}: {len(dati.fasi)} fasi, {len(dati.iniziative)} firmatari, {len(dati.votazioni)} votazioni "

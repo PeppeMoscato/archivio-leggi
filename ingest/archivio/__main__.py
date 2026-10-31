@@ -1,7 +1,10 @@
-"""Riga di comando delle pipeline Normattiva, Senato e Camera → Postgres.
+"""Riga di comando delle pipeline Normattiva, Senato e Camera → Postgres, e dell'aggiornamento settimanale.
 
     python -m archivio estrai --anni 2003 2004 --uscita dati/
     python -m archivio carica --da dati/            # DATABASE_URL nell'ambiente
+
+    python -m archivio aggiorna-estrai --giorni 14 --uscita dati/   # atti nuovi e modificati di recente
+    python -m archivio aggiorna-carica --da dati/   # dopo il caricamento completo; DATABASE_URL nell'ambiente
 
     python -m archivio premesse-estrai --anni 1990- --uscita dati/   # premesse di D.L. e D.Lgs.
     python -m archivio premesse-carica --da dati/   # dopo carica; DATABASE_URL nell'ambiente
@@ -31,7 +34,7 @@ from pathlib import Path
 
 from normattiva import Normattiva
 
-from archivio import camera, contesto, db, governi, parlamento, senato
+from archivio import aggiornamento, camera, contesto, db, governi, parlamento, senato
 from archivio.pipeline import PERIMETRO, Rapporto, carica, estrai, leggi_atti
 from archivio.sparql import USER_AGENT
 
@@ -61,6 +64,12 @@ def main(argomenti: list[str] | None = None) -> int:
     p_carica = comandi.add_parser("carica", help="dai JSONL al database")
     p_carica.add_argument("--da", type=Path, required=True)
     p_carica.add_argument("--senza-api", action="store_true", help="non chiamare Normattiva per i riferimenti")
+    p_aggiorna = comandi.add_parser("aggiorna-estrai", help="atti nuovi e modificati di recente da Normattiva, in JSONL")
+    p_aggiorna.add_argument("--giorni", type=int, default=aggiornamento.GIORNI, help="ampiezza della finestra, fino a --al")
+    p_aggiorna.add_argument("--al", type=date.fromisoformat, default=None, help="ultimo giorno (AAAA-MM-GG), di default oggi")
+    p_aggiorna.add_argument("--uscita", type=Path, required=True)
+    p_aggiorna_carica = comandi.add_parser("aggiorna-carica", help="dai JSONL dell'aggiornamento al database")
+    p_aggiorna_carica.add_argument("--da", type=Path, required=True)
     p_premesse = comandi.add_parser("premesse-estrai", help="premesse dei D.L. e dei D.Lgs. da Normattiva, un JSONL per anno")
     p_premesse.add_argument("--anni", nargs="+", required=True, help="es. 2006, 1990-1995, 1990-")
     p_premesse.add_argument("--uscita", type=Path, required=True)
@@ -92,6 +101,12 @@ def main(argomenti: list[str] | None = None) -> int:
         with Normattiva(user_agent=USER_AGENT, timeout=300.0) as client:
             rapporto = estrai(client, elenco, opzioni.uscita, opzioni.tipi)
         pubblica(f"Estrazione {elenco[0]}–{elenco[-1]}", rapporto.testo())
+        return 0
+    if opzioni.comando == "aggiorna-estrai":
+        dal, al = aggiornamento.finestra(opzioni.giorni, opzioni.al)
+        with Normattiva(user_agent=USER_AGENT, timeout=300.0) as client:
+            rapporto = aggiornamento.estrai_aggiornamento(client, dal, al, opzioni.uscita)
+        pubblica("Aggiornamento da Normattiva", rapporto.testo())
         return 0
     if opzioni.comando == "premesse-estrai":
         elenco = sorted({anno for testo in opzioni.anni for anno in anni(testo)})
@@ -162,6 +177,11 @@ def main(argomenti: list[str] | None = None) -> int:
     if not dsn:
         print("DATABASE_URL non impostata", file=sys.stderr)
         return 2
+    if opzioni.comando == "aggiorna-carica":
+        with db.connetti(dsn) as conn, Normattiva(user_agent=USER_AGENT, timeout=120.0) as client:
+            rapporto = aggiornamento.carica_aggiornamento(conn, opzioni.da, client)
+        pubblica("Caricamento dell'aggiornamento", rapporto.testo())
+        return 0
     if opzioni.comando == "partiti-carica":
         with db.connetti(dsn) as conn:
             db.crea_schema(conn)

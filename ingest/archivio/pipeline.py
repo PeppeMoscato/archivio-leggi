@@ -25,7 +25,7 @@ from normattiva import ClasseProvvedimento, Format, Normattiva, NormattivaError,
 from normattiva.modelli import ExportMode
 
 from archivio import db, governi
-from archivio.catalogo import PER_PAGINA, atto_da_ricerca, catalogo
+from archivio.catalogo import PER_PAGINA, atto_da_ricerca, catalogo, ricerca
 from archivio.modelli import TIPI, Atto
 from archivio.note import nomina_conversione
 from archivio.relazioni import Risolutore, conversioni_dai_titoli, data_decadenza, relazioni_di, stato_di
@@ -50,8 +50,8 @@ def abrogati_per_classe(client: Normattiva, denominazione: str, anno: int) -> se
     urn: set[str] = set()
     pagina = 1
     while True:
-        esito = client.ricerca_avanzata(
-            denominazione=denominazione, anno=anno, classe=ClasseProvvedimento.ABROGATO,
+        esito = ricerca(
+            client, denominazione=denominazione, anno=anno, classe=ClasseProvvedimento.ABROGATO,
             sort=Sort.OLDEST, pagina=pagina, per_pagina=PER_PAGINA,
         )
         urn.update(atto_da_ricerca(a).urn for a in esito.atti if a.estremi.denominazione.strip().upper() == denominazione)
@@ -138,8 +138,14 @@ class Rapporto:
         return "\n".join(self.righe) + "\n"
 
 
-def unisci(atti: dict[str, Atto], storie: Iterable[Storia], abrogati: set[str]) -> tuple[list[Atto], Counter]:
-    """Aggiunge la storia a ogni atto del catalogo; conta le discrepanze."""
+def unisci(atti: dict[str, Atto], storie: Iterable[Storia], abrogati: set[str] | None) -> tuple[list[Atto], Counter]:
+    """Aggiunge la storia a ogni atto del catalogo; conta le discrepanze.
+
+    Con `abrogati` None (aggiornamento settimanale) non c'è il controllo incrociato con la classe
+    della ricerca: gli atti senza export restano con `abrogato` None.
+    Un atto senza export ha `export_completo` falso: senza note, `carica` non lo riscrive se è già nel
+    database (gli cancellerebbe le relazioni); se è nuovo entra con i dati del catalogo.
+    """
     conti: Counter = Counter()
     per_urn = {chiave_urn(urn): atto for urn, atto in atti.items()}
     for storia in storie:
@@ -157,10 +163,15 @@ def unisci(atti: dict[str, Atto], storie: Iterable[Storia], abrogati: set[str]) 
         atto.data_entrata_vigore = storia.data_entrata_vigore
         atto.fine_vigore_originale = storia.fine_vigore_originale
         atto.note = storia.note
+        atto.export_completo = storia.completa
     for atto in per_urn.values():
-        per_classe = atto.urn in abrogati
         if atto.abrogato is None:
             conti["senza_export"] += 1
+            atto.export_completo = False
+        if abrogati is None:
+            continue
+        per_classe = atto.urn in abrogati
+        if atto.abrogato is None:
             atto.abrogato = per_classe
         elif atto.abrogato != per_classe:
             conti["abrogato_discorde"] += 1
@@ -223,14 +234,26 @@ def riga_legge(atto: Atto, stato: str, elenco_governi: list[governi.Governo]) ->
     )
 
 
-def carica(conn, atti: list[Atto], client: Normattiva | None = None, blocco: int = 500) -> Rapporto:
+def carica(
+    conn, atti: list[Atto], client: Normattiva | None = None, blocco: int = 500, noti: list[Atto] | None = None
+) -> Rapporto:
+    """Scrive `atti` nel database. `noti` sono tutti gli atti conosciuti, per risolvere i riferimenti
+    in Gazzetta e le conversioni dai titoli: di default gli stessi `atti` (pipeline completa);
+    l'aggiornamento settimanale ci aggiunge il catalogo già nel database."""
     rapporto = Rapporto()
     db.crea_schema(conn)
     elenco_governi = governi.carica()
     db.salva_governi(conn, elenco_governi)
 
+    noti = atti if noti is None else noti
+    # Un atto già nel database con l'export incompleto o mancante non si riscrive: le sue note verrebbero da una
+    # versione vecchia (30/10/2026: D.Lgs. 58/1998 con le versioni dal 2021 vuote) o mancherebbero del tutto
+    # (27/10/2026: 1998 LEGGE, un atto senza export). Un atto nuovo entra comunque.
+    nel_database = {riga[0] for riga in db.leggi_catalogo(conn)}
+    lasciati = [a for a in atti if not a.export_completo and a.urn in nel_database]
+    atti = [a for a in atti if a.export_completo or a.urn not in nel_database]
     locali = {
-        (a.gazzetta_codice, a.gazzetta_data): (a.urn, a.tipo) for a in atti if a.gazzetta_codice and a.gazzetta_data
+        (a.gazzetta_codice, a.gazzetta_data): (a.urn, a.tipo) for a in noti if a.gazzetta_codice and a.gazzetta_data
     }
     risolutore = Risolutore(
         locali, db.leggi_cache_gazzetta(conn), client, lambda *riga: db.salva_cache_gazzetta(conn, *riga)
@@ -238,7 +261,7 @@ def carica(conn, atti: list[Atto], client: Normattiva | None = None, blocco: int
     stati: Counter = Counter()
     tipi: Counter = Counter()
     pronunce_totali = senza_origine = dai_titoli = citano_conversione = 0
-    conversioni = conversioni_dai_titoli(atti)
+    conversioni = conversioni_dai_titoli(noti)
     # Prima tutte le leggi (le relazioni hanno la FK su urn_destinazione), poi le relazioni a blocchi.
     calcolate = []
     for atto in atti:
@@ -269,6 +292,11 @@ def carica(conn, atti: list[Atto], client: Normattiva | None = None, blocco: int
         )
 
     rapporto.aggiungi(f"Atti caricati: {len(atti)}")
+    rapporto.aggiungi(
+        f"- con l'export incompleto o mancante e già nel database, lasciati come erano: {len(lasciati)}"
+        + (f" ({', '.join(a.urn for a in lasciati[:10])}{', ...' if len(lasciati) > 10 else ''})" if lasciati else "")
+    )
+    rapporto.aggiungi(f"- caricati con l'export incompleto o mancante perché nuovi: {sum(1 for a in atti if not a.export_completo)}")
     for (tipo, stato), quanti in sorted(stati.items()):
         rapporto.aggiungi(f"- {tipo}, {stato}: {quanti}")
     rapporto.aggiungi(f"Relazioni: {sum(tipi.values())} ({', '.join(f'{t} {n}' for t, n in tipi.most_common())})")

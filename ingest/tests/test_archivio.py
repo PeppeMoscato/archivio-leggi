@@ -2,7 +2,7 @@ from datetime import date
 
 import pytest
 
-from archivio.catalogo import numero_pulito, unisci_pubblicazioni
+from archivio.catalogo import catalogo, numero_pulito, unisci_pubblicazioni
 from archivio.governi import carica as carica_governi
 from archivio.governi import carica_partiti
 from archivio.governi import governo_alla_data
@@ -189,6 +189,8 @@ def test_unisci_conta_discrepanze():
     per_urn = {a.urn: a for a in uniti}
     assert per_urn[MERLONI].abrogato is True
     assert per_urn[RDC].abrogato is True  # nessun export: vale la classe della ricerca
+    assert per_urn[MERLONI].export_completo is True
+    assert per_urn[RDC].export_completo is False  # senza note: se è già nel database non si riscrive
     assert conti == {"senza_export": 1}
 
 
@@ -349,7 +351,7 @@ def test_riga_legge():
 
 
 def test_atto_json_andata_e_ritorno():
-    originale = atto(MERLONI, abrogato=True, note=[Nota("testo", (Riferimento("X", date(2006, 5, 2), "art_1"),))])
+    originale = atto(MERLONI, abrogato=True, export_completo=False, note=[Nota("testo", (Riferimento("X", date(2006, 5, 2), "art_1"),))])
     assert Atto.da_json(originale.in_json()) == originale
 
 
@@ -421,3 +423,23 @@ def test_leggi_storie_salta_i_file_vuoti(tmp_path):
     (storia,) = list(leggi_storie(percorso))
     assert storia.urn == MERLONI
     assert storia.versioni == 3
+    # L'ultima versione è vuota: note e stato vengono dalla V2, e l'aggiornamento settimanale non riscrive l'atto.
+    assert storia.completa is False
+
+
+def test_catalogo_riprova_dopo_un_guasto(tmp_path, monkeypatch):
+    from normattiva import ConnectionError
+
+    attese = []
+    monkeypatch.setattr("archivio.catalogo.time.sleep", attese.append)
+    cliente = ClienteNormattivaFinto(tmp_path)
+    risposta, guasti = cliente.ricerca_avanzata, [ConnectionError("Server disconnected")]
+
+    def ricerca_avanzata(**criteri):
+        if guasti:
+            raise guasti.pop()
+        return risposta(**criteri)
+
+    cliente.ricerca_avanzata = ricerca_avanzata
+    assert len(catalogo(cliente, "LEGGE", 2003)) == 2
+    assert attese == [30]

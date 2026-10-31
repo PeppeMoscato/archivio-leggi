@@ -6,7 +6,7 @@ from datetime import date
 import pytest
 
 from archivio.modelli import Atto, Nota, Riferimento
-from archivio.pipeline import carica
+from archivio.pipeline import carica, unisci
 
 DSN = os.environ.get("TEST_DATABASE_URL")
 pytestmark = [pytest.mark.db, pytest.mark.skipif(not DSN, reason="TEST_DATABASE_URL non impostata")]
@@ -64,3 +64,35 @@ def test_carica_e_ricarica(conn):
         cur.execute("SELECT count(*) FROM gazzetta_urn WHERE urn IS NULL")
         assert cur.fetchone() == (1,)
     assert "Atti caricati: 3" in rapporto.testo()
+
+
+def test_export_incompleto_non_riscrive_un_atto_gia_caricato(conn):
+    carica(conn, atti(), ClientFinto())
+    vecchio = atti()[0]
+    # Stesso atto, ma l'export ha le versioni recenti vuote: note e stato vengono da una versione vecchia.
+    vecchio.abrogato, vecchio.note, vecchio.export_completo = False, [], False
+    nuovo = Atto("urn:nir:stato:legge:2026-10-28;210", "legge", "210", date(2026, 10, 28), "Nuova", export_completo=False)
+    rapporto = carica(conn, [vecchio, nuovo], ClientFinto())
+    with conn.cursor() as cur:
+        cur.execute("SELECT stato FROM legge WHERE urn = %s", (MERLONI,))
+        assert cur.fetchone() == ("abrogata",)
+        cur.execute("SELECT count(*) FROM relazione_normativa WHERE urn_destinazione = %s", (MERLONI,))
+        assert cur.fetchone() == (2,)
+        cur.execute("SELECT stato FROM legge WHERE urn = %s", (nuovo.urn,))
+        assert cur.fetchone() == ("vigente",)
+    testo = rapporto.testo()
+    assert f"già nel database, lasciati come erano: 1 ({MERLONI})" in testo
+    assert "caricati con l'export incompleto o mancante perché nuovi: 1" in testo
+
+
+def test_atto_senza_export_non_cancella_le_relazioni(conn):
+    carica(conn, atti(), ClientFinto())
+    # Pipeline completa, export dell'anno non riuscito: l'atto arriva solo dal catalogo, senza note.
+    dal_catalogo = Atto(MERLONI, "legge", "109", date(1994, 2, 11), "Legge quadro in materia di lavori pubblici")
+    uniti, conti = unisci({MERLONI: dal_catalogo}, [], abrogati={MERLONI})
+    assert conti == {"senza_export": 1}
+    rapporto = carica(conn, uniti, ClientFinto())
+    with conn.cursor() as cur:
+        cur.execute("SELECT count(*) FROM relazione_normativa WHERE urn_destinazione = %s", (MERLONI,))
+        assert cur.fetchone() == (2,)
+    assert f"già nel database, lasciati come erano: 1 ({MERLONI})" in rapporto.testo()

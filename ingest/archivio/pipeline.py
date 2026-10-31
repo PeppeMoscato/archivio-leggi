@@ -25,7 +25,7 @@ from normattiva import ClasseProvvedimento, Format, Normattiva, NormattivaError,
 from normattiva.modelli import ExportMode
 
 from archivio import db, governi
-from archivio.catalogo import PER_PAGINA, atto_da_ricerca, catalogo
+from archivio.catalogo import PER_PAGINA, atto_da_ricerca, catalogo, ricerca
 from archivio.modelli import TIPI, Atto
 from archivio.note import nomina_conversione
 from archivio.relazioni import Risolutore, conversioni_dai_titoli, data_decadenza, relazioni_di, stato_di
@@ -50,8 +50,8 @@ def abrogati_per_classe(client: Normattiva, denominazione: str, anno: int) -> se
     urn: set[str] = set()
     pagina = 1
     while True:
-        esito = client.ricerca_avanzata(
-            denominazione=denominazione, anno=anno, classe=ClasseProvvedimento.ABROGATO,
+        esito = ricerca(
+            client, denominazione=denominazione, anno=anno, classe=ClasseProvvedimento.ABROGATO,
             sort=Sort.OLDEST, pagina=pagina, per_pagina=PER_PAGINA,
         )
         urn.update(atto_da_ricerca(a).urn for a in esito.atti if a.estremi.denominazione.strip().upper() == denominazione)

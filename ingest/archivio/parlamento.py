@@ -246,7 +246,8 @@ def salva_legislatura(
 
     with conn.cursor() as cur:
         # Iter e fasi si aggiornano invece di cancellarli: sulle fasi Camera stanno le votazioni della Camera.
-        cur.execute("DELETE FROM votazione WHERE id LIKE 'senato:%%' AND legislatura = %s", (leg.numero,))
+        if leg.con_voti:
+            cur.execute("DELETE FROM votazione WHERE id LIKE 'senato:%%' AND legislatura = %s", (leg.numero,))
         cur.execute(
             """
             DELETE FROM firmatario WHERE fase_id IN (
@@ -309,6 +310,10 @@ def salva_legislatura(
     con_finale = len({iter_di_fase[v.fasi_oggetto[0]] for v in leg.votazioni if tipo_votazione(v.descrizione) == "finale"})
     rapporto.aggiungi(f"Legislatura {leg.numero}: {len(iter_righe)} iter diventati legge, {len(fasi_righe)} fasi, {len(firmatari)} firmatari")
     rapporto.aggiungi(f"- collegati a una legge di Normattiva: {con_urn} (non trovati: {len(iter_righe) - con_urn})")
+    rapporto.aggiungi(f"- con il testo presentato: {sum(1 for f in fasi_righe if f[-1])}")
+    if not leg.con_voti:
+        rapporto.aggiungi("- votazioni non estratte: restano quelle già nel database")
+        return
     rapporto.aggiungi(f"- con una votazione finale nominale al Senato: {con_finale}")
     rapporto.aggiungi(f"- votazioni: {len(votazioni)} ({', '.join(f'{t} {n}' for t, n in tipi.most_common())})")
     rapporto.aggiungi(f"- votazioni su altri ddl o non collegate (non caricate): {leg.votazioni_scartate}")

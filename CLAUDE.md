@@ -50,6 +50,9 @@ DATABASE_URL=... python -m archivio camera-carica --da dati
 # Partiti dei governi (CSV compilati a mano; li carica anche senato-carica)
 DATABASE_URL=... python -m archivio partiti-carica
 
+# Correzione delle relazioni `converte` già salvate (regola del 30/10/2026)
+DATABASE_URL=... python -m archivio riclassifica-converte          # conta le `converte` sbagliate già nel database; con --scrivi le corregge (workflow "Riclassifica converte")
+
 # API FastAPI, sola lettura
 cd ../api
 pip install -e ".[dev]"

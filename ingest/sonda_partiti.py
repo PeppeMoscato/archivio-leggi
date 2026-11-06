@@ -11,7 +11,10 @@ toccare lo schema. Non usa il database. Controlla:
 3. eligendo: l'archivio storico delle elezioni del Ministero dell'Interno
    (risponde ai programmi? dati aperti? licenza? coalizioni?);
 4. camera e senato: classi e proprietà su governi, membri del governo, elezioni,
-   liste e votazioni di fiducia al governo.
+   liste e votazioni di fiducia al governo (il Virtuoso del Senato non accetta SAMPLE).
+
+Esiti del 06/11/2026 nella proposta `sviluppo/2026-11-06_proposta_rapporti_partiti.md`
+della cartella del progetto e nel log `docs/stato/log/2026-11-06_03_*`.
 
 Uscite: il report in Markdown su stdout (e nel riepilogo del job su GitHub
 Actions) e `samples/sonda_partiti_<parte>.json` con le risposte grezze.
@@ -310,14 +313,14 @@ QUERY_PARLAMENTO = {
     "senato": {
         "classi_utili": """SELECT ?c (COUNT(?s) AS ?n) WHERE { ?s a ?c
   FILTER(REGEX(STR(?c), "overn|lezion|lista|partit|aric|mandato|coalizion", "i")) } GROUP BY ?c ORDER BY DESC(?n)""",
-        "fiducia_per_legislatura": """SELECT ?leg (COUNT(DISTINCT ?v) AS ?n) (SAMPLE(?t) AS ?esempio) WHERE {
+        "fiducia_per_legislatura": """SELECT ?leg (COUNT(DISTINCT ?v) AS ?n) WHERE {
   ?v a osr:Votazione ; osr:legislatura ?leg ; rdfs:label ?t .
   FILTER(CONTAINS(LCASE(STR(?t)), "fiducia")) } GROUP BY ?leg ORDER BY ?leg""",
         "fiducia_senza_ddl": """SELECT ?leg ?t ?data WHERE {
   ?v a osr:Votazione ; osr:legislatura ?leg ; rdfs:label ?t .
   OPTIONAL { ?v osr:seduta ?s . ?s osr:dataSeduta ?data }
   FILTER(CONTAINS(LCASE(STR(?t)), "fiducia") && !CONTAINS(LCASE(STR(?t)), "ddl")) } ORDER BY ?data LIMIT 200""",
-        "proprieta_mandato_senato": """SELECT ?p (COUNT(*) AS ?n) (SAMPLE(?o) AS ?esempio) WHERE { ?m a ocd:mandatoSenato ; ?p ?o } GROUP BY ?p""",
+        "proprieta_mandato_senato": """SELECT ?p (COUNT(*) AS ?n) WHERE { ?m a ocd:mandatoSenato ; ?p ?o } GROUP BY ?p""",
     },
 }
 

@@ -1,0 +1,2 @@
+Data: 2026-10-28
+Testo: API FastAPI, scheletro. Pacchetto `api/archivio_api/` (FastAPI, psycopg con pool, sola lettura): ricerca con filtri (tipo, stato, governo, anno, numero, date, modificata) e paginazione, dettaglio legge, relazioni come timeline, pronunce, iter con fasi e firmatari, votazioni con i totali, governi. Indice full text sul titolo in `schema.sql`. 29 prove su Postgres 16 locale (job `api` nella CI). Non ancora provata su Neon: dal container il database non è raggiungibile senza il `DATABASE_URL`.

@@ -1,0 +1,3 @@
+Data: 2026-10-29
+Decisione: Voto per gruppo nell'API: `GET /votazioni/{id}` (dettaglio con la legge e i gruppi) e `gruppi=true` su `/leggi/{urn}/votazioni`. Nome del gruppo valido alla data del voto (`denominazione_gruppo`, altrimenti il nome in `gruppo`); chi quel giorno non risulta in un gruppo sta in una riga senza `gruppo_id`, in fondo
+Motivo: La vista `voto_gruppo` basta: Postgres filtra la votazione prima di espandere i voti (indice sulla chiave), 5 ms per votazione e circa 150 ms per 50 votazioni con 310 voti ciascuna su 44.000 votazioni generate in locale. Gli id delle votazioni contengono `/` (`senato:14/1`): il percorso li accetta interi

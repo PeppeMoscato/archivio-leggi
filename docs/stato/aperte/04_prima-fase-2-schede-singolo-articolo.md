@@ -1,0 +1,1 @@
+Questione: Prima della Fase 2: schede su un singolo articolo, un verdetto per obiettivo, `obiettivo.tipo_fonte` = studio per gli obiettivi attesi (scheda Sirchia), dove vive la scheda (file nel repo o database) e come si approva.

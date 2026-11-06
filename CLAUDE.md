@@ -3,7 +3,7 @@
 App gratuita e non commerciale che archivia le leggi statali italiane (dal 1990) e valuta, a distanza di anni, se hanno raggiunto i loro obiettivi.
 
 ## Prima di lavorare
-- Leggi `docs/05_stato_e_decisioni.md`: fase attuale, decisioni prese, roadmap. Non riproporre scelte già scartate; se una decisione va rivista, dillo e spiega perché.
+- Leggi lo stato del progetto con `python docs/stato/componi.py` (fase attuale, decisioni prese, ancora da decidere, roadmap, log; un file per voce in `docs/stato/`, regole in `docs/05_stato_e_decisioni.md`). Non riproporre scelte già scartate; se una decisione va rivista, dillo e spiega perché.
 - Rispetta schema (`docs/01_schema_dati.md`), metodo (`docs/02_metodo_valutazione.md`) e fonti (`docs/03_fonti.md`).
 - Visione e perimetro: `docs/00_visione.md`. Leggi dell'MVP: `docs/06_leggi_mvp.md`. Scheda modello: `docs/04_scheda_esempio.md`.
 
@@ -11,11 +11,11 @@ App gratuita e non commerciale che archivia le leggi statali italiane (dal 1990)
 - Un task della roadmap per sessione. Se il task è troppo ampio, proponi come dividerlo.
 - Stack fissato: Python (ingestione), PostgreSQL su Neon, FastAPI, Next.js. Niente alternative senza un problema concreto.
 - Nessuna modifica allo schema dati senza aggiornare `docs/01_schema_dati.md` (nuova versione e storico).
-- A fine sessione aggiorna `docs/05_stato_e_decisioni.md` (fase, decisioni, roadmap, log).
+- A fine sessione aggiorna `docs/stato/` aggiungendo file, non righe a un file comune: una decisione nuova è un file in `decisioni/`, la sessione un file in `log/`; di roadmap e questioni aperte modifica solo il file della voce su cui hai lavorato. Non toccare i file degli altri e non riscrivere `docs/05_stato_e_decisioni.md`, che contiene solo le regole. Controllo: `python docs/stato/componi.py --controlla`.
 - Italiano per documenti, commenti e messaggi di commit.
 
 ## Struttura
-- `docs/` — documenti di progetto (fonte di verità).
+- `docs/` — documenti di progetto (fonte di verità). `docs/stato/` — stato, decisioni, roadmap e log, un file per voce.
 - `ingest/` — pipeline Python di ingestione (Normattiva, Camera, Senato, Istat). Pacchetto `ingest/archivio/`: pipeline Normattiva → Postgres.
 - `api/` — FastAPI in sola lettura (pacchetto `api/archivio_api/`): ricerca e dettaglio delle leggi.
 - `web/` — Next.js (ricerca e pagina legge), legge solo l'API dal server; deploy su Vercel (`docs/deploy_frontend.md`).
@@ -54,6 +54,9 @@ DATABASE_URL=... python -m archivio camera-carica --da dati
 # Partiti dei governi (CSV compilati a mano; li carica anche senato-carica)
 DATABASE_URL=... python -m archivio partiti-carica
 
+# Correzione delle relazioni `converte` già salvate (regola del 30/10/2026)
+DATABASE_URL=... python -m archivio riclassifica-converte          # conta le `converte` sbagliate già nel database; con --scrivi le corregge (workflow "Riclassifica converte")
+
 # API FastAPI, sola lettura
 cd ../api
 pip install -e ".[dev]"
@@ -70,7 +73,7 @@ API_URL=http://localhost:8000 npm run dev               # senza API_URL usa l'AP
 - L'aggiornamento settimanale gira sul workflow "Aggiornamento settimanale" (cron il lunedì, o a mano con `giorni` e `legislatura`): Normattiva → premesse → Senato → Camera. Il cron scrive su Neon solo con la variabile del repository `AGGIORNAMENTO_SU_NEON` = `true`, a mano solo con `scrivi_su_neon`; non va lanciato mentre una pipeline completa scrive su Neon.
 - Anche le premesse girano su GitHub Actions: workflow "Pipeline premesse" (campo `anni`), scrive su Neon solo con `scrivi_su_neon` spuntato e dopo il caricamento Normattiva. Le relazioni `delega` le scrive solo questa pipeline.
 - www.senato.it (schede dei ddl, PDF) risponde con un controllo anti-robot: solo link, non va aggirato.
-- I partiti dei governi (`ingest/archivio/governi_partiti.csv`) si compilano a mano, una fonte per riga; regola in `docs/05_stato_e_decisioni.md`. Su Neon: workflow "Partiti dei governi" con `scrivi_su_neon`.
+- I partiti dei governi (`ingest/archivio/governi_partiti.csv`) si compilano a mano, una fonte per riga; regola in `docs/stato/decisioni/2026-10-30_07_partiti-governi-governo-sono-partiti-fonte.md`. Su Neon: workflow "Partiti dei governi" con `scrivi_su_neon`.
 - dati.senato.it e dati.camera.it non sono raggiungibili dal container: il Senato gira sul workflow "Pipeline Senato", la Camera su "Pipeline Camera" (campo `legislature`); scrivono su Neon solo con `scrivi_su_neon` spuntato. Su Neon la Camera va caricata dopo il Senato.
 - La Camera XIII-XVI legge i voti dalle schede HTML (circa 2 pagine al secondo, circa 2 ore per la XIII): una legislatura alla volta. Schede e voti vanno nella cache `dati/cache/`, salvata dal workflow anche se il job fallisce: dopo un guasto di dati.camera.it basta rilanciare i job falliti.
 - La DDL è `ingest/archivio/schema.sql`: va tenuta allineata a `docs/01_schema_dati.md`. L'API la usa anche nelle sue prove.

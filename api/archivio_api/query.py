@@ -15,10 +15,12 @@ COLONNE_SINTESI = sql.SQL(
     "l.link_normattiva, l.numero_modifiche, l.modificata"
 )
 
-# Ricerca full text sul titolo, con lo stemming italiano di Postgres ("amministrativo" trova "amministrativi").
-# L'espressione è uguale a quella dell'indice legge_titolo_fts di schema.sql: se cambia una, cambia l'altra.
-VETTORE_TITOLO = sql.SQL("to_tsvector('italian', l.titolo)")
-QUERY_TESTO = sql.SQL("websearch_to_tsquery('italian', {})")
+# Ricerca full text sul titolo, con lo stemming italiano di Postgres ("amministrativo" trova "amministrativi")
+# e senza accenti: "sanità" e "sanita" trovano i titoli di Normattiva, che scrivono "sanita'".
+# L'espressione è uguale a quella dell'indice legge_titolo_fts_senza_accenti di schema.sql: se cambia una,
+# cambia l'altra.
+VETTORE_TITOLO = sql.SQL("to_tsvector('italiano_senza_accenti', l.titolo)")
+QUERY_TESTO = sql.SQL("websearch_to_tsquery('italiano_senza_accenti', {})")
 
 # Numero/anno scritto come si cita una legge: "3/2003", "L. 3/2003", "d.lgs. 81/2008".
 NUMERO_ANNO = re.compile(r"\b(\d{1,5})\s*/\s*(\d{4})\b")

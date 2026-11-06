@@ -24,7 +24,8 @@ export const FONTI: Fonte[] = [
     nome: "Senato della Repubblica",
     url: "https://dati.senato.it",
     cosa: "Iter dei disegni di legge, firmatari, votazioni d'Aula",
-    licenza: "Linked open data",
+    licenza: "CC BY 3.0",
+    attribuzione: "Fonte: Senato della Repubblica (https://dati.senato.it), in licenza CC BY 3.0.",
   },
   {
     nome: "Camera dei deputati",

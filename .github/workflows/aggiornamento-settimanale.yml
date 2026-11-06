@@ -1,0 +1,183 @@
+name: Aggiornamento settimanale
+
+# Ogni lunedì: da Normattiva gli atti nuovi e quelli modificati negli ultimi giorni (più i D.L. ancora da convertire),
+# dal Senato e dalla Camera la legislatura in corso (nuovi iter, votazioni e voti, gruppi). Si carica nell'ordine
+# Normattiva → premesse → Senato → Camera; ogni parte si carica se la sua estrazione è riuscita.
+# Scrive su Neon (secret DATABASE_URL) solo se lanciato a mano con "scrivi_su_neon" spuntato, oppure dal cron con la
+# variabile del repository AGGIORNAMENTO_SU_NEON = true (Settings → Secrets and variables → Actions → Variables).
+# Altrimenti, e sulle pull request, carica in un Postgres temporaneo e scrive solo i rapporti.
+# Non va lanciato mentre una pipeline completa scrive su Neon.
+on:
+  schedule:
+    - cron: "17 3 * * 1"  # lunedì alle 3:17 UTC
+  workflow_dispatch:
+    inputs:
+      giorni:
+        description: "Finestra in giorni per gli atti nuovi e modificati su Normattiva"
+        default: "14"
+      legislatura:
+        description: "Legislatura in corso per Senato e Camera"
+        default: "19"
+      scrivi_su_neon:
+        description: "Scrivi su Neon (secret DATABASE_URL)"
+        type: boolean
+        default: false
+  pull_request:
+    paths:
+      - "ingest/archivio/aggiornamento.py"
+      - ".github/workflows/aggiornamento-settimanale.yml"
+
+concurrency:
+  group: aggiornamento-settimanale-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  GIORNI: ${{ inputs.giorni || '14' }}
+  # Con la XX legislatura (dal 2027) va cambiato qui, e la XIX si chiude con un ultimo giro a mano.
+  LEGISLATURA: ${{ inputs.legislatura || '19' }}
+
+jobs:
+  normattiva:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    defaults:
+      run:
+        working-directory: ingest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - run: python -m archivio aggiorna-estrai --giorni "$GIORNI" --uscita dati
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aggiornamento-normattiva
+          path: |
+            ingest/dati/atti_aggiornati.jsonl
+            ingest/dati/premesse_aggiornate.jsonl
+          retention-days: 30
+
+  # Senato e Camera rileggono tutta la legislatura in corso: il caricamento è idempotente per legislatura.
+  # Sulle pull request non girano (sono le pipeline già provate, e la Camera può essere impegnata su Neon).
+  senato:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: ingest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - run: python -m archivio senato-estrai --legislature "$LEGISLATURA" --uscita dati
+      - run: python -m archivio senato-persone --uscita dati
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aggiornamento-senato
+          path: ingest/dati/senato_*.json
+          retention-days: 30
+
+  camera:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    defaults:
+      run:
+        working-directory: ingest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      # I voti già scaricati (anche dalla Pipeline Camera) restano in cache: si chiedono solo quelli delle votazioni nuove.
+      - uses: actions/cache/restore@v4
+        with:
+          path: ingest/dati/cache
+          key: camera-cache-${{ env.LEGISLATURA }}-${{ github.run_id }}
+          restore-keys: camera-cache-${{ env.LEGISLATURA }}-
+      - run: python -m archivio camera-estrai --legislature "$LEGISLATURA" --uscita dati
+      - if: always() && hashFiles('ingest/dati/cache/*') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: ingest/dati/cache
+          key: camera-cache-${{ env.LEGISLATURA }}-${{ github.run_id }}-${{ github.run_attempt }}
+      # Tutte le legislature: il caricamento riscrive le adesioni ai gruppi della Camera per intero.
+      - run: python -m archivio camera-persone --uscita dati
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aggiornamento-camera
+          path: ingest/dati/camera_*.json
+          retention-days: 30
+
+  carica:
+    needs: [normattiva, senato, camera]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: archivio
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      LOCALE: postgresql://postgres:postgres@localhost:5432/archivio
+      NEON: >-
+        ${{ ((github.event_name == 'schedule' && vars.AGGIORNAMENTO_SU_NEON == 'true')
+        || (github.event_name == 'workflow_dispatch' && inputs.scrivi_su_neon)) && secrets.DATABASE_URL || '' }}
+    defaults:
+      run:
+        working-directory: ingest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - name: Destinazione
+        run: |
+          if [ -n "$NEON" ]; then
+            echo "Destinazione: Neon (secret DATABASE_URL)" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "DATABASE_URL=$NEON" >> "$GITHUB_ENV"
+          else
+            echo "Destinazione: Postgres temporaneo del job (nessuna scrittura su Neon)" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "DATABASE_URL=$LOCALE" >> "$GITHUB_ENV"
+          fi
+      - uses: actions/download-artifact@v4
+        if: needs.normattiva.result == 'success'
+        with:
+          name: aggiornamento-normattiva
+          path: ingest/normattiva
+      - name: Normattiva e premesse
+        if: needs.normattiva.result == 'success'
+        run: python -m archivio aggiorna-carica --da normattiva
+      - uses: actions/download-artifact@v4
+        if: needs.senato.result == 'success'
+        with:
+          name: aggiornamento-senato
+          path: ingest/senato
+      - name: Senato
+        if: needs.senato.result == 'success'
+        run: python -m archivio senato-carica --da senato
+      - uses: actions/download-artifact@v4
+        if: needs.camera.result == 'success'
+        with:
+          name: aggiornamento-camera
+          path: ingest/camera
+      # Le votazioni della Camera si attaccano alle fasi degli iter del Senato: senza il Senato di questa settimana
+      # quelle delle leggi nuove restano fuori fino al prossimo giro.
+      - name: Camera
+        if: needs.camera.result == 'success'
+        run: python -m archivio camera-carica --da camera
+      - name: Estrazioni non riuscite
+        if: contains(needs.*.result, 'failure')
+        run: |
+          echo "Estrazioni non riuscite: Normattiva ${{ needs.normattiva.result }}, Senato ${{ needs.senato.result }}, Camera ${{ needs.camera.result }}" | tee -a "$GITHUB_STEP_SUMMARY"
+          exit 1

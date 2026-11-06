@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 
-from normattiva import AttoTrovato, EstremiAtto, Normattiva, Sort
+from normattiva import AttoTrovato, ConnectionError, EsitoRicerca, EstremiAtto, Normattiva, OverloadedError, Sort
 
 from archivio.modelli import TIPI, Atto
 
@@ -14,6 +15,20 @@ logger = logging.getLogger(__name__)
 PER_PAGINA = 200
 # La ricerca a volte aggiunge note al numero: "1 (Raccolta 2019)" (sonda del 27/10/2026).
 _NUMERO = re.compile(r"^\s*(\d+(?:-?[a-z]+)?)", re.I)
+# Dopo un guasto del servizio si riprova più tardi, come per le premesse. Rilancio su Neon del 31/10/2026
+# (run 41180975376): "Server disconnected" sulla ricerca ha fatto fallire l'estrazione intera del 1993 e del 1999.
+ATTESE_DOPO_GUASTO = (30, 90, 180)
+
+
+def ricerca(client: Normattiva, attese: tuple[float, ...] = ATTESE_DOPO_GUASTO, **criteri) -> EsitoRicerca:
+    """`ricerca_avanzata`, riprovata dopo ciascuna delle `attese` se il servizio non risponde o è sovraccarico."""
+    for attesa in attese:
+        try:
+            return client.ricerca_avanzata(**criteri)
+        except (ConnectionError, OverloadedError) as errore:
+            logger.warning("ricerca %s: %s, nuovo tentativo fra %s s", criteri, errore, attesa)
+            time.sleep(attesa)
+    return client.ricerca_avanzata(**criteri)
 
 
 def numero_pulito(numero: str | None) -> str:
@@ -51,8 +66,8 @@ def catalogo(client: Normattiva, denominazione: str, anno: int) -> dict[str, Att
     trovati: list[Atto] = []
     pagina, totale = 1, None
     while True:
-        esito = client.ricerca_avanzata(
-            denominazione=denominazione, anno=anno, sort=Sort.OLDEST, pagina=pagina, per_pagina=PER_PAGINA
+        esito = ricerca(
+            client, denominazione=denominazione, anno=anno, sort=Sort.OLDEST, pagina=pagina, per_pagina=PER_PAGINA
         )
         totale = esito.totale if totale is None else totale
         for trovato in esito.atti:

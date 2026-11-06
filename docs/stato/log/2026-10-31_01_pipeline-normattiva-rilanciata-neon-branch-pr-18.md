@@ -1,0 +1,2 @@
+Data: 2026-10-31
+Testo: Pipeline Normattiva rilanciata su Neon dal branch della PR #18 ([run 41187389329](https://github.com/PeppeMoscato/archivio-leggi/actions/runs/41187389329)), dopo un primo giro annullato perché Normattiva staccava. Converte 2.477 → 1.118, tutte dai titoli; 1.292 note di conversione lette come modifica; D.L. 1.030 vigenti, 1.316 decaduti, 100 abrogati. 66 atti con l'export incompleto lasciati come erano: tengono le relazioni vecchie fino al prossimo giro.

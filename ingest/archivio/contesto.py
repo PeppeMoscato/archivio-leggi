@@ -74,6 +74,36 @@ def riga_premessa(atto: Atto, premessa: Premessa) -> dict:
     }
 
 
+def premesse_di(client: Normattiva, atti: Iterable[Atto], conti: Counter, pausa: float = PAUSA,
+                attese: tuple[float, ...] = ATTESE_DOPO_GUASTO) -> list[dict]:
+    """Le righe del JSONL delle premesse per questi atti; `conti` raccoglie i numeri del rapporto."""
+    righe: list[dict] = []
+    for atto in atti:
+        try:
+            premessa = premessa_da_html(testo_originale(client, atto, attese))
+        except NormattivaError as errore:
+            logger.warning("%s: testo non letto (%s)", atto.urn, errore)
+            conti[f"{atto.tipo}, testo non letto"] += 1
+            continue
+        finally:
+            time.sleep(pausa)
+        conti[atto.tipo] += 1
+        if premessa.vuota:
+            conti[f"{atto.tipo}, senza premessa"] += 1
+            continue
+        conti[f"{atto.tipo}, con motivazioni"] += bool(premessa.motivazioni)
+        riga = riga_premessa(atto, premessa)
+        conti[f"{atto.tipo}, con legge delega"] += bool(riga["deleghe"])
+        righe.append(riga)
+    return righe
+
+
+def scrivi_premesse(file: Path, righe: list[dict]) -> None:
+    with file.open("w", encoding="utf-8") as scritto:
+        for riga in sorted(righe, key=lambda r: r["urn"]):
+            scritto.write(json.dumps(riga, ensure_ascii=False) + "\n")
+
+
 def estrai_premesse(client: Normattiva, anni: Iterable[int], uscita: Path, pausa: float = PAUSA,
                     attese: tuple[float, ...] = ATTESE_DOPO_GUASTO) -> Rapporto:
     uscita.mkdir(parents=True, exist_ok=True)
@@ -82,26 +112,8 @@ def estrai_premesse(client: Normattiva, anni: Iterable[int], uscita: Path, pausa
         righe: list[dict] = []
         conti: Counter = Counter()
         for denominazione in TIPI_CON_PREMESSA:
-            for atto in catalogo(client, denominazione, anno).values():
-                try:
-                    premessa = premessa_da_html(testo_originale(client, atto, attese))
-                except NormattivaError as errore:
-                    logger.warning("%s: testo non letto (%s)", atto.urn, errore)
-                    conti[f"{atto.tipo}, testo non letto"] += 1
-                    continue
-                finally:
-                    time.sleep(pausa)
-                conti[atto.tipo] += 1
-                if premessa.vuota:
-                    conti[f"{atto.tipo}, senza premessa"] += 1
-                    continue
-                conti[f"{atto.tipo}, con motivazioni"] += bool(premessa.motivazioni)
-                riga = riga_premessa(atto, premessa)
-                conti[f"{atto.tipo}, con legge delega"] += bool(riga["deleghe"])
-                righe.append(riga)
-        with (uscita / f"premesse_{anno}.jsonl").open("w", encoding="utf-8") as file:
-            for riga in sorted(righe, key=lambda r: r["urn"]):
-                file.write(json.dumps(riga, ensure_ascii=False) + "\n")
+            righe += premesse_di(client, catalogo(client, denominazione, anno).values(), conti, pausa, attese)
+        scrivi_premesse(uscita / f"premesse_{anno}.jsonl", righe)
         rapporto.aggiungi(f"- {anno}: " + ", ".join(f"{chiave} {n}" for chiave, n in sorted(conti.items())))
     return rapporto
 

@@ -164,3 +164,12 @@ def salva_cache_gazzetta(conn: psycopg.Connection, codice: str, giorno: date, ur
             (codice, giorno, urn, tipo),
         )
     conn.commit()
+
+
+def leggi_catalogo(conn: psycopg.Connection) -> list[tuple]:
+    """Gli atti già nel database, con i campi del catalogo: servono all'aggiornamento settimanale."""
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT urn, tipo, numero, data, titolo, gazzetta_data, gazzetta_numero, gazzetta_codice FROM legge ORDER BY urn"
+        )
+        return cur.fetchall()

@@ -14,6 +14,10 @@ on:
         description: "Scrivi su Neon (secret DATABASE_URL)"
         type: boolean
         default: false
+      senza_voti:
+        description: "Solo iter e fasi: niente votazioni, quelle già su Neon restano (poche richieste a dati.senato.it)"
+        type: boolean
+        default: false
   pull_request:
     paths:
       - "ingest/archivio/senato.py"
@@ -61,7 +65,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e .
-      - run: python -m archivio senato-estrai --legislature ${{ matrix.legislatura }} --uscita dati
+      - run: python -m archivio senato-estrai --legislature ${{ matrix.legislatura }} --uscita dati ${{ inputs.senza_voti && '--senza-voti' || '' }}
       - uses: actions/upload-artifact@v4
         with:
           name: senato-${{ matrix.legislatura }}

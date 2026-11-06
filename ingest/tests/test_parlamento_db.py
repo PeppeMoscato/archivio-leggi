@@ -90,6 +90,27 @@ def test_carica_senato(conn, tmp_path):
     assert "Spazio: database" in testo
 
 
+
+def test_carica_senato_senza_voti(conn, tmp_path):
+    """Un giro solo su iter e fasi aggiorna il testo presentato e lascia le votazioni già caricate."""
+    scrivi_file(tmp_path)
+    db.crea_schema(conn)
+    carica_senato(conn, tmp_path)
+    leg = senato.leggi_legislatura(tmp_path / "senato_14.json")
+    leg.fasi[1].testo_presentato = "urn:nir:senato.repubblica:disegno.legge:14.legislatura;1271"
+    leg.votazioni, leg.con_voti = [], False
+    senato.scrivi(tmp_path / "senato_14.json", leg)
+    rapporto = carica_senato(conn, tmp_path)
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT id FROM votazione ORDER BY id")
+        assert cur.fetchall() == [("senato:14/1",), ("senato:14/2",)]
+        cur.execute("SELECT testo_presentato FROM fase_iter WHERE id = 'senato:1271'")
+        assert cur.fetchone() == ("urn:nir:senato.repubblica:disegno.legge:14.legislatura;1271",)
+    testo = rapporto.testo()
+    assert "con il testo presentato: 1" in testo
+    assert "votazioni non estratte" in testo
+
 # --- Camera ---------------------------------------------------------------------------
 
 

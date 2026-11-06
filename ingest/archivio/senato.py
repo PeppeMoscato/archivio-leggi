@@ -103,6 +103,8 @@ class Legislatura:
     iniziative: list[Iniziativa]
     votazioni: list[Votazione]  # solo quelle collegate a una fase degli iter diventati legge
     votazioni_scartate: int = 0  # su ddl mai diventati legge o senza collegamento
+    # False quando si estraggono solo iter e fasi (--senza-voti): il caricamento lascia le votazioni già nel database.
+    con_voti: bool = True
 
 
 @dataclass
@@ -343,10 +345,13 @@ def estrai_voti(sparql: Sparql, votazioni: list[Votazione]) -> None:
             logger.info("voti: %s votazioni su %s", inizio, len(votazioni))
 
 
-def estrai_legislatura(sparql: Sparql, leg: int) -> Legislatura:
+def estrai_legislatura(sparql: Sparql, leg: int, voti: bool = True) -> Legislatura:
     fasi = estrai_fasi(sparql, leg)
     logger.info("legislatura %s: %s fasi degli iter diventati legge", leg, len(fasi))
     iniziative = estrai_iniziative(sparql, leg)
+    if not voti:
+        # Poche richieste invece di migliaia: basta per aggiornare iter e fasi (es. il testo presentato).
+        return Legislatura(leg, list(fasi.values()), iniziative, [], con_voti=False)
     per_numero = {numero_senza_ramo(f.numero): f.id for f in fasi.values() if f.ramo == "S"}
     tutte = estrai_votazioni(sparql, leg)
     collegate: list[Votazione] = []
@@ -423,6 +428,7 @@ def leggi_legislatura(percorso: Path) -> Legislatura:
     return Legislatura(
         dati["numero"], fasi, [Iniziativa(**i) for i in dati["iniziative"]],
         [Votazione(**_date(v, "data")) for v in dati["votazioni"]], dati.get("votazioni_scartate", 0),
+        dati.get("con_voti", True),
     )
 
 

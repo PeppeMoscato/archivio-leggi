@@ -167,6 +167,20 @@ def parte_wikidata() -> tuple[dict[str, Any], str]:
     return risultati, report
 
 
+ITALIA = "(SELECT id FROM country WHERE name_short = 'ITA')"
+QUERY_PARLGOV = {
+    "cambi_di_partito_dal_1990": f"""SELECT c.date AS data, p.name AS da, n.name AS a, c.description, c.comment
+  FROM party_change c JOIN party p ON p.id = c.party_id JOIN party n ON n.id = c.party_id_new
+  WHERE p.country_id = {ITALIA} AND c.date >= '1988-01-01' ORDER BY c.date""",
+    "governi_dal_1990": f"""SELECT c.start_date AS inizio, c.name AS governo, c.caretaker,
+  GROUP_CONCAT(p.name_short, ', ') AS partiti FROM cabinet c
+  LEFT JOIN cabinet_party cp ON cp.cabinet_id = c.id LEFT JOIN party p ON p.id = cp.party_id
+  WHERE c.country_id = {ITALIA} AND c.start_date >= '1989-07-01' GROUP BY c.id ORDER BY c.start_date""",
+    "date_a_meta_anno": f"""SELECT COUNT(*) AS cambi, SUM(c.date LIKE '%-07-01') AS al_primo_luglio
+  FROM party_change c JOIN party p ON p.id = c.party_id WHERE p.country_id = {ITALIA}""",
+}
+
+
 def parte_parlgov() -> tuple[dict[str, Any], str]:
     risultati: dict[str, Any] = {}
     report = "## 2. ParlGov\n\n"
@@ -182,7 +196,7 @@ def parte_parlgov() -> tuple[dict[str, Any], str]:
             risultati["tabelle"] = tabelle
             report += "Tabelle: " + ", ".join(tabelle) + "\n\n"
             for nome in tabelle:
-                if not re.search(r"party_change|party_name_change|cabinet_party|cabinet_support|^party$|alliance|confidence", nome):
+                if not re.search(r"party_name_change|cabinet_support|alliance|confidence|^cabinet$", nome):
                     continue
                 colonne = [r[1] for r in con.execute(f"PRAGMA table_info('{nome}')")]
                 report += f"### {nome}\n\nColonne: {', '.join(colonne)}\n\n"
@@ -203,6 +217,17 @@ def parte_parlgov() -> tuple[dict[str, Any], str]:
                     report += f"Errore: `{e}`\n\n"
                 risultati[nome] = righe
                 report += f"Righe dell'Italia: {len(righe)}\n\n" + tabella(righe, 60) + "\n"
+            for nome, query in QUERY_PARLGOV.items():
+                try:
+                    cur = con.execute(query)
+                    colonne = [d[0] for d in cur.description]
+                    righe = [{c: str(v) for c, v in zip(colonne, riga)} for riga in cur.fetchall()]
+                except sqlite3.Error as e:
+                    righe = []
+                    report += f"### {nome}\n\nErrore: `{e}`\n\n"
+                    continue
+                risultati[nome] = righe
+                report += f"### {nome} ({len(righe)} righe)\n\n" + tabella(righe, 150) + "\n"
     except Exception as e:  # noqa: BLE001
         risultati["errore"] = f"{type(e).__name__}: {e}"
         report += f"Errore: `{risultati['errore']}`\n\n"
@@ -226,12 +251,15 @@ def parte_parlgov() -> tuple[dict[str, Any], str]:
 PAGINE_ELIGENDO = [
     "https://elezionistorico.interno.gov.it/",
     "https://elezionistorico.interno.gov.it/eligendo/opendata.php",
+    "https://elezionistorico.interno.gov.it/eligendo/info_opendata.php",
     "https://elezionistorico.interno.gov.it/index.php?tpel=C&dtel=27/03/1994&tpa=I&tpe=A&lev0=0&levsut0=0&es0=S&ms=S",
     "https://elezionistorico.interno.gov.it/index.php?tpel=C&dtel=09/04/2006&tpa=I&tpe=A&lev0=0&levsut0=0&es0=S&ms=S",
     "https://dait.interno.gov.it/elezioni/open-data",
     "https://dait.interno.gov.it/elezioni/trasparenza",
 ]
 PAROLE_ELIGENDO = re.compile(r"coalizion\w*|contrassegn\w*|licenz\w*|creative commons|cc[- ]by[- \w.]*|iodl[\w .]*|open ?data", re.IGNORECASE)
+TUTTI_I_LINK = re.compile(r"""(?:href|src|data-url|value)=["']([^"'#]+\.(?:zip|csv|txt|xlsx?|json|php)[^"']*)["']""", re.IGNORECASE)
+CONTESTO = re.compile(r"licenz|creative commons|iodl|condizioni d'uso|coalizion", re.IGNORECASE)
 LINK_DATI = re.compile(r"""href=["']([^"']*(?:\.zip|\.csv|\.txt|\.xlsx?|opendata|open-data|download)[^"']*)["']""", re.IGNORECASE)
 
 
@@ -245,6 +273,9 @@ def parte_eligendo() -> tuple[dict[str, Any], str]:
             voce = {"url": url, "tipo": tipo, "byte": len(corpo),
                     "parole": sorted({p.lower().strip() for p in PAROLE_ELIGENDO.findall(testo)})[:40],
                     "link": sorted({urllib.parse.urljoin(url, l) for l in LINK_DATI.findall(testo)})[:40],
+                    "tutti_i_link": sorted({urllib.parse.urljoin(url, l) for l in TUTTI_I_LINK.findall(testo)})[:200],
+                    "contesti": [re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", testo[max(0, m.start() - 300): m.end() + 300]))
+                                 for m in CONTESTO.finditer(testo)][:12],
                     "inizio": re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", testo))[:1500]}
         except Exception as e:  # noqa: BLE001
             voce = {"url": url, "errore": f"{type(e).__name__}: {e}"}
@@ -252,6 +283,9 @@ def parte_eligendo() -> tuple[dict[str, Any], str]:
         report += f"### {url}\n\n" + (voce.get("errore") or f"{voce['tipo']}, {voce['byte']} byte") + "\n\n"
         if "parole" in voce:
             report += f"Parole: {voce['parole']}\n\n" + "".join(f"- {l}\n" for l in voce["link"]) + "\n"
+            if "opendata" in url:
+                report += "Tutti i link a file e pagine:\n\n" + "".join(f"- {l}\n" for l in voce["tutti_i_link"]) + "\n"
+                report += "".join(f"> …{c}…\n\n" for c in voce["contesti"])
             report += f"> {voce['inizio'][:800]}\n\n"
         time.sleep(1)
     return {"pagine": risultati}, report
@@ -276,11 +310,14 @@ QUERY_PARLAMENTO = {
     "senato": {
         "classi_utili": """SELECT ?c (COUNT(?s) AS ?n) WHERE { ?s a ?c
   FILTER(REGEX(STR(?c), "overn|lezion|lista|partit|aric|mandato|coalizion", "i")) } GROUP BY ?c ORDER BY DESC(?n)""",
-        "proprieta_votazione": """SELECT ?p (COUNT(*) AS ?n) (SAMPLE(?o) AS ?esempio) WHERE {
-  { SELECT ?v WHERE { ?v a osr:Votazione } LIMIT 2000 } ?v ?p ?o } GROUP BY ?p""",
-        "fiducia_al_governo": """SELECT ?leg (COUNT(DISTINCT ?v) AS ?n) (SAMPLE(?t) AS ?esempio) WHERE {
-  ?v a osr:Votazione ; osr:legislatura ?leg ; ?q ?t . FILTER(isLiteral(?t))
-  FILTER(REGEX(?t, "fiducia al governo|mozione di fiducia", "i")) } GROUP BY ?leg ORDER BY ?leg""",
+        "fiducia_per_legislatura": """SELECT ?leg (COUNT(DISTINCT ?v) AS ?n) (SAMPLE(?t) AS ?esempio) WHERE {
+  ?v a osr:Votazione ; osr:legislatura ?leg ; rdfs:label ?t .
+  FILTER(CONTAINS(LCASE(STR(?t)), "fiducia")) } GROUP BY ?leg ORDER BY ?leg""",
+        "fiducia_senza_ddl": """SELECT ?leg ?t ?data WHERE {
+  ?v a osr:Votazione ; osr:legislatura ?leg ; rdfs:label ?t .
+  OPTIONAL { ?v osr:seduta ?s . ?s osr:dataSeduta ?data }
+  FILTER(CONTAINS(LCASE(STR(?t)), "fiducia") && !CONTAINS(LCASE(STR(?t)), "ddl")) } ORDER BY ?data LIMIT 200""",
+        "proprieta_mandato_senato": """SELECT ?p (COUNT(*) AS ?n) (SAMPLE(?o) AS ?esempio) WHERE { ?m a ocd:mandatoSenato ; ?p ?o } GROUP BY ?p""",
     },
 }
 

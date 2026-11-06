@@ -26,7 +26,7 @@ INSERT INTO legge (urn, tipo, numero, data, titolo, link_normattiva, stato, data
      'https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legislativo:2008-04-09;81', 'vigente', NULL, '2008-05-15',
      '2008-04-30', 101, '008G0104', 'prodi-2'),
     ('urn:nir:stato:decreto.legge:2003-01-02;1', 'decreto-legge', '1', '2003-01-02',
-     'Decreto-legge di prova non convertito.',
+     'Decreto-legge di prova non convertito, sulla sanita'' e sulla qualita'' dei servizi per l''eta'' evolutiva.',
      'https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legge:2003-01-02;1', 'decaduta', '2003-03-04', '2003-01-03',
      '2003-01-02', 1, '003G0001', 'berlusconi-2');
 

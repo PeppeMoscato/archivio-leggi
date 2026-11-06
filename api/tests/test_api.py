@@ -36,6 +36,13 @@ def test_ricerca_nel_titolo_con_stemming(client):
     assert urn_trovati(client, q="amministrazione -procedimento") == [L3]
 
 
+def test_ricerca_nel_titolo_senza_accenti(client):
+    # Normattiva scrive l'accento come apostrofo ("sanita'"): con lo stemming italiano da solo "sanità" diventava
+    # "sanit" e "sanita'" "san", e "età" restava "età" mentre "eta'" diventava "eta". Con unaccent si trovano.
+    for q in ("sanità", "sanita", "sanita'", "qualità", "qualita", "età evolutiva", "eta evolutiva"):
+        assert urn_trovati(client, q=q) == [DL1], q
+
+
 def test_ricerca_per_citazione_e_urn(client):
     assert urn_trovati(client, q="L. 3/2003") == [L3]
     assert urn_trovati(client, q="d.lgs. 81/2008") == [DLGS81]
@@ -198,7 +205,7 @@ def test_connessioni_in_sola_lettura(client):
 
 
 def test_ricerca_usa_indice_titolo(database):
-    # La query di /leggi?q= deve poter usare l'indice legge_titolo_fts: stessa espressione di schema.sql.
+    # La query di /leggi?q= deve poter usare l'indice del titolo: stessa espressione di schema.sql.
     from psycopg import sql
 
     from archivio_api.query import QUERY_TESTO, VETTORE_TITOLO
@@ -208,4 +215,4 @@ def test_ricerca_usa_indice_titolo(database):
         piano = conn.execute(
             sql.SQL("EXPLAIN SELECT 1 FROM legge l WHERE {} @@ {}").format(VETTORE_TITOLO, QUERY_TESTO.format("lavoro"))
         ).fetchall()
-    assert any("legge_titolo_fts" in riga[0] for riga in piano)
+    assert any("legge_titolo_fts_senza_accenti" in riga[0] for riga in piano)

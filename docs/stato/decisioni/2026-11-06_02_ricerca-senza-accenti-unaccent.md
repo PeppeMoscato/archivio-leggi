@@ -1,0 +1,3 @@
+Data: 2026-11-06
+Decisione: Ricerca senza accenti: configurazione `italiano_senza_accenti` (`italian` con `unaccent` prima dello stemming) per l'indice del titolo e per le query dell'API (schema v1.5)
+Motivo: Normattiva scrive l'accento come apostrofo ("sanita'") e lo stemming italiano da solo non lo tratta come l'accento: "sanità", "qualità", "età", "gioventù", "perché" non trovavano i titoli. Una configurazione di ricerca, e non la funzione `unaccent()` dentro l'espressione, perché l'indice accetta solo espressioni immutabili; l'indice nuovo sostituisce `legge_titolo_fts`. Su Neon lo schema va applicato prima di unire la PR: l'API vecchia funziona con lo schema nuovo, quella nuova senza schema no.

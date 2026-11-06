@@ -1,0 +1,1 @@
+Questione: Partiti dei governi: confrontare a mano `governi_partiti.csv` con storia.camera.it (fonte ufficiale). Se servono i cambi di maggioranza nel tempo (es. Lega fuori dal Berlusconi I, IV fuori dal Conte II), la tabella ha bisogno delle date (modifica dello schema).

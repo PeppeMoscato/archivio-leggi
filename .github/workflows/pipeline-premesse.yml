@@ -50,7 +50,7 @@ jobs:
     timeout-minutes: 240
     strategy:
       fail-fast: false
-      max-parallel: 4  # una richiesta per atto: restiamo prudenti con Normattiva
+      max-parallel: 2  # una richiesta per atto; con 4 job Normattiva chiudeva le connessioni (30/10/2026)
       matrix:
         anno: ${{ fromJSON(needs.anni.outputs.elenco) }}
     defaults:

@@ -1,0 +1,2 @@
+Data: 2026-10-29
+Testo: revisione della scheda Sirchia. Trovati due studi controfattuali su *Health Policy* 2013 che la scheda non citava (calo piccolo dei fumatori); numeri dalla stampa sostituiti con la fonte primaria o marcati con l'asterisco; stato della legge aggiornato (D.L. 104/2013, D.Lgs. 6/2016). Gerarchia delle fonti in `03_fonti.md`; confidenza con un range nel metodo; schema v1.3 (`misura`, `verdetto`). Scheda approvata.

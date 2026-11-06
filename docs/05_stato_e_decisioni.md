@@ -1,139 +1,84 @@
 # Stato del progetto e decisioni
 
-Ultimo aggiornamento: 30/10/2026
-Aggiornare a fine di ogni sessione di lavoro.
+Stato, decisioni, questioni aperte, roadmap e log del progetto stanno in `docs/stato/`, **un file per voce**.
+Questo file non cambia a ogni sessione: spiega dove sono le cose e come si aggiornano.
 
-## Fase attuale
-Fase 1 — Archivio. Schema dati v1.2 approvato e scritto. Task 1.1 completato: l'archivio Normattiva è su Neon (8.927 atti dal 1990, 43.726 relazioni, 471 pronunce della Consulta), caricato dal workflow "Pipeline Normattiva" (Actions → Run workflow) con il secret `DATABASE_URL`. Task 1.2, parte Senato, unita (PR #4): pipeline dati.senato.it → Postgres (`ingest/archivio/senato.py`, `parlamento.py`), workflow "Pipeline Senato", che scrive su Neon solo se lanciato a mano con `scrivi_su_neon`. API FastAPI (ricerca, dettaglio legge, votazioni con il voto per gruppo) unita (PR #7): pacchetto `api/archivio_api/`, in sola lettura. Online su Render (piano Free): https://archivio-leggi-api.onrender.com (documentazione su `/docs`), con il ruolo Neon `api_lettura` di sola lettura. Task 1.2, parte Camera, in revisione (PR #5): pipeline dati.camera.it → Postgres (`ingest/archivio/camera.py`), workflow "Pipeline Camera"; votazioni e voti dei deputati XIII-XIX (XIII-XVI dalle schede HTML), iter dai lavori preparatori per X-XII. Tutto sta nel piano Free di Neon (Camera circa 215 MB). Prossimi passi: unire la PR #5, poi, con il via libera dell'autore, lanciare su Neon la Pipeline Senato (legislature `13-19`) e dopo la Pipeline Camera (`10-19`, una legislatura alla volta); i partiti dei governi sono compilati (`ingest/archivio/governi_partiti.csv`).
+Per leggere tutto in un solo documento, nel vecchio formato (fase attuale, tabella delle decisioni,
+ancora da decidere, roadmap, log):
 
-## Decisioni prese
-| Data | Decisione | Motivo |
+```bash
+python docs/stato/componi.py                    # stampa il documento
+python docs/stato/componi.py --uscita stato.md  # lo scrive in un file (per esempio per il Progetto Claude)
+```
+
+Il documento composto non si salva nel repository.
+
+## Perché un file per voce
+Fino al 06/11/2026 tutto stava in questo file. Ogni thread aggiungeva una riga in fondo alla tabella
+delle decisioni e al log, e riscriveva la riga della fase attuale e la data dell'ultimo aggiornamento.
+Due PR aperte in parallelo toccavano quindi sempre le stesse righe, e a ogni unione l'altra PR andava
+in conflitto. Con un file per voce, due thread aggiungono file diversi e git li unisce da solo.
+Un conflitto resta possibile solo se due thread cambiano la stessa voce (la stessa questione aperta o
+la stessa voce di roadmap): in quel caso è un conflitto vero, da decidere.
+
+## Dove sta cosa
+| Cartella o file | Contenuto | Nome del file |
 |---|---|---|
-| 2026-10-27 | Perimetro: leggi statali italiane dal 1990 | Partire piccoli; regioni e UE dopo |
-| 2026-10-27 | Progetto gratuito e non commerciale | Libertà sulle fonti (Openpolis CC BY-NC utilizzabile) |
-| 2026-10-27 | Hosting quasi gratuito, budget < 10 €/mese | Vercel (frontend), Neon (Postgres), Render o Fly.io (FastAPI) su piani free |
-| 2026-10-27 | Stack: Python per ingestione, PostgreSQL, FastAPI, Next.js | Client esistenti per Normattiva e Istat; competenze dell'autore |
-| 2026-10-27 | Progetto Claude per design e schede; Claude Code su repo GitHub per il codice | Il codice va eseguito e testato |
-| 2026-10-27 | MVP = archivio completo + 30 schede valutate | Il valore sono le schede, non la quantità |
-| 2026-10-27 | Nessun verdetto pubblicato senza approvazione umana | Rischio di errori e allucinazioni |
-| 2026-10-27 | Database: Neon (piano Free) invece di Supabase | Postgres puro (servono solo i dati, FastAPI è a parte). Free: 1 GB per progetto (da ottobre 2026), 100 CU-ore al mese, il compute si sospende dopo 5 minuti e si riattiva alla prima richiesta. Supabase Free mette in pausa il progetto dopo 7 giorni di inattività (500 MB): scomodo per un sito con poco traffico all'inizio |
-| 2026-10-27 | Nel database solo metadati, relazioni, serie e schede; testi integrali solo per le 30 leggi dell'MVP | Il limite di 1 GB non basta per tutti i testi in multivigenza; gli altri testi si leggono al bisogno da Normattiva tramite link e API |
-| 2026-10-27 | Lista delle 30 leggi in `06_leggi_mvp.md` | Copertura dei governi dal 1994, mix di leggi vigenti e abrogate |
-| 2026-10-27 | Scheda di esempio: Legge Sirchia (L. 3/2003, art. 51) | Obiettivo chiaro, buoni studi, poco divisiva: ideale per fissare il metodo |
-| 2026-10-27 | Perimetro iniziale degli atti: legge, legge costituzionale, decreto-legge, decreto legislativo (dal 1990) | Sono gli atti delle 30 leggi MVP e hanno un URN verificato su Normattiva. L'obiettivo di lungo periodo è archiviare tutte le decisioni dei governi (anche DPR, DPCM, decreti ministeriali) |
-| 2026-10-27 | I documenti di progetto vivono in `docs/` del repository; la cartella del Progetto Claude ne è una copia | Una sola fonte di verità, versionata con il codice |
-| 2026-10-27 | Client Normattiva: `normattiva-sdk` (PyPI, MIT, non ufficiale, versione 0.1.0 alpha) | Copre tutta l'API open data; confermato dallo spike su 5 leggi MVP |
-| 2026-10-27 | Le chiamate a Normattiva, Camera, Senato e Istat girano su GitHub Actions | Dal container cloud di Claude Code quei domini sono bloccati |
-| 2026-10-27 | Schema dati v1.1 approvato (proposte dello spike) | Tabelle `governo` e `pronuncia_costituzionale`, stato vigente / abrogata / decaduta, relazioni con articoli e nota originale. Dettagli in `docs/01_schema_dati.md` |
-| 2026-10-27 | Pipeline in due fasi: `estrai` (un job per anno, catalogo dalla ricerca avanzata + storia dall'export multivigente JSON) e `carica` (un job unico) | Gli export annuali sono lenti e indipendenti, quindi vanno in parallelo; il caricamento ha bisogno del catalogo completo per risolvere i riferimenti in Gazzetta senza chiamare l'API |
-| 2026-10-27 | Un export che non si conclude si divide per mese e poi per atto; un file vuoto nell'export non blocca l'anno | Nella prima esecuzione completa alcuni export (D.L. 2008 e 2010) sono rimasti in lavorazione per ore e diversi archivi contenevano file JSON vuoti |
-| 2026-10-27 | Stato "decaduta": dalla frase "Decreto-Legge decaduto per mancata conversione" nel titolo quando c'è; altrimenti D.L. abrogato, senza legge di conversione, con il testo originale in vigore al massimo 60 giorni. Data = fine vigenza del testo originale + 1 giorno | La sonda del mattino mostrava la frase nel titolo dell'export, l'esecuzione completa del pomeriggio no (0 decaduti su 1.416 D.L. abrogati): serve una regola che non dipenda da quel testo. Il termine di 60 giorni viene dall'art. 77 della Costituzione |
-| 2026-10-27 | Relazioni `converte` anche dal titolo della legge di conversione ("Conversione in legge ... del decreto-legge ...") | Le note dei D.L. citano la conversione di rado: nella prova sul 1995, 7 conversioni dalle note contro 58 con i titoli |
-| 2026-10-27 | La pipeline scrive su Neon solo se lanciata a mano; le pull request provano un anno (1995) su un Postgres temporaneo | Un'esecuzione completa dura circa due ore e ogni push sulla PR la farebbe ripartire |
-| 2026-10-27 | Relazioni ricavate dalle note di aggiornamento; l'atto che dispone si risale dal riferimento in Gazzetta (catalogo, poi cache `gazzetta_urn`, poi API) | Le note non nominano l'atto che dispone; ogni relazione conserva la nota originale per verificare la classificazione |
-| 2026-10-27 | Tabella `governo` compilata a mano (`ingest/archivio/governi.csv`, fonte senato.it); governo assegnato per data di emanazione, il giorno del giuramento va al nuovo governo | 22 governi dal 1989, nessuna fonte strutturata da interrogare |
-| 2026-10-27 | Schema dati v1.2: iter → fasi → votazioni, firmatari, parlamentari, gruppi con denominazioni e adesioni, partiti dei governi; vista `voto_gruppo` | La sonda su Camera e Senato (`docs/sonda_parlamento.md`) mostra iter in più letture, voti nominali e gruppi che cambiano nome: una riga `iter` con i voti non basta |
-| 2026-10-27 | Tutte le votazioni d'Aula sui ddl diventati legge (non solo finali e fiducia), tranne le verifiche del numero legale | Richiesta dell'autore: tutte le informazioni politiche disponibili. Al Senato stanno nel piano Free (stima circa 60 MB) |
-| 2026-10-27 | Voti dei singoli come array di `parlamentare.id` numerici, non una riga per voto | Oltre 10 milioni di righe (più di mezzo GB) contro qualche decina di MB |
-| 2026-10-27 | Senato prima della Camera | dati.camera.it ha risposto 502 a ogni richiesta il 27/10/2026; il Senato ha anche le letture alla Camera degli iter |
-| 2026-10-27 | Estrazione dal Senato per chiave (filtro `>=` sull'ultima chiave), voti dei singoli a gruppi di 25 votazioni | Virtuoso tronca le risposte a 10.000 righe, va in errore con OFFSET grandi e non ha VALUES |
-| 2026-10-27 | Iter collegati alle leggi di Normattiva per tipo, numero e data (poi anno) della legge; votazioni collegate alla fase dall'oggetto della trattazione, se manca dal numero del ddl nell'etichetta | La fonte dà numero e data della legge ma non l'URN; per le legislature più vecchie l'oggetto della trattazione spesso manca |
-| 2026-10-27 | La Pipeline Senato scrive su Neon solo se lanciata a mano con `scrivi_su_neon` | Il caricamento Normattiva su Neon era in corso: niente scritture per sbaglio |
-| 2026-10-28 | API in sola lettura: `GET /leggi` (ricerca), `/leggi/{urn}` (dettaglio con governo e conteggi), `/leggi/{urn}/relazioni`, `/pronunce`, `/iter`, `/votazioni`, `/governi`, `/salute` | Le liste lunghe (relazioni, votazioni) hanno endpoint propri e paginati: una legge come la 241/1990 riceve centinaia di modifiche, una legge di bilancio centinaia di votazioni. L'URN intero sta nel percorso (non contiene `/`) |
-| 2026-10-28 | Ricerca: full text sul titolo con lo stemming italiano di Postgres (`websearch_to_tsquery`), più citazioni ("L. 3/2003", "d.lgs. 81/2008") e URN riconosciuti nello stesso campo | Gli utenti cercano per parole o per citazione; Postgres basta, nessun motore di ricerca in più |
-| 2026-10-28 | Indice GIN `legge_titolo_fts` sul titolo (schema v1.2, nessuna tabella cambia) | Senza indice la ricerca è circa 8 volte più lenta (250-370 ms contro 30-55 ms su 9.000 titoli in locale); sul compute minimo di Neon sarebbe peggio |
-| 2026-10-28 | Ogni transazione dell'API è `READ ONLY`; pool che parte vuoto e chiude le connessioni ferme da un minuto | Le scritture sono solo delle pipeline. Connessioni sempre aperte terrebbero sveglio il compute di Neon e consumerebbero le 100 CU-ore al mese del piano Free |
-| 2026-10-29 | Voto per gruppo nell'API: `GET /votazioni/{id}` (dettaglio con la legge e i gruppi) e `gruppi=true` su `/leggi/{urn}/votazioni`. Nome del gruppo valido alla data del voto (`denominazione_gruppo`, altrimenti il nome in `gruppo`); chi quel giorno non risulta in un gruppo sta in una riga senza `gruppo_id`, in fondo | La vista `voto_gruppo` basta: Postgres filtra la votazione prima di espandere i voti (indice sulla chiave), 5 ms per votazione e circa 150 ms per 50 votazioni con 310 voti ciascuna su 44.000 votazioni generate in locale. Gli id delle votazioni contengono `/` (`senato:14/1`): il percorso li accetta interi |
-| 2026-10-29 | Gerarchia delle fonti nelle schede: fonti ufficiali e dati, poi studi, poi stampa solo per contesto (`docs/03_fonti.md`) | Nella scheda Sirchia quattro numeri venivano dalla stampa; per tre la fonte primaria c'era, e uno (nicotina -90/95%) era di uno studio su Firenze presentato come nazionale |
-| 2026-10-29 | Un numero senza fonte primaria resta con l'asterisco e non conta per il verdetto; schema v1.3 con `fonte_primaria`, `fonte_url` e `nota` in `misura` | Proposta dell'autore: meglio mostrare il dato dichiarandone il limite che toglierlo, se viene da un ente credibile (es. SIAAIC sull'asma) |
-| 2026-10-29 | Confidenza con un range (es. Media-Alta), solo tra livelli vicini, con un motivo scritto e con cosa alza e cosa abbassa la confidenza; nello schema `confidenza_min` e `confidenza_max` | Proposta dell'autore sulla scheda Sirchia: tre studi controfattuali sul fumo attivo non sono d'accordo, e un livello secco nasconderebbe il dubbio. Le regole evitano che il range diventi un modo per non decidere |
-| 2026-10-29 | Scheda Sirchia approvata: obiettivo dichiarato raggiunto (Alta), obiettivo secondario parzialmente raggiunto (Media-Alta) | Revisione in `docs/revisioni/2026-10-29_revisione_scheda_sirchia.md` |
-| 2026-10-29 | API su Render, piano Free (`render.yaml`), non Fly.io | Fly.io non ha più un piano gratuito per i nuovi account (a consumo, carta obbligatoria). Render Free: 0 €, 750 ore al mese, si spegne dopo 15 minuti senza richieste (risveglio in circa un minuto), così non tiene sveglio Neon. Dettagli in `docs/deploy_api.md` |
-| 2026-10-29 | L'API legge Neon con il ruolo `api_lettura` (`api/deploy/ruolo_sola_lettura.sql`): solo SELECT, sola lettura per default, `statement_timeout` 15 s, massimo 10 connessioni; indirizzo diretto, non il pooler | Una seconda barriera oltre al READ ONLY dell'API; una query lenta non consuma CU-ore. L'API ha già il suo pool |
-| 2026-10-29 | Il controllo di salute di Render chiama `/`, non `/salute` | `/salute` interroga il database: chiamato da Render ogni pochi secondi terrebbe sveglio il compute di Neon |
-| 2026-10-29 | Deploy automatico su push in `main` solo con la CI verde (`autoDeployTrigger: checksPass`); l'API pubblicata si prova con il workflow "Prova API online" | Dal container di Claude Code onrender.com non è raggiungibile |
-| 2026-10-29 | Frontend Next.js su Vercel (Hobby, regione `fra1`): i dati si leggono dal server di Next.js, con cache di un'ora sulle risposte dell'API; pagine di attesa con streaming mentre Render si sveglia (nuovi tentativi fino a 100 s); la home non chiama l'API e sveglia Render | Niente CORS e meno richieste a Render e Neon (i dati cambiano al massimo una volta a settimana). Il primo accesso dopo 15 minuti di pausa aspetta circa un minuto: meglio dirlo che mostrare una pagina bianca |
-| 2026-10-28 | Repository pubblico | GitHub Actions si era bloccato durante la prova della Camera; sui repository pubblici i minuti di Actions sono gratuiti e senza limite. Scelta dell'autore |
-| 2026-10-28 | Voti dei deputati dall'endpoint della Camera solo dalla XVII; per XIII-XVI dalle schede HTML delle votazioni su documenti.camera.it | Nell'endpoint XIII-XVI hanno le votazioni con i totali ma nessun voto individuale. Decisione dell'autore del 29/10/2026: prendere anche 1996-2013 dalle schede (circa 60.000 pagine) |
-| 2026-10-29 | Nominativi delle schede collegati ai deputati per cognome e nome; se non basta per il cognome più lungo che corrisponde, poi sigla del gruppo e iniziale del nome | Le schede usano il nome d'uso ("BINDI ROSY"), l'endpoint quello dell'anagrafe ("ROSARIA"): nella XV 88 nominativi non collegati con la sola chiave esatta, 5 dopo |
-| 2026-10-29 | Schede rallentate: una legislatura alla volta, circa 2 pagine al secondo, `Retry-After` rispettato, stop dopo 20 errori di fila, User-Agent con il link al repository; cache delle schede e dei voti salvata anche se il job fallisce | Verifica di liceità: le schede sono pagine per le persone, conviene non pesare. La cache serve anche per i guasti di dati.camera.it (502 per ore il 29/10/2026): rilanciando i job falliti si riparte da dove ci si era fermati |
-| 2026-10-29 | Dati della Camera con licenza CC BY-SA 4.0, attribuzione in `03_fonti.md`, nell'API e nella pagina /fonti | Licenza indicata da dati.camera.it; le schede HTML non ne indicano una propria e robots.txt non le esclude |
-| 2026-10-30 | Tutte le votazioni della Camera XIII-XIX su Neon (circa 100.000 votazioni, 38,9 milioni di voti, circa 215 MB) | Misurato sulla prova XV e XIX: circa 4 byte a voto più 380 a votazione. Con Senato (circa 70 MB) e Normattiva si resta ben sotto 1 GB del piano Free |
-| 2026-10-30 | Su Neon l'ordine di caricamento è Normattiva, poi Senato, poi Camera | La Camera aggancia le votazioni alle fasi Camera degli iter del Senato e alle leggi di Normattiva |
-| 2026-10-30 | Contesto delle leggi ("perché è nata"): solo fatti dichiarati con fonte. Per tutti gli atti in automatico le premesse del testo originale di D.L. e D.Lgs. (motivazioni "Ritenuta la straordinaria necessità ed urgenza di...", basi giuridiche, proposta), la legge delega dei D.Lgs. (relazione `delega`), il link al testo presentato con la relazione illustrativa (Senato) e come è stata approvata (iter e voti già in archivio). Per le 30 leggi dell'MVP il contesto si scrive a mano nella scheda (sezione "Causa e contesto"), con l'approvazione dell'autore. Nessun riassunto automatico per ora (Fase 3) | Scelta dell'autore (opzione A della proposta, `revisioni` nella cartella del progetto). Le premesse sono le parole del governo, non un giudizio: restano neutrali. Le relazioni illustrative non si salvano: sono PDF o pagine di senato.it |
-| 2026-10-30 | Schema v1.4: tabella `premessa`, `fase_iter.testo_presentato`; le relazioni `delega` vengono dalle premesse dei D.Lgs. e le scrive solo la nuova pipeline premesse (workflow "Pipeline premesse"), che il caricamento Normattiva non cancella | Le note di aggiornamento di Normattiva non descrivono le deleghe; le premesse le citano con il link alla legge (sonda del 29/10/2026). Il client `normattiva-sdk` scarta le citazioni del preambolo: le legge un parser dell'HTML del testo originale |
-| 2026-10-30 | L'API regge un database senza schema v1.4 (premessa vuota, testo presentato vuoto) | Render pubblica l'API all'unione della PR, prima che la pipeline crei la tabella su Neon |
-| 2026-10-30 | Nessun accesso automatico alle pagine di senato.it che rispondono con il controllo anti-robot | Le pagine dei ddl rispondono 202 vuoto ai programmi: aggirarlo non è corretto. Si mette il link, la persona apre la pagina |
-| 2026-10-27 | Partiti dei governi compilati a mano (`ingest/archivio/governi_partiti.csv`, una fonte per riga) | Nessuna fonte strutturata; i siti utili (storia.camera.it, governo.it) non sono raggiungibili dal container |
-| 2026-10-30 | Partiti dei governi: "governo" sono i partiti che la fonte elenca come membri al giuramento (con ministri), "appoggio esterno" quelli che la fonte indica come sostegno senza ministri. Governi tecnici (Dini, Monti) solo appoggio esterno. Uscite, scissioni, ingressi successivi, partiti con soli sottosegretari e casi dubbi nella colonna `nota` del CSV, che non si carica. Fonte: la pagina di Wikipedia in inglese di ciascun governo (riquadro "Member parties" ed "External support"), CC BY-SA 4.0 | senato.it, storia.camera.it e governo.it non si leggono né dal container né dalla ricerca web (controllo anti-robot, robots.txt): la fonte ufficiale resta da confrontare a mano. Una sola regola, verificabile riga per riga sulla fonte citata. La tabella non ha date: tiene la composizione alla nascita |
-| 2026-10-30 | Casi dubbi dei partiti dei governi: MpA tra i partiti del Berlusconi IV; Rosa nel Pugno divisa in Radicali Italiani e SDI (Prodi II); UDC, Coraggio Italia e Movimento Animalista tolti dall'appoggio esterno del Meloni (eletti nelle liste del centrodestra), MAIE tenuto; appoggio esterno minore del Conte II tenuto; PdCI (Prodi II) e Italia Viva (Conte II) tenuti; PDS e Verdi fuori dal Ciampi | Proposte approvate dall'autore: per ora poco influenti sul resto dell'archivio. Rosa nel Pugno divisa per avere le stesse sigle degli altri governi (SDI in D'Alema I e Amato II, Radicali in Letta) |
+| `docs/stato/fase.md` | Fase attuale, una o due righe | — |
+| `docs/stato/roadmap/` | Una voce di roadmap per file: fase, voce, fatto, nota, situazione dettagliata | `NN_parole-chiave.md` |
+| `docs/stato/decisioni/` | Una decisione per file: data, decisione, motivo | `AAAA-MM-GG_NN_parole-chiave.md` |
+| `docs/stato/aperte/` | Una questione ancora da decidere per file | `NN_parole-chiave.md` |
+| `docs/stato/log/` | Una voce del log delle sessioni per file | `AAAA-MM-GG_NN_parole-chiave.md` |
 
-## Ancora da decidere
-- Relazioni `attua`: le note di aggiornamento non le descrivono (le `delega` vengono dalle premesse dei D.Lgs., schema v1.4).
-- Contesto delle leggi alla Camera: link ai lavori preparatori quando l'endpoint di dati.camera.it risponde (oggi solo il Senato ha il testo presentato).
-- Numero delle sentenze della Corte costituzionale: le note non lo riportano; si può risalire dal riferimento in Gazzetta.
-- Prima della Fase 2: schede su un singolo articolo, un verdetto per obiettivo, `obiettivo.tipo_fonte` = studio per gli obiettivi attesi (scheda Sirchia), dove vive la scheda (file nel repo o database) e come si approva.
-- Effetti a breve, medio e lungo periodo: il metodo oggi chiede "almeno 3 anni". Valutare un verdetto per orizzonte temporale (es. 1-2 anni, 3-5 anni, 10+ anni).
-- Relazioni `converte` doppie: le 2.477 relazioni sono più dei 1.147 D.L. convertiti, perché la stessa conversione può arrivare da più note e dal titolo della legge; da ripulire prima di mostrarle nella timeline. Una parte non era doppia ma sbagliata: note di conversione di un altro D.L. che modifica l'atto, e note che citano "la legge di conversione del presente decreto" (anche sulla L. 241/1990). Corretto nella pipeline il 30/10/2026; su Neon restano finché non si rilancia la Pipeline Normattiva, e possono far risultare abrogato un D.L. decaduto.
-- Aggiornamento periodico: proposta GitHub Actions con cron settimanale che riesporta solo gli atti aggiornati (l'API ha un elenco degli atti modificati di recente).
-- Licenza del codice del repository.
-- Partiti dei governi: confrontare a mano `governi_partiti.csv` con storia.camera.it (fonte ufficiale). Se servono i cambi di maggioranza nel tempo (es. Lega fuori dal Berlusconi I, IV fuori dal Conte II), la tabella ha bisogno delle date (modifica dello schema).
-- Questioni di fiducia prima del 2013: il Senato non le distingue nelle etichette; la Camera sì (14 nella XV), resta da usarle per gli iter del Senato.
-- Leggi 1990-1996: la Camera dà gli iter della X-XII dai lavori preparatori (XII: 295 iter, tutti collegati a Normattiva) ma nessuna votazione nominale strutturata: per i voti servirebbero i resoconti.
-- Voti XIII-XVI dalle schede: gli elenchi non tornano esattamente con i totali (XV: circa 7 voti a votazione); decidere se mostrarlo nel sito.
-- Ricerca: titoli con l'accento scritto come apostrofo ("pubblicita'") e parole accentate non si trovano a vicenda; si risolve con l'estensione `unaccent` (modifica dello schema).
-- Da rivedere al primo deploy: se il traffico supera il piano Free di Neon, passare al piano Launch (a consumo).
+`NN` è un numero di due cifre che dà l'ordine (per le decisioni e il log, l'ordine nella stessa
+giornata). Si usa il numero successivo a quelli che si vedono nel proprio branch: se un altro thread
+usa lo stesso numero non importa, perché le parole chiave rendono diverso il nome.
+Le parole chiave sono minuscole, senza accenti, separate da `-` (per esempio `voti-camera-xiii-xvi`).
 
-## Roadmap
-### Fase 0 — Setup
-- [ ] Creare Progetto Claude e caricare la knowledge
-- [x] Creare repo GitHub `archivio-leggi`
-- [x] Task 0.2: `CLAUDE.md`, `docs/`, spike Normattiva (risultati in `docs/spike_normattiva.md`)
-- [x] Schema v1.1 sui risultati dello spike
-- [x] Compilare `04_scheda_esempio.md` su una legge vera (Legge Sirchia; resta la revisione a mano)
-- [x] Scegliere le 30 leggi dell'MVP (`06_leggi_mvp.md`)
-- [x] Rileggere e approvare la scheda di esempio (approvata il 29/10/2026, `docs/revisioni/2026-10-29_revisione_scheda_sirchia.md`)
+## Formato dei file
+Ogni file è fatto di righe `Campo: valore`. Un valore può continuare sulle righe successive, finché
+non comincia un altro campo (tranne `Decisione` e `Motivo`, che finiscono in una tabella e restano su una riga).
 
-### Fase 1 — Archivio
-- [x] Pipeline Normattiva → Postgres (leggi dal 1990, stato, modifiche, abrogazioni) — Task 1.1, PR #2
-- [ ] Aggiornamento settimanale incrementale della pipeline
-- [ ] Ingestione iter da Camera e Senato (SPARQL) — Task 1.2: Senato unito (PR #4), Camera in revisione (PR #5); caricamento su Neon da fare
-- [x] API FastAPI: ricerca e dettaglio legge — PR #7, voto per gruppo (PR #8), online su Render (PR #9): https://archivio-leggi-api.onrender.com
-- [x] Frontend: ricerca e pagina legge con timeline delle modifiche — online su https://archivio-leggi.vercel.app (PR #12 e #14)
-- [ ] Contesto delle leggi: premesse di D.L. e D.Lgs., legge delega, testo presentato al Senato, sezione "Perché è nata" nella pagina legge — in revisione; su Neon da lanciare "Pipeline premesse" e di nuovo la Pipeline Senato
+Decisione (`decisioni/2026-10-29_06_api-render-piano-free-render-yaml.md`):
+```
+Data: 2026-10-29
+Decisione: API su Render, piano Free (`render.yaml`), non Fly.io
+Motivo: Fly.io non ha più un piano gratuito per i nuovi account ...
+```
 
-### Fase 2 — Schede "ha funzionato?"
-- [ ] Ingestione serie Istat con cache
-- [ ] Schede: obiettivi, indicatori, valutazioni, verdetto con approvazione
-- [ ] Grafici prima/dopo
+Voce di roadmap (`roadmap/09_aggiornamento-settimanale-incrementale-pipeline.md`):
+```
+Fase: Fase 1 — Archivio
+Voce: Aggiornamento settimanale incrementale della pipeline
+Fatto: no
+Nota: PR #18 in revisione
+Situazione: testo più lungo che compare sotto "Fase attuale" (facoltativo)
+```
+`Fatto` vale `sì` o `no`; `Nota` e `Situazione` sono facoltativi.
 
-### Fase 3 — Scala
-- [ ] Bozze di schede in batch con Claude API + coda di approvazione
-- [ ] Segnalazioni degli utenti
-- [ ] Leggi regionali e UE
+Questione aperta (`aperte/08_licenza-codice-repository.md`):
+```
+Questione: Licenza del codice del repository.
+```
 
-### Idee per dopo (non pianificate)
-- [ ] Contesto generale dei rapporti tra i partiti di ciascun governo (alleanze, crisi, uscite dalla maggioranza), oltre all'elenco dei partiti. Proposta dell'autore del 30/10/2026: richiede fonti e neutralità come le schede.
-- [ ] Carosello TikTok "pagella politica": una slide per legge con verdetto, confidenza e 2-3 numeri chiave, generata dalle schede approvate. Da collegare al progetto separato di automazione TikTok. Usare solo schede con verdetto approvato e sempre con il link alle fonti.
+Voce del log (`log/2026-11-01_01_conversioni-sbagliate-rimaste-secondo-giro-pipeline.md`):
+```
+Data: 2026-11-01
+Testo: conversioni sbagliate rimaste. ...
+```
+La `Data` comincia con la data del nome del file; può proseguire (per esempio `2026-10-30/31`).
 
-## Log sessioni
-- 2026-10-27: definiti visione, schema v1, metodo, fonti, stack e decisioni.
-- 2026-10-27: scelto Neon, definita la lista delle 30 leggi, compilata la scheda di esempio sulla Legge Sirchia.
-- 2026-10-27: annotata l'idea del carosello TikTok "pagella politica" per dopo l'MVP.
-- 2026-10-27: revisione della documentazione (vedi `docs/revisioni/`); creato il repository; deciso il perimetro iniziale degli atti; Task 0.2 completato (circa 8.900 atti nel perimetro dal 1990; proposte per lo schema v1.1).
-- 2026-10-27: Task 1.1. Schema v1.1 scritto; pipeline Normattiva → Postgres con workflow su GitHub Actions. Prima esecuzione completa: corretti file vuoti negli export ed export bloccati. Seconda esecuzione: 8.927 atti su Neon (uguale al totale della ricerca Normattiva), 42.601 relazioni, 471 pronunce della Consulta; un solo atto senza export (D.L. 200/2008). Corretti poi i D.L. decaduti (0 → 233 su 294 nel 1995) e le conversioni dai titoli.
-- 2026-10-27: Task 1.1 chiuso. PR #2 unita; esecuzione completa su Neon ([run 40568695190](https://github.com/PeppeMoscato/archivio-leggi/actions/runs/40568695190), circa 1 h 35 min): 8.927 atti; D.L. 1.047 vigenti, 1.316 decaduti, 100 abrogati; leggi 4.066 vigenti e 269 abrogate; D.Lgs. 1.810 vigenti e 291 abrogati; 28 leggi costituzionali. Relazioni 43.726 (modifica 32.710, abroga_parziale 6.850, converte 2.477 di cui 1.125 dai titoli, abroga 1.689); 740 senza atto di origine risolto. Nessuna chiamata API per i riferimenti: bastava la cache `gazzetta_urn`.
-- 2026-10-27: Task 1.2, parte Senato. Sonda su Camera (502) e Senato; schema v1.2 approvato con tutte le votazioni d'Aula; pipeline dati.senato.it → Postgres con workflow "Pipeline Senato" (prova sulla XV legislatura in un Postgres temporaneo: 112 iter diventati legge, tutti collegati alla legge di Normattiva; 1.273 votazioni con 370.149 voti individuali, 46 finali; 722 votazioni su altri ddl o non collegate; tabella `votazione` 2 MB, quindi circa 70 MB per tutto il Senato; estrazione 10 minuti, circa 6 ore di job per le legislature XIII-XIX).
-- 2026-10-28: API FastAPI, scheletro. Pacchetto `api/archivio_api/` (FastAPI, psycopg con pool, sola lettura): ricerca con filtri (tipo, stato, governo, anno, numero, date, modificata) e paginazione, dettaglio legge, relazioni come timeline, pronunce, iter con fasi e firmatari, votazioni con i totali, governi. Indice full text sul titolo in `schema.sql`. 29 prove su Postgres 16 locale (job `api` nella CI). Non ancora provata su Neon: dal container il database non è raggiungibile senza il `DATABASE_URL`.
-- 2026-10-29: API, voto per gruppo. `GET /votazioni/{id}` con la legge, il ddl e il voto per gruppo (denominazione valida alla data); `/leggi/{urn}/votazioni?gruppi=true` aggiunge i gruppi a ogni votazione della pagina. Nessuna modifica allo schema: usa la vista `voto_gruppo`. 31 prove su Postgres 16 locale; prova di carico in locale su 44.000 votazioni generate.
-- 2026-10-29: revisione della scheda Sirchia. Trovati due studi controfattuali su *Health Policy* 2013 che la scheda non citava (calo piccolo dei fumatori); numeri dalla stampa sostituiti con la fonte primaria o marcati con l'asterisco; stato della legge aggiornato (D.L. 104/2013, D.Lgs. 6/2016). Gerarchia delle fonti in `03_fonti.md`; confidenza con un range nel metodo; schema v1.3 (`misura`, `verdetto`). Scheda approvata.
-- 2026-10-29: deploy dell'API. Scelto Render Free (Fly.io non ha più un piano gratuito). `render.yaml` (Francoforte, Python 3.12, controllo di salute su `/`, deploy con la CI verde), ruolo Neon `api_lettura` di sola lettura (provato su Postgres 16 locale: SELECT sì, INSERT, DELETE e CREATE TABLE negati anche togliendo la sola lettura di sessione; vale anche per le tabelle create dopo), workflow "Prova API online", guida in `docs/deploy_api.md`. Da fare a mano: ruolo e indice su Neon, Blueprint su Render.
-- 2026-10-29: frontend. App Next.js 16 in `web/`: home, ricerca con filtri (tipo, stato, governo, anno), pagina legge con timeline (nascita, modifiche ricevute o disposte, fine della vigenza; conversioni doppie mostrate una volta), iter con firmatari, votazioni con il voto per gruppo, pronunce della Consulta, pagina Fonti. Provata con l'API e Postgres 16 in locale (dati di prova) e con un risveglio simulato dell'API; 14 prove Vitest, job `web` nella CI. Guida al deploy in `docs/deploy_frontend.md`.
-- 2026-10-30: sito online su https://archivio-leggi.vercel.app (Vercel Hobby). Controllato con i dati veri: corretti nella PR #14 le righe ripetute per articolo nella timeline e la frase "convertito in legge" mostrata sulla L. 241/1990, che nei dati riceve una relazione `converte` (errore di classificazione della pipeline, da verificare).
-- 2026-10-29: verifica di liceità e carico delle raccolte (rapporto nella cartella del progetto, `revisioni/2026-10-29_raccolte_dati_licenze_e_carico.md`). Fonti tutte open data: Normattiva e Istat CC BY 4.0, Camera CC BY-SA 4.0, Senato da confermare sulla pagina "Licenza d'uso" (non raggiungibile dal container). Carico leggero, tranne le ~60.000 schede HTML della Camera: rallentate (una legislatura alla volta, cache, Retry-After, stop dopo errori di fila) sulla PR della Camera. Attribuzione di Camera e Senato aggiunta all'API e alla pagina /fonti del sito. Istat, quando arriverà: al massimo 5 query al minuto per IP, oltre scatta un blocco di 1-2 giorni.
-- 2026-10-29: API online su https://archivio-leggi-api.onrender.com. L'autore ha creato su Neon il ruolo `api_lettura` e il servizio su Render dal Blueprint. Su Neon mancavano le tabelle dello schema v1.2 (il caricamento era stato fatto con la v1.1): dettaglio, iter e governi rispondevano 500; risolto eseguendo `schema.sql` nel SQL Editor. Prova "Prova API online" ([run 40893719302](https://github.com/PeppeMoscato/archivio-leggi/actions/runs/40893719302)): tutti gli endpoint 200, circa 0,25 s a richiesta con Neon sveglio; iter vuoti finché la Pipeline Senato non gira su Neon.
-- 2026-10-30: Task 1.2, parte Camera. Pipeline dati.camera.it → Postgres (iniziativa, fasi, governi, votazioni e voti dei deputati) con workflow "Pipeline Camera"; voti XIII-XVI dalle schede HTML, nomi d'uso collegati ai deputati dell'anagrafe, pagine rallentate e cache ripresa dopo i guasti dell'endpoint. Prova ([run 40930651361](https://github.com/PeppeMoscato/archivio-leggi/actions/runs/40930651361)): XV 3.431 votazioni e 1.543.636 voti (98% dei totali; 5 nominativi non collegati), XIX 13.883 votazioni e 3.620.791 voti (uguali ai totali), XII 295 iter. Spazio Camera circa 215 MB, nel piano Free. Dettagli in `docs/sonda_parlamento.md` (sez. 4). Niente ancora su Neon.
-- 2026-10-30: contesto delle leggi. Sonda su Normattiva, Senato e Camera; proposta approvata dall'autore (premesse e link per tutti gli atti, contesto scritto a mano nelle schede MVP). Schema v1.4; estrattore delle premesse dall'HTML del testo originale (`ingest/archivio/premesse.py`, il preambolo del client perde le citazioni) e pipeline `premesse-estrai` / `premesse-carica` con workflow "Pipeline premesse"; testo presentato dal Senato (`osr:testoPresentato`); `premessa` e `testo_presentato` nell'API; sezione "Perché è nata" nella pagina legge. Prove: ingest 103, API 33, web 15. Prova sul 2006 ([run 41049595671](https://github.com/PeppeMoscato/archivio-leggi/actions/runs/41049595671)): 105 premesse, 32 D.L. su 32 con motivazioni; legge delega in 59 dei 60 D.Lgs. che citano l'art. 76 (prima della correzione per leggi comunitarie, correttivi e citazioni per articolo: 33 su 73); i 13 senza art. 76 sono norme di attuazione degli statuti speciali, senza legge delega.
-- 2026-10-30: conversioni sbagliate. La pagina della L. 241/1990 diceva "convertita in legge". Due cause, viste nella prova del 1995 sulla PR #16: (1) Normattiva mette la nota "ha disposto la conversione, con modificazioni, del D.L. ..." anche sugli atti che quel D.L. modifica (D.Lgs. 199/1995, D.Lgs. 504/1995, L. 481/1995: tutte le 7 `converte` dalle note del 1995 erano di questo tipo); (2) la regola contava qualunque nota con la parola "conversione", anche nelle citazioni ("la legge di conversione del presente decreto"). Ora è `converte` solo un'azione che comincia con "la conversione ... del D.L." e solo sul D.L. che la nota nomina (o sul D.L. stesso se dice "del presente decreto"); altrimenti è `modifica`. Il rapporto del caricamento conta le note che nominano una conversione e restano modifiche, e ne stampa 10. Prove offline aggiunte. Dati su Neon non ancora riscritti: serve rilanciare la Pipeline Normattiva con il via libera dell'autore.
-- 2026-10-30: partiti dei governi. Compilato `ingest/archivio/governi_partiti.csv`: 125 righe per i 22 governi, una fonte per riga (Wikipedia in inglese, pagina del singolo governo; le note citano anche quella in italiano). Senato, storia.camera.it e governo.it non leggibili neanche dalla ricerca web. Nuovo comando `partiti-carica` e workflow "Partiti dei governi" (scrive su Neon solo con `scrivi_su_neon`; li carica anche la Pipeline Senato). L'API dà i partiti anche nel dettaglio della legge; la pagina legge li mostra sotto il governo (sigle, nome intero al passaggio del mouse, link alla fonte).
-- 2026-10-30: casi dubbi dei partiti dei governi decisi con l'autore (Rosa nel Pugno divisa in Radicali e SDI, tre partiti minori tolti dall'appoggio esterno del Meloni, gli altri tenuti): `governi_partiti.csv` passa a 123 righe. Partiti caricati su Neon il 30/10 con il workflow "Partiti dei governi"; dopo l'unione va rilanciato.
+## Come si aggiorna, a fine sessione
+1. **Decisione nuova**: un file nuovo in `decisioni/`. Le decisioni degli altri non si toccano.
+   Se una decisione ne cambia una vecchia, il file nuovo la cita nel `Motivo` e la vecchia resta come storico.
+2. **Log**: un file nuovo in `log/` per la sessione (o per ogni risultato importante). Le voci vecchie non si cambiano.
+3. **Questioni aperte**: una nuova è un file nuovo; se cambia si modifica solo il suo file; quando è
+   decisa si cancella il file e si aggiunge la decisione.
+4. **Roadmap**: si modifica solo il file della voce su cui si è lavorato (`Fatto`, `Nota`, `Situazione`);
+   una voce nuova è un file nuovo.
+5. **Fase**: `fase.md` cambia solo quando cambia la fase del progetto.
+6. Prima del commit: `python docs/stato/componi.py --controlla` (gira anche nella CI, job `documenti`).
+
+Se una PR aperta prima di questa struttura modifica ancora questo file, al prossimo aggiornamento del
+branch va in conflitto un'ultima volta: si tiene questa versione del file e si riportano le sue righe
+nuove come file in `docs/stato/` (decisioni, log, voci di roadmap e questioni aperte).

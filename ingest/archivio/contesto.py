@@ -19,7 +19,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 import psycopg
-from normattiva import AmbiguityError, Normattiva, NormattivaError, Urn
+from normattiva import AmbiguityError, ConnectionError, Normattiva, NormattivaError, OverloadedError, Urn
 
 from archivio.catalogo import catalogo
 from archivio.db import crea_schema
@@ -31,14 +31,28 @@ logger = logging.getLogger(__name__)
 
 TIPI_CON_PREMESSA = ("DECRETO-LEGGE", "DECRETO LEGISLATIVO")
 PAUSA = 0.5  # secondi fra una richiesta e l'altra: Normattiva non pubblica quote
+# Dopo un guasto del servizio si riprova più tardi. Prima esecuzione su Neon (30/10/2026, run 41073025667):
+# "Server disconnected without sending a response" su 98 atti del 1995 su 322, nonostante i tentativi del client.
+ATTESE_DOPO_GUASTO = (30, 90, 180)
 
 
-def testo_originale(client: Normattiva, atto: Atto) -> str:
+def testo_originale(client: Normattiva, atto: Atto, attese: tuple[float, ...] = ATTESE_DOPO_GUASTO) -> str:
     """L'HTML del testo originale; se l'URN è ambiguo, quello dalla Gazzetta (testo di oggi).
 
     Le premesse non si modificano: il testo di oggi le riporta uguali. Succede ad atti
     ripubblicati, come il D.L. 4/2019 (sonda del 29/10/2026, spike punto 4).
+    Se il servizio non risponde o è sovraccarico si riprova dopo ciascuna delle `attese`.
     """
+    for attesa in attese:
+        try:
+            return _testo_originale(client, atto)
+        except (ConnectionError, OverloadedError) as errore:
+            logger.warning("%s: %s, nuovo tentativo fra %s s", atto.urn, errore, attesa)
+            time.sleep(attesa)
+    return _testo_originale(client, atto)
+
+
+def _testo_originale(client: Normattiva, atto: Atto) -> str:
     try:
         return client.dettaglio(atto.urn, vigenza="originale").testo_html
     except AmbiguityError:
@@ -60,7 +74,8 @@ def riga_premessa(atto: Atto, premessa: Premessa) -> dict:
     }
 
 
-def estrai_premesse(client: Normattiva, anni: Iterable[int], uscita: Path, pausa: float = PAUSA) -> Rapporto:
+def estrai_premesse(client: Normattiva, anni: Iterable[int], uscita: Path, pausa: float = PAUSA,
+                    attese: tuple[float, ...] = ATTESE_DOPO_GUASTO) -> Rapporto:
     uscita.mkdir(parents=True, exist_ok=True)
     rapporto = Rapporto()
     for anno in anni:
@@ -69,7 +84,7 @@ def estrai_premesse(client: Normattiva, anni: Iterable[int], uscita: Path, pausa
         for denominazione in TIPI_CON_PREMESSA:
             for atto in catalogo(client, denominazione, anno).values():
                 try:
-                    premessa = premessa_da_html(testo_originale(client, atto))
+                    premessa = premessa_da_html(testo_originale(client, atto, attese))
                 except NormattivaError as errore:
                     logger.warning("%s: testo non letto (%s)", atto.urn, errore)
                     conti[f"{atto.tipo}, testo non letto"] += 1

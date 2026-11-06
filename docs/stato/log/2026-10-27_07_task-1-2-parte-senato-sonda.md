@@ -1,0 +1,2 @@
+Data: 2026-10-27
+Testo: Task 1.2, parte Senato. Sonda su Camera (502) e Senato; schema v1.2 approvato con tutte le votazioni d'Aula; pipeline dati.senato.it → Postgres con workflow "Pipeline Senato" (prova sulla XV legislatura in un Postgres temporaneo: 112 iter diventati legge, tutti collegati alla legge di Normattiva; 1.273 votazioni con 370.149 voti individuali, 46 finali; 722 votazioni su altri ddl o non collegate; tabella `votazione` 2 MB, quindi circa 70 MB per tutto il Senato; estrazione 10 minuti, circa 6 ore di job per le legislature XIII-XIX).

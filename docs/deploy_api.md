@@ -80,6 +80,6 @@ Legge Sirchia e controlla le intestazioni CORS.
 - **Neon** (100 CU-ore al mese): ogni gruppo di visite tiene acceso il compute almeno 5 minuti. Al
   compute minimo (0,25 CU) le 100 CU-ore sono circa 400 ore di attività al mese. Il consumo si vede in
   console → **Monitoring**. Se il traffico cresce oltre il piano Free, valutare il piano Launch (vedi
-  `05_stato_e_decisioni.md`).
+  `docs/stato/aperte/14_rivedere-primo-deploy-traffico-supera-piano.md`).
 - **Render**: ore di istanza e traffico in uscita in **Billing**. Con un solo servizio Free le 750 ore
   bastano; il limite da guardare è il traffico, 5 GB al mese.

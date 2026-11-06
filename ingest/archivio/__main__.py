@@ -17,6 +17,9 @@
 
     python -m archivio partiti-carica               # governi e loro partiti dai CSV; DATABASE_URL nell'ambiente
 
+    python -m archivio riclassifica-converte        # conta le `converte` da correggere con la regola nuova, sola lettura
+    python -m archivio riclassifica-converte --scrivi   # e le corregge nel database
+
 Il rapporto finisce su stdout e, su GitHub Actions, nel riepilogo del job.
 """
 
@@ -31,7 +34,7 @@ from pathlib import Path
 
 from normattiva import Normattiva
 
-from archivio import camera, contesto, db, governi, parlamento, senato
+from archivio import camera, contesto, db, governi, parlamento, riclassifica, senato
 from archivio.pipeline import PERIMETRO, Rapporto, carica, estrai, leggi_atti
 from archivio.sparql import USER_AGENT
 
@@ -84,6 +87,10 @@ def main(argomenti: list[str] | None = None) -> int:
     p_camera_carica = comandi.add_parser("camera-carica", help="dai JSON della Camera al database (dopo il Senato)")
     p_camera_carica.add_argument("--da", type=Path, required=True)
     comandi.add_parser("partiti-carica", help="governi e partiti dei governi dai CSV al database (li carica anche senato-carica)")
+    p_riclassifica = comandi.add_parser(
+        "riclassifica-converte", help="ricontrolla le relazioni `converte` già nel database con la regola del 30/10/2026"
+    )
+    p_riclassifica.add_argument("--scrivi", action="store_true", help="scrive le correzioni (senza: sola lettura)")
     opzioni = parser.parse_args(argomenti)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -162,6 +169,11 @@ def main(argomenti: list[str] | None = None) -> int:
     if not dsn:
         print("DATABASE_URL non impostata", file=sys.stderr)
         return 2
+    if opzioni.comando == "riclassifica-converte":
+        with db.connetti(dsn) as conn:
+            esito = riclassifica.riclassifica(conn, scrivi=opzioni.scrivi)
+        pubblica("Riclassificazione delle `converte`", esito.testo(opzioni.scrivi))
+        return 0
     if opzioni.comando == "partiti-carica":
         with db.connetti(dsn) as conn:
             db.crea_schema(conn)

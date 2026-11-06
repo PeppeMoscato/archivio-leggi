@@ -80,7 +80,7 @@ API_URL=http://localhost:8000 npm run dev               # senza API_URL usa l'AP
 - La DDL è `ingest/archivio/schema.sql`: va tenuta allineata a `docs/01_schema_dati.md`. L'API la usa anche nelle sue prove.
 - L'API non scrive mai: ogni transazione è `READ ONLY`, e su Neon usa il ruolo `api_lettura` (`api/deploy/ruolo_sola_lettura.sql`).
 - Il frontend gira su Vercel, piano Hobby (`web/vercel.json`, guida in `docs/deploy_frontend.md`). Chiama l'API solo dal server con cache di un'ora: non serve CORS.
-- L'API gira su Render, piano Free (`render.yaml`, guida in `docs/deploy_api.md`): onrender.com non è raggiungibile dal container, si prova con il workflow "Prova API online" (campo `url`).
+- L'API gira su Render, piano Free (`render.yaml`, guida in `docs/deploy_api.md`): onrender.com non è raggiungibile dal container, si prova con il workflow "Prova API online" (campo `url`). Per leggere dati di Neon dal container: stesso workflow con il campo `percorsi` (es. `/leggi/<urn>/iter`), che stampa le risposte intere nel log.
 
 ## Fonti e licenze
 - Normattiva: CC BY 4.0, attribuzione obbligatoria nel footer dell'app (testo in `docs/03_fonti.md`).

@@ -72,14 +72,15 @@ berlusconi-3,Partito Repubblicano Italiano (PRI),governo,https://en.wikipedia.or
 prodi-2,Democratici di Sinistra (DS),governo,https://en.wikipedia.org/wiki/Second_Prodi_government,"Coalizione dell'Unione. Il 14/10/2007 DS e Margherita confluiscono nel Partito Democratico"
 prodi-2,Democrazia è Libertà - La Margherita (DL),governo,https://en.wikipedia.org/wiki/Second_Prodi_government,"Il 14/10/2007 DS e Margherita confluiscono nel Partito Democratico"
 prodi-2,Partito della Rifondazione Comunista (PRC),governo,https://en.wikipedia.org/wiki/Second_Prodi_government,
-prodi-2,Rosa nel Pugno (RnP),governo,https://en.wikipedia.org/wiki/Second_Prodi_government,"Lista di Radicali Italiani (un ministro) e SDI (un viceministro e sottosegretari)"
+prodi-2,Radicali Italiani (RI),governo,https://en.wikipedia.org/wiki/Second_Prodi_government,"Eletti nella lista Rosa nel Pugno con lo SDI; la ministra Emma Bonino"
+prodi-2,Socialisti Democratici Italiani (SDI),governo,https://en.wikipedia.org/wiki/Second_Prodi_government,"Eletti nella lista Rosa nel Pugno con i Radicali; un viceministro e sottosegretari, nessun ministro"
 prodi-2,Italia dei Valori (IdV),governo,https://en.wikipedia.org/wiki/Second_Prodi_government,
 prodi-2,Partito dei Comunisti Italiani (PdCI),governo,https://en.wikipedia.org/wiki/Second_Prodi_government,Il ministro in quota PdCI era un indipendente
 prodi-2,Federazione dei Verdi (FdV),governo,https://en.wikipedia.org/wiki/Second_Prodi_government,
 prodi-2,Unione Democratici per l'Europa (UDEUR),governo,https://en.wikipedia.org/wiki/Second_Prodi_government,"Il ministro Mastella lascia il 17/1/2008; il governo perde la fiducia al Senato il 24/1/2008"
 berlusconi-4,Il Popolo della Libertà (PdL),governo,https://en.wikipedia.org/wiki/Fourth_Berlusconi_government,"Nel 2008 lista unitaria di Forza Italia, Alleanza Nazionale e alleati minori, partito dal marzo 2009. Nel novembre 2010 esce Futuro e Libertà (FLI); dal marzo 2011 entra Popolo e Territorio (PT)"
 berlusconi-4,Lega Nord (LN),governo,https://en.wikipedia.org/wiki/Fourth_Berlusconi_government,
-berlusconi-4,Movimento per le Autonomie (MpA),governo,https://en.wikipedia.org/wiki/Fourth_Berlusconi_government,"Caso dubbio: alleato dalla nascita con due sottosegretari e voto di fiducia, ma la fonte non lo elenca tra i partiti di governo; all'opposizione da novembre 2010"
+berlusconi-4,Movimento per le Autonomie (MpA),governo,https://en.wikipedia.org/wiki/Fourth_Berlusconi_government,"La fonte non lo elenca tra i membri, ma era alleato dalla nascita con due sottosegretari e votò la fiducia: tenuto tra i partiti di governo (deciso il 30/10/2026). All'opposizione da novembre 2010"
 monti,Il Popolo della Libertà (PdL),appoggio esterno,https://en.wikipedia.org/wiki/Monti_government,Governo tecnico: tutti i ministri indipendenti. La Lega Nord votò contro la fiducia
 monti,Partito Democratico (PD),appoggio esterno,https://en.wikipedia.org/wiki/Monti_government,
 monti,Unione di Centro (UdC),appoggio esterno,https://en.wikipedia.org/wiki/Monti_government,
@@ -102,11 +103,11 @@ conte-2,Movimento 5 Stelle (M5S),governo,https://en.wikipedia.org/wiki/Second_Co
 conte-2,Partito Democratico (PD),governo,https://en.wikipedia.org/wiki/Second_Conte_government,
 conte-2,Liberi e Uguali (LeU),governo,https://en.wikipedia.org/wiki/Second_Conte_government,Articolo Uno e Sinistra Italiana
 conte-2,Italia Viva (IV),governo,https://en.wikipedia.org/wiki/Second_Conte_government,"Nasce dalla scissione del PD il 18/9/2019, dopo il giuramento; esce dal governo il 14/1/2021"
-conte-2,Civica Popolare (CP),appoggio esterno,https://en.wikipedia.org/wiki/Second_Conte_government,Caso dubbio: indicato dalla fonte nel testo e non nel riquadro
-conte-2,Partito Socialista Italiano (PSI),appoggio esterno,https://en.wikipedia.org/wiki/Second_Conte_government,Caso dubbio: indicato dalla fonte nel testo e non nel riquadro
-conte-2,Italia in Comune (IiC),appoggio esterno,https://en.wikipedia.org/wiki/Second_Conte_government,Caso dubbio: indicato dalla fonte nel testo e non nel riquadro
-conte-2,Südtiroler Volkspartei (SVP),appoggio esterno,https://en.wikipedia.org/wiki/Second_Conte_government,Caso dubbio: indicato dalla fonte nel testo e non nel riquadro
-conte-2,Partito Autonomista Trentino Tirolese (PATT),appoggio esterno,https://en.wikipedia.org/wiki/Second_Conte_government,Caso dubbio: indicato dalla fonte nel testo e non nel riquadro
+conte-2,Civica Popolare (CP),appoggio esterno,https://en.wikipedia.org/wiki/Second_Conte_government,Indicato dalla fonte nel testo, non nel riquadro
+conte-2,Partito Socialista Italiano (PSI),appoggio esterno,https://en.wikipedia.org/wiki/Second_Conte_government,Indicato dalla fonte nel testo, non nel riquadro
+conte-2,Italia in Comune (IiC),appoggio esterno,https://en.wikipedia.org/wiki/Second_Conte_government,Indicato dalla fonte nel testo, non nel riquadro
+conte-2,Südtiroler Volkspartei (SVP),appoggio esterno,https://en.wikipedia.org/wiki/Second_Conte_government,Indicato dalla fonte nel testo, non nel riquadro
+conte-2,Partito Autonomista Trentino Tirolese (PATT),appoggio esterno,https://en.wikipedia.org/wiki/Second_Conte_government,Indicato dalla fonte nel testo, non nel riquadro
 draghi,Lega,governo,https://en.wikipedia.org/wiki/Draghi_government,"Governo di unità nazionale con otto ministri indipendenti. Lega, M5S e FI tolgono l'appoggio nel luglio 2022"
 draghi,Movimento 5 Stelle (M5S),governo,https://en.wikipedia.org/wiki/Draghi_government,"Il 21/6/2022 Di Maio esce dal M5S e fonda Insieme per il Futuro, che resta nel governo"
 draghi,Partito Democratico (PD),governo,https://en.wikipedia.org/wiki/Draghi_government,
@@ -119,8 +120,5 @@ draghi,Più Europa (+E),governo,https://en.wikipedia.org/wiki/Draghi_government,
 meloni,Fratelli d'Italia (FdI),governo,https://en.wikipedia.org/wiki/Meloni_government,
 meloni,Lega,governo,https://en.wikipedia.org/wiki/Meloni_government,
 meloni,Forza Italia (FI),governo,https://en.wikipedia.org/wiki/Meloni_government,
-meloni,Noi Moderati (NM),governo,https://en.wikipedia.org/wiki/Meloni_government,Un sottosegretario
-meloni,Unione di Centro (UdC),appoggio esterno,https://en.wikipedia.org/wiki/Meloni_government,"Caso dubbio: indicato dalla fonte nella tabella dei partiti, non nel riquadro; eletti nelle liste del centrodestra"
-meloni,Coraggio Italia (CI),appoggio esterno,https://en.wikipedia.org/wiki/Meloni_government,"Caso dubbio: indicato dalla fonte nella tabella dei partiti, non nel riquadro; eletti nelle liste del centrodestra"
-meloni,Movimento Associativo Italiani all'Estero (MAIE),appoggio esterno,https://en.wikipedia.org/wiki/Meloni_government,"Caso dubbio: indicato dalla fonte nella tabella dei partiti, non nel riquadro"
-meloni,Movimento Animalista (MA),appoggio esterno,https://en.wikipedia.org/wiki/Meloni_government,"Caso dubbio: indicato dalla fonte nella tabella dei partiti, non nel riquadro; eletti nelle liste del centrodestra"
+meloni,Noi Moderati (NM),governo,https://en.wikipedia.org/wiki/Meloni_government,"Un sottosegretario. UDC, Coraggio Italia e Movimento Animalista, che la fonte indica come appoggio esterno, non sono elencati perché eletti nelle liste del centrodestra (deciso il 30/10/2026)"
+meloni,Movimento Associativo Italiani all'Estero (MAIE),appoggio esterno,https://en.wikipedia.org/wiki/Meloni_government,Indicato dalla fonte nella tabella dei partiti, non nel riquadro

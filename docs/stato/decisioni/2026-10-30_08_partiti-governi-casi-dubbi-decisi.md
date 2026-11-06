@@ -1,0 +1,3 @@
+Data: 2026-10-30
+Decisione: Casi dubbi dei partiti dei governi: MpA tra i partiti del Berlusconi IV; Rosa nel Pugno divisa in Radicali Italiani e SDI (Prodi II); UDC, Coraggio Italia e Movimento Animalista tolti dall'appoggio esterno del Meloni (eletti nelle liste del centrodestra), MAIE tenuto; appoggio esterno minore del Conte II tenuto; PdCI (Prodi II) e Italia Viva (Conte II) tenuti; PDS e Verdi fuori dal Ciampi
+Motivo: Proposte approvate dall'autore: per ora poco influenti sul resto dell'archivio. Rosa nel Pugno divisa per avere le stesse sigle degli altri governi (SDI in D'Alema I e Amato II, Radicali in Letta)

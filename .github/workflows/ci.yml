@@ -52,6 +52,16 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: pytest -q
 
+  documenti:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python docs/stato/componi.py --controlla
+      - run: python docs/stato/componi.py --uscita stato_del_progetto.md && cat stato_del_progetto.md >> "$GITHUB_STEP_SUMMARY"
+
   web:
     runs-on: ubuntu-latest
     defaults:

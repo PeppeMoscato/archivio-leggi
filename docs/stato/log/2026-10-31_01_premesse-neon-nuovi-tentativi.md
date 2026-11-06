@@ -1,0 +1,2 @@
+Data: 2026-10-31
+Testo: premesse su Neon con i nuovi tentativi (PR #20; [run 41136646895](https://github.com/PeppeMoscato/archivio-leggi/actions/runs/41136646895), 1990-2026): 4.470 premesse (2.349 con motivazioni), 1.995 relazioni `delega` verso 238 leggi delega dell'archivio, 2 atti non in archivio. Normattiva non ha risposto fino alle 23:20 UTC circa: 14 D.L. del 1990 non letti anche dopo i tentativi; 1990-1991 rilanciati ([run 41155828050](https://github.com/PeppeMoscato/archivio-leggi/actions/runs/41155828050)): tutti i 228 atti letti, 186 premesse.

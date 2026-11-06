@@ -1,0 +1,2 @@
+Data: 2026-10-29
+Testo: deploy dell'API. Scelto Render Free (Fly.io non ha più un piano gratuito). `render.yaml` (Francoforte, Python 3.12, controllo di salute su `/`, deploy con la CI verde), ruolo Neon `api_lettura` di sola lettura (provato su Postgres 16 locale: SELECT sì, INSERT, DELETE e CREATE TABLE negati anche togliendo la sola lettura di sessione; vale anche per le tabelle create dopo), workflow "Prova API online", guida in `docs/deploy_api.md`. Da fare a mano: ruolo e indice su Neon, Blueprint su Render.

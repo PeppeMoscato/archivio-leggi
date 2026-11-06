@@ -1,0 +1,46 @@
+name: Riclassifica converte
+
+# Ricontrolla le relazioni `converte` già nel database con la regola del 30/10/2026 (PR #16), senza Normattiva.
+# Serve per gli atti con l'export incompleto che la Pipeline Normattiva lascia come erano (69 il 1/11/2026).
+# Legge Neon (secret DATABASE_URL) in una transazione READ ONLY e scrive il conteggio nel riepilogo, anche sulle
+# pull request; corregge solo lanciato a mano con "scrivi_su_neon" spuntato. Da non lanciare con scrittura mentre
+# un'altra pipeline scrive su Neon.
+on:
+  workflow_dispatch:
+    inputs:
+      scrivi_su_neon:
+        description: "Scrivi le correzioni su Neon (senza: solo conteggio)"
+        type: boolean
+        default: false
+  pull_request:
+    paths:
+      - "ingest/archivio/riclassifica.py"
+      - ".github/workflows/riclassifica-converte.yml"
+
+concurrency:
+  group: riclassifica-converte
+  cancel-in-progress: false
+
+jobs:
+  riclassifica:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: ingest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - name: Riclassifica
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SCRIVI: ${{ github.event_name == 'workflow_dispatch' && inputs.scrivi_su_neon && '--scrivi' || '' }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "Manca il secret DATABASE_URL" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          python -m archivio riclassifica-converte $SCRIVI

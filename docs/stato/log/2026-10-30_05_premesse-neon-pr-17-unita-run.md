@@ -1,0 +1,2 @@
+Data: 2026-10-30
+Testo: premesse su Neon (PR #17 unita; [run 41073025667](https://github.com/PeppeMoscato/archivio-leggi/actions/runs/41073025667), 1990-2026): 3.267 premesse (1.755 con motivazioni), 1.430 relazioni `delega` verso 210 leggi delega dell'archivio. Molti testi non letti per guasti di Normattiva ("Server disconnected": 98 atti su 322 nel 1995): aggiunti nuovi tentativi dopo 30, 90 e 180 secondi e 2 job in parallelo invece di 4; da rilanciare su tutti gli anni (il caricamento sostituisce solo gli atti letti).

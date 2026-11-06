@@ -74,7 +74,7 @@ Regole:
 | `valutazione` | `id` (PK), `urn` (FK), `fonte`, `autore`, `data`, `sintesi`, `url` | VIR, Corte dei conti, UPB, studi |
 | `verdetto` | `id` (PK), `urn` (FK), `versione`, `esito`, `confidenza_min`, `confidenza_max`, `motivazione`, `aggiornato_il`, `generato_da`, `approvato_da` | versionato; `generato_da`: umano / claude. Confidenza: `confidenza_min` = `confidenza_max` per un solo livello; un range solo tra livelli vicini e con un motivo scritto (`docs/02_metodo_valutazione.md`) |
 
-Le tabelle delle schede non sono ancora nella DDL: si creano in Fase 2, dopo le decisioni aperte in `05_stato_e_decisioni.md` (schede per articolo, verdetto per obiettivo).
+Le tabelle delle schede non sono ancora nella DDL: si creano in Fase 2, dopo le decisioni aperte in `docs/stato/aperte/` (schede per articolo, verdetto per obiettivo).
 
 ## Regole
 - `verdetto` non si sovrascrive: ogni cambio crea una nuova `versione`.

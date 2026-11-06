@@ -1,0 +1,2 @@
+Data: 2026-10-29
+Testo: frontend. App Next.js 16 in `web/`: home, ricerca con filtri (tipo, stato, governo, anno), pagina legge con timeline (nascita, modifiche ricevute o disposte, fine della vigenza; conversioni doppie mostrate una volta), iter con firmatari, votazioni con il voto per gruppo, pronunce della Consulta, pagina Fonti. Provata con l'API e Postgres 16 in locale (dati di prova) e con un risveglio simulato dell'API; 14 prove Vitest, job `web` nella CI. Guida al deploy in `docs/deploy_frontend.md`.

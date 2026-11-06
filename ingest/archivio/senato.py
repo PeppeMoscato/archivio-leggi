@@ -258,7 +258,7 @@ ITER_DIVENTATI_LEGGE = "{{ SELECT DISTINCT ?id WHERE {{ ?x a osr:Ddl ; osr:legis
 
 
 def estrai_fasi(sparql: Sparql, leg: int) -> dict[str, Fase]:
-    modello = f"""SELECT ?fase ?id ?progr ?ramo ?numero ?titolo ?natura ?pres ?stato ?dataStato WHERE {{
+    modello = f"""SELECT ?fase ?id ?progr ?ramo ?numero ?titolo ?natura ?pres ?stato ?dataStato ?testo WHERE {{
   ?fase a osr:Ddl ; osr:legislatura {leg} ; osr:idDdl ?id ; osr:progressivoIter ?progr ; osr:ramo ?ramo ;
     osr:numeroFase ?numero ; osr:titolo ?titolo ; osr:natura ?natura .
   {ITER_DIVENTATI_LEGGE.format(leg=leg)}

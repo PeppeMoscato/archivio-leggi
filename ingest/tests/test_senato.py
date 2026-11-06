@@ -119,6 +119,21 @@ def test_scorri_troppe_righe_per_una_chiave(monkeypatch):
         list(senato.scorri(finto, "SELECT ?k WHERE { %DOPO% }", "k"))
 
 
+def test_estrai_fasi_legge_il_testo_presentato():
+    # Come Virtuoso: nella risposta ci sono solo le variabili nel SELECT.
+    class Finto:
+        def select(self, query):
+            if "osr:numeroFase" not in query:
+                return []
+            proiettate = set(re.findall(r"\?(\w+)", query.split("WHERE", 1)[0]))
+            riga = {"fase": DDL + "1271", "id": "25000", "progr": "1", "ramo": "S", "numero": "1271",
+                    "titolo": "Titolo", "natura": "ordinaria", "testo": "http://www.senato.it/testo.pdf"}
+            return [{k: v for k, v in riga.items() if k in proiettate}]
+
+    fasi = senato.estrai_fasi(Finto(), 15)
+    assert fasi[DDL + "1271"].testo_presentato == "http://www.senato.it/testo.pdf"
+
+
 def test_estrai_voti_a_gruppi(monkeypatch):
     monkeypatch.setattr(senato, "VOTAZIONI_PER_RICHIESTA", 2)
     votazioni = [votazione("x", id=f"http://dati.senato.it/votazione/{i}") for i in range(3)]

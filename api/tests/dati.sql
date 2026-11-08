@@ -1,15 +1,18 @@
 -- Dati per le prove dell'API. Le prime tre leggi sono vere (titolo, data, Gazzetta); il decreto-legge, le relazioni,
 -- la pronuncia, l'iter, i senatori, i gruppi e i voti sono inventati: servono solo a provare le query.
 
-INSERT INTO governo (id, nome, presidente, inizio, fine, fonte_url) VALUES
-    ('andreotti-6', 'Andreotti VI', 'Giulio Andreotti', '1989-07-22', '1991-04-12', 'https://www.senato.it/legislature/repubblica/governi-della-repubblica'),
-    ('berlusconi-2', 'Berlusconi II', 'Silvio Berlusconi', '2001-06-11', '2005-04-23', 'https://www.senato.it/legislature/repubblica/governi-della-repubblica'),
-    ('prodi-2', 'Prodi II', 'Romano Prodi', '2006-05-17', '2008-05-08', 'https://www.senato.it/legislature/repubblica/governi-della-repubblica');
+INSERT INTO governo (id, nome, presidente, inizio, fine, fonte_url, dimissioni, dimissioni_fonte_url) VALUES
+    ('andreotti-6', 'Andreotti VI', 'Giulio Andreotti', '1989-07-22', '1991-04-12', 'https://www.senato.it/legislature/repubblica/governi-della-repubblica',
+     '1991-03-29', 'https://it.wikipedia.org/wiki/Governo_Andreotti_VI'),
+    ('berlusconi-2', 'Berlusconi II', 'Silvio Berlusconi', '2001-06-11', '2005-04-23', 'https://www.senato.it/legislature/repubblica/governi-della-repubblica', NULL, NULL),
+    ('prodi-2', 'Prodi II', 'Romano Prodi', '2006-05-17', '2008-05-08', 'https://www.senato.it/legislature/repubblica/governi-della-repubblica', NULL, NULL);
 
-INSERT INTO governo_partito (governo_id, partito, ruolo, fonte_url) VALUES
-    ('berlusconi-2', 'Forza Italia', 'governo', 'https://example.org/fonte'),
-    ('andreotti-6', 'Partito Repubblicano Italiano (PRI)', 'appoggio esterno', 'https://example.org/fonte'),
-    ('andreotti-6', 'Democrazia Cristiana (DC)', 'governo', 'https://example.org/fonte');
+-- Date di prova: il PRI che esce prima della legge 241 è inventato, serve a provare la maggioranza alla data dell'atto.
+INSERT INTO governo_partito (governo_id, partito, ruolo, fonte_url, inizio, fine, nota, fonte_date_url) VALUES
+    ('berlusconi-2', 'Forza Italia', 'governo', 'https://example.org/fonte', '2001-06-11', NULL, NULL, NULL),
+    ('andreotti-6', 'Partito Repubblicano Italiano (PRI)', 'appoggio esterno', 'https://example.org/fonte', '1989-07-22', '1990-07-27',
+     'Nota di prova: uscita inventata.', 'https://example.org/date'),
+    ('andreotti-6', 'Democrazia Cristiana (DC)', 'governo', 'https://example.org/fonte', '1989-07-22', NULL, NULL, NULL);
 
 INSERT INTO legge (urn, tipo, numero, data, titolo, link_normattiva, stato, data_abrogazione, data_entrata_vigore,
                    gazzetta_data, gazzetta_numero, gazzetta_codice, governo_id) VALUES

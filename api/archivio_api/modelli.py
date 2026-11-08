@@ -73,17 +73,25 @@ class Governo(BaseModel):
     inizio: date
     fine: date | None
     fonte_url: str
+    dimissioni: date | None = Field(
+        description="Giorno delle dimissioni; da lì a `fine` il governo resta in carica per gli affari correnti"
+    )
+    dimissioni_fonte_url: str | None
 
 
 class PartitoGoverno(BaseModel):
     partito: str
-    ruolo: str
+    ruolo: str = Field(description="governo (con ministri) o appoggio esterno (fiducia senza ministri)")
     fonte_url: str
+    inizio: date = Field(description="Primo giorno nella maggioranza: il giuramento, o l'ingresso successivo")
+    fine: date | None = Field(description="Primo giorno fuori dalla maggioranza; vuota se c'è rimasto fino alla fine del governo")
+    nota: str | None = Field(description="Come la fonte racconta l'ingresso o l'uscita")
+    fonte_date_url: str | None = Field(description="Fonte delle date, quando non è `fonte_url`")
 
 
 class GovernoConPartiti(Governo):
     partiti: list[PartitoGoverno] = Field(
-        description="Partiti con ministri al giuramento (governo) e partiti che votarono la fiducia senza ministri (appoggio esterno)"
+        description="Tutti i partiti del governo, ognuno con le date in cui ne ha fatto parte (governo) o l'ha sostenuto (appoggio esterno)"
     )
 
 
@@ -117,6 +125,9 @@ class LeggeDettaglio(LeggeSintesi):
     gazzetta_codice: str | None
     aggiornato_il: datetime
     governo: GovernoConPartiti | None
+    maggioranza: list[PartitoGoverno] = Field(
+        description="I partiti del governo in carica (governo e appoggio esterno) alla data dell'atto"
+    )
     premessa: Premessa | None = Field(description="Solo decreti-legge e decreti legislativi; le leggi non hanno premesse")
     conteggi: Conteggi
 

@@ -143,10 +143,18 @@ def cerca_leggi(
         return totale, cur.fetchall()
 
 
-# I partiti di un governo `g`: prima quelli con ministri, poi l'appoggio esterno.
-PARTITI = """(SELECT coalesce(json_agg(json_build_object('partito', p.partito, 'ruolo', p.ruolo, 'fonte_url', p.fonte_url)
-                                ORDER BY p.ruolo = 'appoggio esterno', p.partito), '[]')
+# I partiti di un governo `g`: prima quelli con ministri, poi l'appoggio esterno; per ognuno in ordine di ingresso.
+PARTITI = """(SELECT coalesce(json_agg(json_build_object('partito', p.partito, 'ruolo', p.ruolo, 'fonte_url', p.fonte_url,
+                                                         'inizio', p.inizio, 'fine', p.fine, 'nota', p.nota,
+                                                         'fonte_date_url', p.fonte_date_url)
+                                ORDER BY p.ruolo = 'appoggio esterno', p.inizio, p.partito), '[]')
               FROM governo_partito p WHERE p.governo_id = g.id)"""
+GOVERNO = "g.id, g.nome, g.presidente, g.inizio, g.fine, g.fonte_url, g.dimissioni, g.dimissioni_fonte_url"
+
+
+def maggioranza(partiti: list[dict], giorno: date) -> list[dict]:
+    """I partiti del governo quel giorno: `inizio` è il primo giorno dentro, `fine` il primo fuori."""
+    return [p for p in partiti if date.fromisoformat(p["inizio"]) <= giorno and (p["fine"] is None or giorno < date.fromisoformat(p["fine"]))]
 
 
 def legge(conn: psycopg.Connection, urn: str) -> dict | None:
@@ -156,12 +164,12 @@ def legge(conn: psycopg.Connection, urn: str) -> dict | None:
         if riga is None:
             return None
         riga["governo"] = None
+        riga["maggioranza"] = []
         if riga["governo_id"]:
-            cur.execute(
-                f"SELECT g.id, g.nome, g.presidente, g.inizio, g.fine, g.fonte_url, {PARTITI} AS partiti FROM governo g WHERE g.id = %s",
-                (riga["governo_id"],),
-            )
+            cur.execute(f"SELECT {GOVERNO}, {PARTITI} AS partiti FROM governo g WHERE g.id = %s", (riga["governo_id"],))
             riga["governo"] = cur.fetchone()
+            if riga["governo"]:
+                riga["maggioranza"] = maggioranza(riga["governo"]["partiti"], riga["data"])
         cur.execute(
             """
             SELECT 'ricevute' AS verso, tipo, count(*) AS numero FROM relazione_normativa WHERE urn_destinazione = %(urn)s GROUP BY tipo
@@ -376,7 +384,7 @@ def governi(conn: psycopg.Connection) -> list[dict]:
     with conn.cursor() as cur:
         cur.execute(
             f"""
-            SELECT g.id, g.nome, g.presidente, g.inizio, g.fine, g.fonte_url,
+            SELECT {GOVERNO},
                    (SELECT count(*) FROM legge l WHERE l.governo_id = g.id) AS numero_atti,
                    {PARTITI} AS partiti
             FROM governo g

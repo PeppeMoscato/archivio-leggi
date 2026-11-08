@@ -322,12 +322,13 @@ def salva_legislatura(
 
 
 def salva_partiti(conn: psycopg.Connection) -> int:
-    partiti = governi.carica_partiti()
+    partiti = governi.con_date(governi.carica_partiti(), governi.carica())
     with conn.cursor() as cur:
         cur.execute("DELETE FROM governo_partito")
         cur.executemany(
-            "INSERT INTO governo_partito (governo_id, partito, ruolo, fonte_url) VALUES (%s, %s, %s, %s)",
-            [(p.governo_id, p.partito, p.ruolo, p.fonte_url) for p in partiti],
+            """INSERT INTO governo_partito (governo_id, partito, ruolo, fonte_url, inizio, fine, nota, fonte_date_url)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+            [(p.governo_id, p.partito, p.ruolo, p.fonte_url, p.inizio, p.fine, p.nota, p.fonte_date_url) for p in partiti],
         )
     conn.commit()
     return len(partiti)

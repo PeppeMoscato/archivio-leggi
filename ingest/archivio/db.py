@@ -74,12 +74,13 @@ def salva_governi(conn: psycopg.Connection, governi: Iterable[Governo]) -> None:
     with conn.cursor() as cur:
         cur.executemany(
             """
-            INSERT INTO governo (id, nome, presidente, inizio, fine, fonte_url)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO governo (id, nome, presidente, inizio, fine, fonte_url, dimissioni, dimissioni_fonte_url)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (id) DO UPDATE SET nome = EXCLUDED.nome, presidente = EXCLUDED.presidente,
-                inizio = EXCLUDED.inizio, fine = EXCLUDED.fine, fonte_url = EXCLUDED.fonte_url
+                inizio = EXCLUDED.inizio, fine = EXCLUDED.fine, fonte_url = EXCLUDED.fonte_url,
+                dimissioni = EXCLUDED.dimissioni, dimissioni_fonte_url = EXCLUDED.dimissioni_fonte_url
             """,
-            [(g.id, g.nome, g.presidente, g.inizio, g.fine, FONTE_URL) for g in governi],
+            [(g.id, g.nome, g.presidente, g.inizio, g.fine, FONTE_URL, g.dimissioni, g.dimissioni_fonte_url) for g in governi],
         )
     conn.commit()
 

@@ -1,4 +1,4 @@
-# Schema dati — v1.4
+# Schema dati — v1.5
 
 Database: PostgreSQL (Neon). Chiave unica di ogni legge: URN NIR di Normattiva (es. `urn:nir:stato:legge:1990-08-07;241`).
 
@@ -17,7 +17,9 @@ La DDL eseguibile è in [`ingest/archivio/schema.sql`](../ingest/archivio/schema
 
 Vista `legge_estesa`: tutti i campi di `legge` più `numero_modifiche` (relazioni in entrata di tipo modifica, abroga_parziale, proroga) e `modificata` (`numero_modifiche > 0`). "Modificata" non è uno stato: si ricava.
 
-Indice `legge_titolo_fts` (GIN su `to_tsvector('italian', titolo)`): serve alla ricerca per parole dell'API (`GET /leggi?q=`), con lo stemming italiano di Postgres. Senza indice la ricerca funziona ma calcola il vettore di ogni titolo a ogni richiesta (circa 8 volte più lenta nella prova su 9.000 titoli).
+Indice `legge_titolo_fts_senza_accenti` (GIN su `to_tsvector('italiano_senza_accenti', titolo)`): serve alla ricerca per parole dell'API (`GET /leggi?q=`), con lo stemming italiano di Postgres. Senza indice la ricerca funziona ma calcola il vettore di ogni titolo a ogni richiesta (circa 8 volte più lenta nella prova su 9.000 titoli). L'espressione dell'indice e quella delle query dell'API devono essere uguali, altrimenti Postgres non usa l'indice.
+
+Configurazione di ricerca `italiano_senza_accenti`: la configurazione `italian` di Postgres con l'estensione `unaccent` prima dello stemming, così gli accenti non contano. Serve perché Normattiva scrive l'accento come apostrofo ("sanita'", "eta'") e lo stemming italiano da solo non tratta allo stesso modo tutte le parole: "sanità" diventava `sanit` e "sanita'" `san`, "età" restava `età` e "eta'" diventava `eta` (lo stesso per "qualità", "virtù", "gioventù", "perché", "più", "già"). Molte parole si trovavano già ("libertà", "città", "società"), altre no. `unaccent` è un'estensione standard di Postgres, disponibile su Neon; la configurazione non ha privilegi, quindi il ruolo `api_lettura` la usa senza GRANT.
 
 ### Parlamento e governi (Task 1.2)
 
@@ -99,6 +101,7 @@ Le tabelle delle schede non sono ancora nella DDL: si creano in Fase 2, dopo le 
 Le relazioni `converte` vengono dalle note di aggiornamento del D.L. e, perché le note la citano solo a volte, dal titolo della legge di conversione ("Conversione in legge, con modificazioni, del decreto-legge 28 gennaio 2019, n. 4"): in quel caso `nota` contiene il titolo della legge. Dalle note conta come conversione solo un'azione che comincia con "la conversione ... del D.L." o "del presente decreto" (non le citazioni come "la legge di conversione del presente decreto"), e solo sul D.L. che la nota nomina: Normattiva mette la stessa nota anche sugli atti che il D.L. convertito modifica, e lì la relazione è una `modifica`.
 
 ## Storico modifiche dello schema
+- v1.5 (2026-11-06): ricerca senza accenti. Nessuna modifica alle tabelle. Estensione `unaccent`, configurazione di ricerca `italiano_senza_accenti` e indice `legge_titolo_fts_senza_accenti`, che sostituisce `legge_titolo_fts` (cancellato). In `schema.sql` (idempotente: `CREATE EXTENSION IF NOT EXISTS`, configurazione creata solo se manca). Su Neon va applicato prima che l'API nuova vada online: l'API nuova cerca con `italiano_senza_accenti` e senza la configurazione la ricerca per parole risponde 500; l'API vecchia invece funziona anche con lo schema nuovo (senza indice, quindi un po' più lenta).
 - v1.4 (2026-10-30): contesto delle leggi. Nuova tabella `premessa` (motivazioni, citazioni e proposta dei D.L. e dei D.Lgs.); in `fase_iter` aggiunto `testo_presentato`; le relazioni `delega` vengono dalle premesse dei D.Lgs. e le scrive solo la pipeline premesse. In `schema.sql` (idempotente: `CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`).
 - v1.3 (2026-10-29): dopo la revisione della scheda Sirchia. In `misura` aggiunti `fonte_url`, `fonte_primaria` e `nota`; in `verdetto` `confidenza` diventa `confidenza_min` e `confidenza_max` (confidenza con un range). Le tabelle delle schede non sono ancora nella DDL: nessuna modifica a `schema.sql`.
 - v1.2, indice (2026-10-28): nessuna modifica alle tabelle. Indice full text `legge_titolo_fts` sul titolo, per la ricerca dell'API. Si crea su Neon al prossimo caricamento di una pipeline (`schema.sql` è idempotente).

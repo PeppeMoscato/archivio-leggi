@@ -1,0 +1,3 @@
+Data: 2026-11-06
+Decisione: Dati del Senato (dati.senato.it) in licenza CC BY 3.0: si ripubblicano, anche rielaborati, con l'attribuzione "Fonte: Senato della Repubblica (https://dati.senato.it), in licenza CC BY 3.0" in API, sito e `docs/03_fonti.md`
+Motivo: Pagina "Licenza d'uso" (https://dati.senato.it/sito/19?testo_generico=24) letta dall'autore il 6/11/2026, perché dati.senato.it non si apre dal container: CC BY 3.0, riuso e modifica anche commerciali con il solo obbligo di attribuire la paternità. Lo dice anche il README del repository ufficiale https://github.com/SenatoDellaRepubblica/OpenData. Al contrario della Camera (CC BY-SA 4.0) non obbliga alla stessa licenza

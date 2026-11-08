@@ -43,7 +43,7 @@ Fonti (verificate il 29/10/2026): [Render, Deploy for Free](https://render.com/d
    `SOSTITUISCI_CON_UNA_PASSWORD` con la password ed esegui. Se dimentichi di sostituirla, lo script si
    ferma con un errore.
 4. Nello stesso editor, svuotato, esegui tutto `ingest/archivio/schema.sql`. Crea solo quello che manca
-   (le tabelle dello schema v1.2 e l'indice della ricerca `legge_titolo_fts`) e non tocca i dati; gli
+   (le tabelle dello schema, l'estensione `unaccent` e l'indice della ricerca) e non tocca i dati; gli
    avvisi "already exists, skipping" sono normali. Serve perché il primo caricamento su Neon è stato
    fatto con lo schema v1.1: senza le tabelle `iter`, `votazione` e `governo_partito` il dettaglio della
    legge, l'iter e i governi rispondono 500. Il ruolo `api_lettura` legge le tabelle nuove senza altri

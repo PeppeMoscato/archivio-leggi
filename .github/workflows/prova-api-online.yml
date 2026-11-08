@@ -11,6 +11,9 @@ on:
       origine:
         description: "Origine del frontend da provare con CORS (facoltativa)"
         default: ""
+      percorsi:
+        description: "Percorsi da stampare per intero, separati da spazi (facoltativo), es. /leggi/urn:nir:stato:legge:2003-01-16;3/iter"
+        default: ""
 
 jobs:
   prova:
@@ -18,6 +21,7 @@ jobs:
     env:
       URL: ${{ inputs.url }}
       ORIGINE: ${{ inputs.origine }}
+      PERCORSI: ${{ inputs.percorsi }}
     steps:
       - name: Risveglio (il piano Free si spegne dopo 15 minuti senza richieste)
         run: |
@@ -40,6 +44,7 @@ jobs:
           for percorso in \
             "/salute" \
             "/leggi?q=pubblica%20amministrazione&per_pagina=3" \
+            "/leggi?q=sanit%C3%A0&per_pagina=3" \
             "/leggi?q=L.%203%2F2003" \
             "/leggi/urn:nir:stato:legge:2003-01-16;3" \
             "/leggi/urn:nir:stato:legge:2003-01-16;3/relazioni?per_pagina=5" \
@@ -60,3 +65,12 @@ jobs:
           intestazione=$(curl -s -D - -o /dev/null -H "Origin: $ORIGINE" "$URL/governi" | grep -i '^access-control-allow-origin' || true)
           echo "${intestazione:-nessuna intestazione access-control-allow-origin}"
           echo "$intestazione" | grep -qF "$ORIGINE" || { echo "::error::CORS_ORIGINI non comprende $ORIGINE"; exit 1; }
+
+      - name: Risposte intere
+        # Per leggere dati di Neon dal container (es. per una scheda): il JSON completo di ogni percorso.
+        if: inputs.percorsi != ''
+        run: |
+          for percorso in $PERCORSI; do
+            echo "=== $percorso"
+            curl -s -w "\n(HTTP %{http_code})\n" "$URL$percorso"
+          done

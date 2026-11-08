@@ -1,4 +1,4 @@
--- Schema dati v1.4, parte "archivio" (docs/01_schema_dati.md).
+-- Schema dati v1.5, parte "archivio" (docs/01_schema_dati.md).
 -- Idempotente: si può eseguire più volte. Le tabelle delle schede arrivano in Fase 2.
 
 CREATE TABLE IF NOT EXISTS governo (
@@ -32,8 +32,23 @@ CREATE TABLE IF NOT EXISTS legge (
 CREATE INDEX IF NOT EXISTS legge_tipo_data ON legge (tipo, data);
 CREATE INDEX IF NOT EXISTS legge_governo ON legge (governo_id);
 CREATE INDEX IF NOT EXISTS legge_gazzetta ON legge (gazzetta_codice, gazzetta_data);
--- Ricerca full text sul titolo (API, GET /leggi?q=): l'espressione deve essere uguale a quella delle query.
-CREATE INDEX IF NOT EXISTS legge_titolo_fts ON legge USING gin (to_tsvector('italian', titolo));
+-- Ricerca full text sul titolo (API, GET /leggi?q=), senza accenti (v1.5): "sanità", "sanita'" e "sanita" sono
+-- la stessa parola. È la configurazione 'italian' di Postgres con `unaccent` prima dello stemming italiano.
+-- L'espressione dell'indice deve essere uguale a quella delle query dell'API (api/archivio_api/query.py).
+CREATE EXTENSION IF NOT EXISTS unaccent;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_ts_config WHERE cfgname = 'italiano_senza_accenti') THEN
+        CREATE TEXT SEARCH CONFIGURATION italiano_senza_accenti (COPY = italian);
+        ALTER TEXT SEARCH CONFIGURATION italiano_senza_accenti
+            ALTER MAPPING FOR hword, hword_part, word WITH unaccent, italian_stem;
+    END IF;
+END
+$$;
+CREATE INDEX IF NOT EXISTS legge_titolo_fts_senza_accenti ON legge
+    USING gin (to_tsvector('italiano_senza_accenti', titolo));
+-- L'indice della v1.2, con gli accenti: non lo usa più nessuna query.
+DROP INDEX IF EXISTS legge_titolo_fts;
 
 CREATE TABLE IF NOT EXISTS relazione_normativa (
     id                       bigserial PRIMARY KEY,

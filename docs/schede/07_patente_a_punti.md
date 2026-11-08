@@ -1,7 +1,7 @@
 # Patente a punti (D.Lgs. 9/2002)
 
 Scheda n. 7 di `docs/06_leggi_mvp.md`, nel formato di `docs/04_scheda_esempio.md`.
-Compilata il 06/11/2026. Stato: **bozza, da approvare** (nessun verdetto si pubblica senza approvazione umana).
+Compilata il 06/11/2026. Stato: **approvata da CAPO l'8/11/2026** (verdetto come proposto).
 
 ---
 
@@ -85,7 +85,7 @@ Note:
 - **Castillo-Manzano e Castro-Nuño, Transport Policy 2012** (meta-analisi, non solo Italia): 26 studi, 70 stime. Calo medio di incidenti, morti e feriti del 15-20%; l'effetto svanisce in media in meno di 18 mesi. — [link](https://econpapers.repec.org/RePEc:eee:trapol:v:21:y:2012:i:c:p:191-201); [testo](https://idus.us.es/bitstream/handle/11441/149227/1/driving_licenses_based_on_points_systems_eficient_road_safety.pdf?sequence=1)
 - **VIR ministeriale**: nessuna trovata al 06/11/2026.
 
-## 7. Verdetto (proposta)
+## 7. Verdetto
 - **Esito**: Obiettivo raggiunto
 - **Confidenza**: Media-Alta
 - **Motivazione**: l'obiettivo dichiarato, meno morti e feriti, è centrato nel breve periodo. Quattro studi italiani trovano un calo netto subito dopo il 1° luglio 2003: due con regression discontinuity (uno su tutti gli incidenti Istat dal 1996 al 2016), uno con serie storiche e covariate, uno prima/dopo nel Lazio: circa -12% di morti al giorno su tutta l'Italia, fino a -30% sulle strade della Polizia stradale.

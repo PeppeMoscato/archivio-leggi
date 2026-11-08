@@ -103,7 +103,7 @@ export default async function PaginaLegge({ params, searchParams }: Props) {
               <>
                 <Link href={`/cerca${parametri({ governo: legge.governo.id })}`}>{legge.governo.nome}</Link> (
                 {legge.governo.presidente})
-                <PartitiGoverno partiti={legge.governo.partiti ?? []} />
+                <PartitiGoverno governo={legge.governo} data={legge.data} maggioranza={legge.maggioranza} />
               </>
             ) : (
               "Dato non disponibile"

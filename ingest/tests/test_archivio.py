@@ -4,8 +4,7 @@ import pytest
 
 from archivio.catalogo import catalogo, numero_pulito, unisci_pubblicazioni
 from archivio.governi import carica as carica_governi
-from archivio.governi import carica_partiti
-from archivio.governi import governo_alla_data
+from archivio.governi import PartitoGoverno, carica_partiti, con_date, governo_alla_data, maggioranza_alla_data
 from archivio.modelli import Atto, Nota, Riferimento
 from archivio.note import PRONUNCIA, classifica, nomina_conversione
 from archivio.pipeline import riga_legge, unisci
@@ -120,11 +119,56 @@ def test_partiti_di_ogni_governo():
     governi = {g.id for g in carica_governi()}
     partiti = carica_partiti()
     assert {p.governo_id for p in partiti} == governi
-    assert len({(p.governo_id, p.partito) for p in partiti}) == len(partiti)
+    assert len({(p.governo_id, p.partito, p.inizio) for p in partiti}) == len(partiti)
     assert all(p.ruolo in ("governo", "appoggio esterno") and p.fonte_url.startswith("https://") for p in partiti)
+    assert all(p.fonte_date_url is None or p.fonte_date_url.startswith("https://") for p in partiti)
     # Governi tecnici: nessun partito con ministri, solo appoggio esterno.
     for tecnico in ("dini", "monti"):
         assert {p.ruolo for p in partiti if p.governo_id == tecnico} == {"appoggio esterno"}
+
+
+def test_date_dei_partiti_dentro_il_governo():
+    governi = carica_governi()
+    partiti = con_date(carica_partiti(), governi)  # solleva ValueError se una data è fuori dal governo
+    assert all(p.inizio is not None for p in partiti)
+    # Una riga cambiata (ingresso, uscita) ha la nota che la spiega.
+    assert all(p.nota for p in partiti if p.fine or p.inizio != next(g.inizio for g in governi if g.id == p.governo_id))
+    # Lo stesso partito con due righe nello stesso governo non si sovrappone.
+    for a in partiti:
+        for b in partiti:
+            if a is not b and (a.governo_id, a.partito) == (b.governo_id, b.partito):
+                assert (a.fine and a.fine <= b.inizio) or (b.fine and b.fine <= a.inizio)
+    for governo in governi:
+        assert governo.dimissioni is None or governo.inizio < governo.dimissioni < (governo.fine or date.max)
+        assert (governo.dimissioni is None) == (governo.dimissioni_fonte_url is None)
+
+
+def test_maggioranza_alla_data():
+    partiti = con_date(carica_partiti(), carica_governi())
+
+    def sigle(governo_id, giorno):
+        return {p.partito.rsplit("(", 1)[-1].rstrip(")") for p in maggioranza_alla_data(partiti, governo_id, giorno)}
+
+    # Conte II: Italia Viva entra dopo il giuramento ed esce il 13/1/2021 (dimissioni delle ministre).
+    assert "IV" not in sigle("conte-2", date(2019, 9, 10))
+    assert "IV" in sigle("conte-2", date(2020, 6, 1))
+    assert "IV" not in sigle("conte-2", date(2021, 1, 13))
+    # Prodi I: Rifondazione esce il 4/10/1998; il PDS diventa DS il 13/2/1998.
+    assert {"PRC", "PDS"} <= sigle("prodi-1", date(1998, 1, 1))
+    assert "PRC" not in sigle("prodi-1", date(1998, 10, 4))
+    assert "DS" in sigle("prodi-1", date(1998, 2, 13)) and "PDS" not in sigle("prodi-1", date(1998, 2, 13))
+    # Conte I: la Lega esce l'8/8/2019.
+    assert sigle("conte-1", date(2019, 8, 8)) == {"M5S"}
+
+
+def test_con_date_rifiuta_date_fuori_dal_governo():
+    governi = carica_governi()
+    fuori = PartitoGoverno("conte-1", "X", "governo", "https://esempio.it", fine=date(2020, 1, 1))
+    with pytest.raises(ValueError):
+        con_date([fuori], governi)
+    rovescio = PartitoGoverno("conte-1", "X", "governo", "https://esempio.it", inizio=date(2019, 1, 1), fine=date(2018, 12, 1))
+    with pytest.raises(ValueError):
+        con_date([rovescio], governi)
 
 
 # --- catalogo ----------------------------------------------------------------

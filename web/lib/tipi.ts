@@ -34,13 +34,23 @@ export interface Governo {
   inizio: string;
   fine: string | null;
   fonte_url: string;
+  /** Giorno delle dimissioni (schema v1.6): da lì a `fine` il governo resta per gli affari correnti. */
+  dimissioni?: string | null;
+  dimissioni_fonte_url?: string | null;
 }
 
-/** Un partito del governo: con ministri al giuramento ("governo") o che votò la fiducia senza ministri. */
+/**
+ * Un partito del governo: con ministri ("governo") o che votò la fiducia senza ministri ("appoggio esterno"),
+ * con le date (schema v1.6): `inizio` è il primo giorno dentro, `fine` il primo giorno fuori (null = fino alla fine).
+ */
 export interface PartitoGoverno {
   partito: string;
   ruolo: "governo" | "appoggio esterno";
   fonte_url: string;
+  inizio?: string;
+  fine?: string | null;
+  nota?: string | null;
+  fonte_date_url?: string | null;
 }
 
 export interface GovernoConPartiti extends Governo {
@@ -67,6 +77,8 @@ export interface LeggeDettaglio extends LeggeSintesi {
   gazzetta_codice: string | null;
   aggiornato_il: string;
   governo: GovernoConPartiti | null;
+  /** I partiti del governo alla data dell'atto (schema v1.6). */
+  maggioranza?: PartitoGoverno[];
   premessa?: Premessa | null;
   conteggi: {
     ricevute: Partial<Record<TipoRelazione, number>>;

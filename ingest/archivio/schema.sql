@@ -10,6 +10,9 @@ CREATE TABLE IF NOT EXISTS governo (
     fonte_url   text NOT NULL,
     CHECK (fine IS NULL OR fine > inizio)
 );
+-- v1.6: giorno delle dimissioni del governo (dopo restano gli affari correnti fino a `fine`), con la sua fonte.
+ALTER TABLE governo ADD COLUMN IF NOT EXISTS dimissioni date;
+ALTER TABLE governo ADD COLUMN IF NOT EXISTS dimissioni_fonte_url text;
 
 CREATE TABLE IF NOT EXISTS legge (
     urn                  text PRIMARY KEY,
@@ -91,12 +94,37 @@ CREATE TABLE IF NOT EXISTS premessa (
 -- Parlamento e governi (Task 1.2): dati.senato.it, poi dati.camera.it.
 
 CREATE TABLE IF NOT EXISTS governo_partito (
-    governo_id  text NOT NULL REFERENCES governo (id) ON DELETE CASCADE,
-    partito     text NOT NULL,
-    ruolo       text NOT NULL CHECK (ruolo IN ('governo', 'appoggio esterno')),
-    fonte_url   text NOT NULL,
-    PRIMARY KEY (governo_id, partito)
+    governo_id      text NOT NULL REFERENCES governo (id) ON DELETE CASCADE,
+    partito         text NOT NULL,
+    ruolo           text NOT NULL CHECK (ruolo IN ('governo', 'appoggio esterno')),
+    fonte_url       text NOT NULL,
+    inizio          date NOT NULL,
+    fine            date,
+    nota            text,
+    fonte_date_url  text,
+    PRIMARY KEY (governo_id, partito, inizio),
+    CHECK (fine IS NULL OR fine > inizio)
 );
+-- v1.6: la maggioranza nel tempo. `inizio` = giuramento o ingresso del partito, `fine` = giorno dell'uscita
+-- (vuota = fino alla fine del governo). Sulle tabelle della v1.2 le colonne si aggiungono e la chiave cambia.
+ALTER TABLE governo_partito ADD COLUMN IF NOT EXISTS inizio date;
+ALTER TABLE governo_partito ADD COLUMN IF NOT EXISTS fine date;
+ALTER TABLE governo_partito ADD COLUMN IF NOT EXISTS nota text;
+ALTER TABLE governo_partito ADD COLUMN IF NOT EXISTS fonte_date_url text;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT FROM pg_constraint c JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY(c.conkey)
+        WHERE c.conrelid = 'governo_partito'::regclass AND c.contype = 'p' AND a.attname = 'inizio'
+    ) THEN
+        UPDATE governo_partito p SET inizio = g.inizio FROM governo g WHERE g.id = p.governo_id AND p.inizio IS NULL;
+        ALTER TABLE governo_partito ALTER COLUMN inizio SET NOT NULL;
+        ALTER TABLE governo_partito DROP CONSTRAINT governo_partito_pkey;
+        ALTER TABLE governo_partito ADD PRIMARY KEY (governo_id, partito, inizio);
+        ALTER TABLE governo_partito ADD CHECK (fine IS NULL OR fine > inizio);
+    END IF;
+END
+$$;
 
 CREATE TABLE IF NOT EXISTS iter (
     id                  text PRIMARY KEY,

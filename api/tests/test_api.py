@@ -80,6 +80,11 @@ def test_dettaglio(client):
         ("Democrazia Cristiana (DC)", "governo"),
         ("Partito Repubblicano Italiano (PRI)", "appoggio esterno"),
     ]
+    assert corpo["governo"]["dimissioni"] == "1991-03-29"
+    pri = corpo["governo"]["partiti"][1]
+    assert (pri["inizio"], pri["fine"], pri["fonte_date_url"]) == ("1989-07-22", "1990-07-27", "https://example.org/date")
+    # Alla data della legge (7/8/1990) il PRI di prova è già uscito: la maggioranza è solo la DC.
+    assert [p["partito"] for p in corpo["maggioranza"]] == ["Democrazia Cristiana (DC)"]
     assert corpo["gazzetta_codice"] == "090G0294"
     assert corpo["conteggi"] == {"ricevute": {"modifica": 2}, "disposte": {}, "pronunce": 1, "iter": 0}
     assert client.get(f"/leggi/{L3}").json()["conteggi"] == {
@@ -195,7 +200,11 @@ def test_dettaglio_votazione(client):
 def test_governi(client):
     governi = client.get("/governi").json()
     assert [(g["id"], g["numero_atti"]) for g in governi] == [("andreotti-6", 1), ("berlusconi-2", 2), ("prodi-2", 1)]
-    assert governi[1]["partiti"] == [{"partito": "Forza Italia", "ruolo": "governo", "fonte_url": "https://example.org/fonte"}]
+    assert governi[1]["partiti"] == [
+        {"partito": "Forza Italia", "ruolo": "governo", "fonte_url": "https://example.org/fonte", "inizio": "2001-06-11",
+         "fine": None, "nota": None, "fonte_date_url": None}
+    ]
+    assert (governi[0]["dimissioni"], governi[1]["dimissioni"]) == ("1991-03-29", None)
 
 
 def test_connessioni_in_sola_lettura(client):

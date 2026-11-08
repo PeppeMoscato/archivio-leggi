@@ -4,6 +4,10 @@ name: Sonda rapporti tra i partiti
 # e pubblica il report nel riepilogo del job. Non scrive su nessun database.
 on:
   workflow_dispatch:
+    inputs:
+      parti:
+        description: 'Parti da sondare, JSON: ["wikidata", "parlgov", "eligendo", "camera", "senato", "governi"]'
+        default: '["governi"]'
   pull_request:
     paths:
       - "ingest/sonda_partiti.py"
@@ -16,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        parte: [wikidata, parlgov, eligendo, camera, senato]
+        parte: ${{ fromJSON(inputs.parti || '["governi"]') }}
     defaults:
       run:
         working-directory: ingest

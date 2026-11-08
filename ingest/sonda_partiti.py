@@ -340,8 +340,92 @@ def parte_parlamento(ramo: str) -> tuple[dict[str, Any], str]:
     return risultati, report
 
 
+# --- governi: uscite e ingressi nel corso di ogni governo (parte A, 08/11/2026) ---
+
+WIKIPEDIA_API = "https://{lingua}.wikipedia.org/w/api.php?action=parse&format=json&formatversion=2&prop=wikitext&redirects=1&page={pagina}"
+PAROLE_EN = re.compile(r"resign|withdr|left the (?:government|coalition|majority)|leave the|joined|entered the government|"
+                       r"external support|confidence|split|no longer", re.IGNORECASE)
+PAROLE_IT = re.compile(r"dimission|ritir|uscit[ao] dalla maggioranza|esce dalla|lascia|entra(?:no)? nel governo|"
+                       r"appoggio esterno|fiducia|scission|sfiducia", re.IGNORECASE)
+CAMPI_INFOBOX = re.compile(r"^\s*\|\s*([^=|]*(?:date|dissol|dimiss|giurament|fine|members?|partit|support|coalizion|status)[^=|]*)=(.*)$",
+                           re.IGNORECASE | re.MULTILINE)
+
+
+def wikitesto(lingua: str, pagina: str) -> str:
+    url = WIKIPEDIA_API.format(lingua=lingua, pagina=urllib.parse.quote(pagina.replace(" ", "_")))
+    corpo, _ = scarica(url, "application/json", timeout=60)
+    time.sleep(1)
+    return json.loads(corpo)["parse"]["wikitext"]
+
+
+def frasi(testo: str, parole: re.Pattern[str], massimo: int = 30) -> list[str]:
+    pulito = re.sub(r"<ref[^>]*/>|<ref[^>]*>.*?</ref>", "", testo, flags=re.DOTALL)
+    pulito = re.sub(r"\[\[(?:[^|\]]*\|)?([^\]]*)\]\]", r"\1", pulito)
+    pulito = re.sub(r"\{\{[^{}]*\}\}", "", pulito)
+    uscita = []
+    for frase in re.split(r"(?<=[.;])\s+|\n+", pulito):
+        if parole.search(frase) and 30 < len(frase) < 700:
+            uscita.append(re.sub(r"\s+", " ", frase).strip())
+    return uscita[:massimo]
+
+
+def query_membri(inizio: str) -> str:
+    return f"""SELECT DISTINCT ?g ?gt ?gfine ?m ?nome ?cognome ?incarico ?inizio ?fine ?motivo WHERE {{
+  ?g a ocd:governo ; dc:title ?gt ; ocd:startDate ?gs . OPTIONAL {{ ?g ocd:endDate ?gfine }}
+  FILTER(STR(?gs) >= "{inizio}")
+  ?m a ocd:membroGoverno ; ocd:rif_governo ?g ; dc:title ?incarico ; ocd:endDate ?fine .
+  OPTIONAL {{ ?m ocd:startDate ?inizio }} OPTIONAL {{ ?m ocd:motivoTermine ?motivo }}
+  OPTIONAL {{ ?m foaf:surname ?cognome }} OPTIONAL {{ ?m foaf:firstName ?nome }}
+}} ORDER BY ?gs ?fine"""
+
+
+def parte_governi() -> tuple[dict[str, Any], str]:
+    from archivio.governi import carica, carica_partiti
+
+    risultati: dict[str, Any] = {"camera": {}, "wikipedia": {}}
+    report = "## 5. Governi: uscite, ingressi e dimissioni\n\n### Camera: incarichi finiti prima della fine del governo\n\n"
+    righe: list[dict[str, str]] = []
+    for inizio in ("19890701", "20010601", "20130401"):
+        try:
+            righe += interroga("camera", query_membri(inizio), timeout=180)
+        except Exception as e:  # noqa: BLE001
+            report += f"Errore ({inizio}): `{type(e).__name__}: {e}`\n\n"
+    unici = {(r["m"], r["fine"]): r for r in righe}.values()
+    motivi: dict[str, int] = {}
+    for r in unici:
+        motivi[r.get("motivo", "")] = motivi.get(r.get("motivo", ""), 0) + 1
+    report += "Motivi di fine: " + ", ".join(f"{m or '(vuoto)'} {n}" for m, n in sorted(motivi.items(), key=lambda x: -x[1])) + "\n\n"
+    anticipati = sorted(
+        (r for r in unici if r.get("gfine") and r["fine"] < r["gfine"] and r.get("motivo", "") != "Fine Governo"),
+        key=lambda r: (r["gt"], r["fine"]),
+    )
+    risultati["camera"] = {"motivi": motivi, "anticipati": anticipati}
+    report += tabella([{k: r.get(k, "") for k in ("gt", "cognome", "nome", "incarico", "inizio", "fine", "motivo")} for r in anticipati], 400)
+    fonti = {p.governo_id: p.fonte_url.rsplit("/", 1)[-1] for p in carica_partiti()}
+    for governo in carica():
+        voce: dict[str, Any] = {}
+        for lingua, pagina, parole in (("en", urllib.parse.unquote(fonti[governo.id]), PAROLE_EN),
+                                       ("it", f"Governo {governo.nome}", PAROLE_IT)):
+            try:
+                testo = wikitesto(lingua, pagina)
+            except Exception as e:  # noqa: BLE001
+                voce[lingua] = {"errore": f"{type(e).__name__}: {e}"}
+                continue
+            voce[lingua] = {"pagina": pagina, "infobox": [f"{k.strip()} = {v.strip()[:300]}" for k, v in CAMPI_INFOBOX.findall(testo[:15000])],
+                            "frasi": frasi(testo, parole)}
+        risultati["wikipedia"][governo.id] = voce
+        report += f"### {governo.nome} ({governo.inizio} - {governo.fine or 'in carica'})\n\n"
+        for lingua, dati in voce.items():
+            if "errore" in dati:
+                report += f"- {lingua}: errore `{dati['errore']}`\n"
+                continue
+            report += f"**{lingua}.wikipedia, {dati['pagina']}**\n\n" + "".join(f"- `{c}`\n" for c in dati["infobox"]) + "\n"
+            report += "".join(f"> {f}\n>\n" for f in dati["frasi"]) + "\n"
+    return risultati, report
+
+
 def main() -> int:
-    parti = sys.argv[1:] or ["wikidata", "parlgov", "eligendo", "camera", "senato"]
+    parti = sys.argv[1:] or ["wikidata", "parlgov", "eligendo", "camera", "senato", "governi"]
     report = "# Sonda rapporti tra i partiti\n\n"
     CARTELLA_SAMPLES.mkdir(exist_ok=True)
     for parte in parti:
@@ -351,6 +435,8 @@ def main() -> int:
             risultati, testo = parte_parlgov()
         elif parte == "eligendo":
             risultati, testo = parte_eligendo()
+        elif parte == "governi":
+            risultati, testo = parte_governi()
         else:
             risultati, testo = parte_parlamento(parte)
         (CARTELLA_SAMPLES / f"sonda_partiti_{parte}.json").write_text(json.dumps(risultati, ensure_ascii=False, indent=1, default=str))

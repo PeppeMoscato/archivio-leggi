@@ -1,0 +1,2 @@
+Data: 2026-11-06
+Testo: testo presentato del Senato su Neon (PR #26 unita; Pipeline Senato 13-19 con `senza_voti`, [run 42240701329](https://github.com/PeppeMoscato/archivio-leggi/actions/runs/42240701329), circa 3 minuti, nessun 403). Fasi con il link al testo presentato: XIII 1.209 su 2.599, XIV 819 su 1.610, XV 125 su 248, XVI 449 su 887, XVII 418 su 850, XVIII 339 su 672, XIX 388 su 771; in tutto 3.747 su 7.637 (49%). Iter, fasi e firmatari riscritti, votazioni lasciate come erano. Database 390,6 MB.

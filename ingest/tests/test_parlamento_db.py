@@ -138,6 +138,8 @@ def scrivi_file_camera(cartella):
         ],
         votazioni_scartate=5,
         fasi_senato=["2122-BIS"],
+        testi=[camera.TestoAtto("2122-BIS", "http://documenti.camera.it/_dati/leg14/lavori/stampati/pdf/14PDL0021220.pdf",
+                                "http://www.camera.it/scheda-2122-bis")],
     )
     leg14.leggi.append(camera.LeggeCamera(camera.LEGGE + "L2003_3", SIRCHIA, 3, date(2003, 1, 16), "Sirchia", "Ordinaria",
                                           [ATTO + "ac14_2122-quater"]))
@@ -185,6 +187,15 @@ def test_carica_camera_dopo_il_senato(conn, tmp_path):
             ("C.1913", "GORIA GIOVANNI, Presidente del Consiglio", True, "GORIA"),
             ("C.1913", "GAVA ANTONIO, Ministro dell'interno", False, None),
         ]
+        # Testo presentato e scheda della Camera: sulla fase Camera dell'iter del Senato (resta dopo il nuovo giro del
+        # Senato) e sulla fase della X legislatura; la fase del Senato tiene il suo.
+        cur.execute("SELECT id, testo_presentato, scheda_url FROM fase_iter ORDER BY id")
+        assert cur.fetchall() == [
+            ("camera:ac10_1913", "http://www.camera.it/_dati/leg10/lavori/stampati/pdf/1913.pdf", "http://scheda"),
+            ("senato:1271", None, None),
+            ("senato:2122-BIS", "http://documenti.camera.it/_dati/leg14/lavori/stampati/pdf/14PDL0021220.pdf",
+             "http://www.camera.it/scheda-2122-bis"),
+        ]
         cur.execute("SELECT nome, sigla FROM gruppo WHERE id = 'camera:gr139'")
         assert cur.fetchone() == ("ALLEANZA NAZIONALE", "AN")
         cur.execute("SELECT gruppo_id, favorevoli, contrari FROM voto_gruppo WHERE votazione_id = 'camera:vs14_120_001' ORDER BY 1")
@@ -194,3 +205,29 @@ def test_carica_camera_dopo_il_senato(conn, tmp_path):
     assert "deputati non trovati: 1" in testo
     assert "non sono fasi Camera negli iter del Senato: 1 su 1" in testo
     assert "con una data di giuramento diversa: nessuno" not in testo  # nessun governo della Camera nei file di prova
+    assert "fasi Camera negli iter del Senato 1, col testo presentato 1, con la scheda 1" in testo
+    assert "fasi col testo presentato (stampato della Camera): 1" in testo
+
+
+def test_carica_camera_senza_voti(conn, tmp_path):
+    """Un giro solo sui testi della Camera aggiorna testo presentato e scheda e lascia le votazioni già caricate."""
+    from archivio import camera
+    from archivio.parlamento import carica_camera
+
+    scrivi_file(tmp_path)
+    scrivi_file_camera(tmp_path)
+    db.crea_schema(conn)
+    carica_senato(conn, tmp_path)
+    carica_camera(conn, tmp_path)
+    leg = camera.leggi_legislatura(tmp_path / "camera_14.json")
+    leg.votazioni, leg.con_voti = [], False
+    leg.testi = []  # la fonte non ha più il testo: la fase resta senza
+    camera.scrivi(tmp_path / "camera_14.json", leg)
+    rapporto = carica_camera(conn, tmp_path)
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT count(*) FROM votazione WHERE ramo = 'camera'")
+        assert cur.fetchone() == (2,)
+        cur.execute("SELECT testo_presentato, scheda_url FROM fase_iter WHERE id = 'senato:2122-BIS'")
+        assert cur.fetchone() == (None, None)
+    assert "votazioni non estratte, restano quelle già nel database" in rapporto.testo()

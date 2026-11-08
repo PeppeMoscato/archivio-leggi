@@ -30,7 +30,7 @@ export const FONTI: Fonte[] = [
   {
     nome: "Camera dei deputati",
     url: "https://dati.camera.it",
-    cosa: "Iter dei progetti di legge e votazioni d'Aula",
+    cosa: "Iter dei progetti di legge, testi presentati e votazioni d'Aula",
     licenza: "CC BY-SA 4.0",
     attribuzione:
       "Fonte: Camera dei deputati (https://dati.camera.it), in licenza CC BY-SA 4.0. " +

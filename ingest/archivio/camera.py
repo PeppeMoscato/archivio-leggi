@@ -10,6 +10,9 @@ Cosa prende e perché (`docs/sonda_parlamento.md`):
   votazioni, ma ha le leggi (`ocd:legge`, con l'URN di Normattiva) e i loro
   lavori preparatori alla Camera: da lì iter, fasi, iniziativa e firmatari.
 - Deputati e gruppi dalla X legislatura: per i voti e per i firmatari.
+- Per ogni atto Camera delle fasi (X-XIX): il PDF dello stampato con il testo
+  presentato e la relazione (`dc:relation`), e la scheda dell'atto sul sito
+  della Camera (`dcterms:isReferencedBy`). Sonda camera-testi dell'8/11/2026.
 
 L'endpoint è un Virtuoso come quello del Senato: risposte troncate a 10.000
 righe e niente OFFSET grandi, quindi si scorre per chiave (`senato.scorri`).
@@ -100,6 +103,16 @@ class AttoCamera:
     scheda: str | None
     firmatari: list[str] = field(default_factory=list)  # dc:creator
     altri_firmatari: list[str] = field(default_factory=list)  # dc:contributor
+    testo: str | None = None  # PDF dello stampato del testo presentato
+
+
+@dataclass
+class TestoAtto:
+    """Il testo presentato e la scheda di un atto Camera, per le fasi Camera degli iter del Senato (XIII-XIX)."""
+
+    numero: str  # "2122-BIS", come le fasi del Senato senza "C."
+    testo: str | None  # PDF dello stampato (testo presentato, con la relazione)
+    scheda: str | None  # scheda dell'atto su camera.it
 
 
 @dataclass
@@ -133,6 +146,8 @@ class LegislaturaCamera:
     votazioni: list[VotazioneCamera]  # solo quelle sulle fasi Camera degli iter diventati legge
     votazioni_scartate: int = 0
     fasi_senato: list[str] = field(default_factory=list)  # numeri delle fasi Camera negli iter del Senato
+    testi: list[TestoAtto] = field(default_factory=list)  # testo presentato e scheda delle fasi Camera (XIII-XIX)
+    con_voti: bool = True  # False: estratti solo i testi, il caricamento lascia le votazioni nel database
 
 
 @dataclass
@@ -179,6 +194,10 @@ class PersoneCamera:
 # --- Regole pure (provate offline) ---------------------------------------------
 
 _ATTO = re.compile(r"/ac(\d+)_([^/]+)$")
+# Versione del testo di un atto: ".../vta18_leg.18.pdl.camera.3363.18PDL0163500" è il testo presentato,
+# ".../vta18_leg.18.pdl.camera.3363_A.18PDL0164440" quello della commissione (3363-A). L'ultimo pezzo è il nome del PDF.
+_VERSIONE = re.compile(r"\.camera\.([^./]+)\.([^./]+)$")
+_PDF = re.compile(r"/([^/]+)\.pdf$", re.IGNORECASE)
 _PERSONA = re.compile(r"/(?:d|p)(\d+)(?:_\d+)?$")
 _DATE_FINALI = re.compile(r"\s*\(\d{2}\.\d{2}\.\d{4}\s*-\s*(?:\d{2}\.\d{2}\.\d{4})?\)\s*$")
 _FINO_A = re.compile(r"fino a (\d{2})\.(\d{2})\.(\d{4})")
@@ -188,6 +207,31 @@ def numero_atto(iri: str) -> str | None:
     """".../attocamera.rdf/ac14_2122-bis-b" → "2122-BIS-B"."""
     trovato = _ATTO.search(iri)
     return trovato.group(2).upper() if trovato else None
+
+
+def atto_iri(leg: int, numero: str) -> str:
+    """(14, "2122-BIS") → ".../attocamera.rdf/ac14_2122-bis": il contrario di `numero_atto`."""
+    return f"{ATTO}ac{leg}_{numero.strip().lower()}"
+
+
+def testo_originale(relazioni: list[str], versioni: list[str]) -> str | None:
+    """Fra i PDF dell'atto (`dc:relation`), quello del testo presentato.
+
+    Un atto può avere più stampati: il testo presentato e quelli della commissione (3363-A, 3363-B).
+    Decide la versione del testo (`rif_versioneTestoAtto`) senza lettera; se le versioni non lo dicono,
+    il PDF col nome più corto e più basso fra quelli che non sono di una versione con lettera
+    ("0099.pdf" prima di "0099A.pdf"; "18PDL0163500" prima di "18PDL0164440")."""
+    pdf = {m.group(1).upper(): r for r in relazioni if (m := _PDF.search(r))}
+    originali, modificati = set(), set()
+    for v in versioni:
+        if m := _VERSIONE.search(v):
+            (modificati if "_" in m.group(1) else originali).add(m.group(2).upper())
+    ordine = sorted(pdf, key=lambda c: (len(c), c))
+    for codice in ordine:
+        if codice in originali:
+            return pdf[codice]
+    resto = [c for c in ordine if c not in modificati]
+    return pdf[resto[0]] if resto else None
 
 
 def persona(iri: str) -> str | None:
@@ -349,6 +393,37 @@ def estrai_atti(sparql: Sparql, iri: list[str]) -> list[AttoCamera]:
                 if (nome := testo(r["nome"])) and nome not in elenco:
                     elenco.append(nome)
     return list(atti.values())
+
+
+def estrai_testi(sparql: Sparql, iri: list[str]) -> dict[str, tuple[str | None, str | None]]:
+    """IRI dell'atto → (PDF del testo presentato, scheda su camera.it), per gli atti che ne hanno almeno uno."""
+    relazioni: dict[str, list[str]] = {}
+    versioni: dict[str, list[str]] = {}
+    schede: dict[str, list[str]] = {}
+    for inizio in range(0, len(iri), ATTI_PER_RICHIESTA):
+        righe = sparql.select(f"""SELECT DISTINCT ?a ?p ?o WHERE {{ ?a ?p ?o FILTER(?a IN ({_iri_in(iri[inizio:inizio + ATTI_PER_RICHIESTA])}))
+  FILTER(?p IN (dc:relation, dcterms:isReferencedBy, ocd:rif_versioneTestoAtto)) }}""")
+        if len(righe) >= senato.LIMITE_RIGHE:
+            raise RuntimeError(f"risposta troncata per gli atti da {iri[inizio]}")
+        for r in righe:
+            proprieta = r["p"].rsplit("/", 1)[-1]
+            elenco = {"relation": relazioni, "rif_versioneTestoAtto": versioni, "isReferencedBy": schede}.get(proprieta)
+            if elenco is not None and r["o"] not in (valori := elenco.setdefault(r["a"], [])):
+                valori.append(r["o"])
+    testi = {}
+    for a in relazioni.keys() | schede.keys():
+        testo_atto = testo_originale(relazioni.get(a, []), versioni.get(a, []))
+        scheda = min(schede[a]) if schede.get(a) else None
+        if testo_atto or scheda:
+            testi[a] = (testo_atto, scheda)
+    return testi
+
+
+def testi_fasi(sparql: Sparql, leg: int, numeri: list[str]) -> list[TestoAtto]:
+    """Testo presentato e scheda degli atti Camera con questi numeri (le fasi Camera degli iter del Senato)."""
+    per_iri = {atto_iri(leg, n): n for n in numeri}
+    trovati = estrai_testi(sparql, list(per_iri))
+    return [TestoAtto(per_iri[a], testo_atto, scheda) for a, (testo_atto, scheda) in sorted(trovati.items())]
 
 
 def estrai_votazioni(sparql: Sparql, leg: int) -> list[VotazioneCamera]:
@@ -672,17 +747,28 @@ def scegli_votazioni(votazioni: list[VotazioneCamera], numeri: set[str]) -> tupl
 
 
 def estrai_legislatura(
-    camera: Sparql, senato_client: Sparql | None, leg: int, cartella_cache: Path | None = None
+    camera: Sparql, senato_client: Sparql | None, leg: int, cartella_cache: Path | None = None, voti: bool = True
 ) -> LegislaturaCamera:
+    """Con `voti=False`, dalla XIII solo testi e schede delle fasi Camera: poche richieste invece di ore di schede HTML."""
     leggi = [legge for legge in estrai_leggi(camera, leg) if legge.data is None or legge.data >= INIZIO_PERIMETRO]
     logger.info("legislatura %s: %s leggi dal 1990", leg, len(leggi))
     if leg < PRIMA_CON_VOTI:
-        atti = estrai_atti(camera, sorted({a for legge in leggi for a in legge.atti}))
-        logger.info("legislatura %s: %s atti Camera nei lavori preparatori", leg, len(atti))
+        iri = sorted({a for legge in leggi for a in legge.atti})
+        atti = estrai_atti(camera, iri)
+        testi = estrai_testi(camera, iri)
+        for atto in atti:
+            atto.testo = testi.get(atto.id, (None, None))[0]
+        logger.info("legislatura %s: %s atti Camera nei lavori preparatori, %s col testo presentato",
+                    leg, len(atti), sum(1 for a in atti if a.testo))
         return LegislaturaCamera(leg, leggi, atti, [])
     if senato_client is None:
         raise ValueError("dalla XIII legislatura servono le fasi Camera degli iter del Senato")
     numeri = fasi_camera_del_senato(senato_client, leg)
+    testi = testi_fasi(camera, leg, numeri)
+    logger.info("legislatura %s: %s fasi Camera, %s col testo presentato, %s con la scheda", leg, len(numeri),
+                sum(1 for t in testi if t.testo), sum(1 for t in testi if t.scheda))
+    if not voti:
+        return LegislaturaCamera(leg, leggi, [], [], 0, numeri, testi, con_voti=False)
     tutte = estrai_votazioni(camera, leg)
     scelte, scartate = scegli_votazioni(tutte, set(numeri))
     logger.info("legislatura %s: %s votazioni sugli iter diventati legge, %s altre", leg, len(scelte), scartate)
@@ -694,7 +780,7 @@ def estrai_legislatura(
     else:
         logger.info("legislatura %s: voti dei deputati dalle schede HTML (l'endpoint ha solo esiti e totali)", leg)
         estrai_voti_schede(scelte, nomi_deputati(camera, leg), percorso_cache=cache("schede"))
-    return LegislaturaCamera(leg, leggi, [], scelte, scartate, numeri)
+    return LegislaturaCamera(leg, leggi, [], scelte, scartate, numeri, testi)
 
 
 def stima_legislatura(camera: Sparql, senato_client: Sparql, leg: int) -> tuple[int, int, int]:
@@ -775,6 +861,8 @@ def leggi_legislatura(percorso: Path) -> LegislaturaCamera:
         [VotazioneCamera(**_date(v, "data")) for v in dati["votazioni"]],
         dati.get("votazioni_scartate", 0),
         dati.get("fasi_senato", []),
+        [TestoAtto(**t) for t in dati.get("testi", [])],
+        dati.get("con_voti", True),
     )
 
 

@@ -268,6 +268,7 @@ def iter_parlamentari(conn: psycopg.Connection, urn: str) -> list[dict]:
                        'data_stato', f.data_stato, 'fonte_url', f.fonte_url,
                        -- Da to_jsonb: la colonna (schema v1.4) può mancare su un database non ancora aggiornato.
                        'testo_presentato', to_jsonb(f) ->> 'testo_presentato',
+                       'scheda_url', to_jsonb(f) ->> 'scheda_url',  -- schema v1.7
                        'numero_votazioni', (SELECT count(*) FROM votazione v WHERE v.fase_id = f.id),
                        'firmatari', (
                            SELECT coalesce(json_agg(json_build_object(

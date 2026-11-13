@@ -184,8 +184,11 @@ class Fase(BaseModel):
     data_stato: date | None
     fonte_url: str
     testo_presentato: str | None = Field(
-        default=None, description="Il testo presentato, con la relazione illustrativa, come lo identifica la fonte (URN del Senato)"
+        default=None,
+        description="Il testo presentato, con la relazione illustrativa: per le fasi del Senato l'URN del Senato, "
+        "per quelle della Camera l'indirizzo del PDF dello stampato",
     )
+    scheda_url: str | None = Field(default=None, description="La scheda della fase sul sito della Camera (solo fasi Camera)")
     numero_votazioni: int
     firmatari: list[Firmatario]
 

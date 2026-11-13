@@ -1,6 +1,6 @@
 import Avviso from "@/components/Avviso";
 import { iter as leggiIter } from "@/lib/api";
-import { dataBreve, nomeRamo, romano } from "@/lib/formato";
+import { dataBreve, nomeRamo, romano, urlTestoPresentato } from "@/lib/formato";
 import type { Fase, Firmatario } from "@/lib/tipi";
 
 const FIRMATARI_VISIBILI = 6;
@@ -40,6 +40,7 @@ export default async function SezioneIter({ urn }: { urn: string }) {
 }
 
 function VoceFase({ fase }: { fase: Fase }) {
+  const testo = urlTestoPresentato(fase);
   return (
     <li className="fase">
       <div className="evento-testa">
@@ -60,6 +61,8 @@ function VoceFase({ fase }: { fase: Fase }) {
             {fase.numero_votazioni.toLocaleString("it-IT")} {fase.numero_votazioni === 1 ? "votazione" : "votazioni"}
           </span>
         )}
+        {testo && <a href={testo}>Testo presentato (PDF)</a>}
+        {fase.scheda_url && <a href={fase.scheda_url}>Scheda della Camera</a>}
         <a href={fase.fonte_url}>Fonte</a>
       </div>
       {fase.firmatari.length > 0 && <Firmatari firmatari={fase.firmatari} />}

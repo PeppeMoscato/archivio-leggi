@@ -14,6 +14,7 @@
     python -m archivio senato-carica --da dati/     # DATABASE_URL nell'ambiente
 
     python -m archivio camera-estrai --legislature 10-19 --uscita dati/
+    python -m archivio camera-estrai --legislature 13-19 --senza-voti --uscita dati/   # solo testi e schede delle fasi Camera
     python -m archivio camera-persone --uscita dati/
     python -m archivio camera-stima --legislature 13-19   # spazio delle votazioni, senza scaricare i voti
     python -m archivio camera-carica --da dati/     # dopo senato-carica; DATABASE_URL nell'ambiente
@@ -89,6 +90,10 @@ def main(argomenti: list[str] | None = None) -> int:
     p_camera = comandi.add_parser("camera-estrai", help="votazioni (XIII-XIX) e iter (X-XII) da dati.camera.it, un JSON per legislatura")
     p_camera.add_argument("--legislature", nargs="+", required=True, help="es. 15, 10-19")
     p_camera.add_argument("--uscita", type=Path, required=True)
+    p_camera.add_argument(
+        "--senza-voti", action="store_true",
+        help="dalla XIII solo testo presentato e scheda delle fasi Camera; il caricamento lascia le votazioni nel database",
+    )
     p_deputati = comandi.add_parser("camera-persone", help="deputati, gruppi e adesioni da dati.camera.it")
     p_deputati.add_argument("--legislature", nargs="+", default=["10-19"])
     p_deputati.add_argument("--uscita", type=Path, required=True)
@@ -148,12 +153,15 @@ def main(argomenti: list[str] | None = None) -> int:
         rapporto = Rapporto()
         client_camera, client_senato = camera.client(), senato.client()
         for leg in sorted({n for testo in opzioni.legislature for n in anni(testo)}):
-            dati = camera.estrai_legislatura(client_camera, client_senato, leg, opzioni.uscita / "cache")
+            dati = camera.estrai_legislatura(client_camera, client_senato, leg, opzioni.uscita / "cache", voti=not opzioni.senza_voti)
             camera.scrivi(opzioni.uscita / f"camera_{leg}.json", dati)
             rapporto.aggiungi(
-                f"Legislatura {leg}: {len(dati.leggi)} leggi dal 1990, {len(dati.atti)} atti dei lavori preparatori, "
+                f"Legislatura {leg}: {len(dati.leggi)} leggi dal 1990, {len(dati.atti)} atti dei lavori preparatori "
+                f"({sum(1 for a in dati.atti if a.testo)} col testo presentato), "
                 f"{len(dati.votazioni)} votazioni ({sum(len(e) for v in dati.votazioni for e in v.voti.values())} voti individuali), "
-                f"{dati.votazioni_scartate} su altri atti; fasi Camera negli iter del Senato: {len(dati.fasi_senato)}"
+                f"{dati.votazioni_scartate} su altri atti; fasi Camera negli iter del Senato: {len(dati.fasi_senato)} "
+                f"({sum(1 for t in dati.testi if t.testo)} col testo presentato, {sum(1 for t in dati.testi if t.scheda)} con la scheda)"
+                + ("; votazioni non estratte" if not dati.con_voti else "")
             )
         pubblica("Estrazione Camera", rapporto.testo())
         return 0

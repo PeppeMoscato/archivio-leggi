@@ -155,6 +155,7 @@ def test_voti_dall_endpoint_dalla_xvii_e_dalle_schede_prima(monkeypatch, leg, da
     chiamate = []
     monkeypatch.setattr(camera, "estrai_leggi", lambda *_: [])
     monkeypatch.setattr(camera, "fasi_camera_del_senato", lambda *_: ["2122-BIS"])
+    monkeypatch.setattr(camera, "testi_fasi", lambda *_: [])
     monkeypatch.setattr(camera, "estrai_votazioni", lambda *_: [votazione("a")])
     monkeypatch.setattr(camera, "estrai_voti", lambda *_, **__: chiamate.append("endpoint"))
     monkeypatch.setattr(camera, "nomi_deputati", lambda *_: camera.NomiDeputati())
@@ -162,6 +163,67 @@ def test_voti_dall_endpoint_dalla_xvii_e_dalle_schede_prima(monkeypatch, leg, da
     leg_camera = camera.estrai_legislatura(object(), object(), leg)
     assert len(leg_camera.votazioni) == 1
     assert chiamate == [da_dove]
+
+
+# --- testo presentato e scheda (sonda camera-testi dell'8/11/2026) ---------------------------
+
+VTA = "http://dati.camera.it/ocd/versioneTestoAtto.rdf/"
+PDF18 = "http://documenti.camera.it/_dati/leg18/lavori/stampati/pdf/"
+
+
+def test_testo_originale():
+    # XVIII, C. 3363: lo stampato del testo presentato e quello della commissione (3363-A).
+    relazioni = [PDF18 + "18PDL0164440.pdf", PDF18 + "18PDL0163500.pdf"]
+    versioni = [VTA + "vta18_leg.18.pdl.camera.3363_A.18PDL0164440", VTA + "vta18_leg.18.pdl.camera.3363.18PDL0163500"]
+    assert camera.testo_originale(relazioni, versioni) == PDF18 + "18PDL0163500.pdf"
+    # Senza versioni (XIII, C. 99): l'unico PDF; con più PDF, il nome più corto e più basso.
+    assert camera.testo_originale(["http://www.camera.it/_dati/leg13/lavori/stampati/pdf/0099.pdf"], []) == (
+        "http://www.camera.it/_dati/leg13/lavori/stampati/pdf/0099.pdf"
+    )
+    assert camera.testo_originale(["http://x/0099A.pdf", "http://x/0099.pdf"], []).endswith("/0099.pdf")
+    # Se c'è solo il testo della commissione, il testo presentato non c'è: meglio nessun link che quello sbagliato.
+    assert camera.testo_originale([PDF18 + "18PDL0164440.pdf"], versioni[:1]) is None
+    assert camera.testo_originale(["http://www.camera.it/scheda"], []) is None
+
+
+def test_atto_iri():
+    assert camera.atto_iri(14, "2122-BIS") == ATTO + "ac14_2122-bis"
+    assert camera.numero_atto(camera.atto_iri(14, "2122-BIS-B")) == "2122-BIS-B"
+
+
+def test_testi_fasi():
+    class Finto:
+        query: list[str] = []
+
+        def select(self, query):
+            Finto.query.append(query)
+            righe = [
+                (ATTO + "ac18_3363", "http://purl.org/dc/elements/1.1/relation", PDF18 + "18PDL0164440.pdf"),
+                (ATTO + "ac18_3363", "http://purl.org/dc/elements/1.1/relation", PDF18 + "18PDL0163500.pdf"),
+                (ATTO + "ac18_3363", "http://dati.camera.it/ocd/rif_versioneTestoAtto", VTA + "vta18_leg.18.pdl.camera.3363_A.18PDL0164440"),
+                (ATTO + "ac18_3363", "http://dati.camera.it/ocd/rif_versioneTestoAtto", VTA + "vta18_leg.18.pdl.camera.3363.18PDL0163500"),
+                (ATTO + "ac18_3363", "http://purl.org/dc/terms/isReferencedBy", "http://www.camera.it/scheda-3363"),
+                (ATTO + "ac18_10-bis", "http://purl.org/dc/terms/isReferencedBy", "http://www.camera.it/scheda-10-bis"),
+            ]
+            return [{"a": a, "p": p, "o": o} for a, p, o in righe if f"<{a}>" in query]
+
+    numeri = ["3363", "10-BIS", "1"] + [str(n) for n in range(100, 100 + camera.ATTI_PER_RICHIESTA)]
+    testi = camera.testi_fasi(Finto(), 18, numeri)
+    assert len(Finto.query) == 2  # gli atti a gruppi
+    assert testi == [
+        camera.TestoAtto("10-BIS", None, "http://www.camera.it/scheda-10-bis"),
+        camera.TestoAtto("3363", PDF18 + "18PDL0163500.pdf", "http://www.camera.it/scheda-3363"),
+    ]
+
+
+def test_estrai_legislatura_senza_voti(monkeypatch):
+    monkeypatch.setattr(camera, "estrai_leggi", lambda *_: [])
+    monkeypatch.setattr(camera, "fasi_camera_del_senato", lambda *_: ["2122-BIS"])
+    monkeypatch.setattr(camera, "testi_fasi", lambda *_: [camera.TestoAtto("2122-BIS", "http://x/1.pdf", None)])
+    monkeypatch.setattr(camera, "estrai_votazioni", lambda *_: pytest.fail("senza voti non si chiedono le votazioni"))
+    leg = camera.estrai_legislatura(object(), object(), 14, voti=False)
+    assert (leg.con_voti, leg.votazioni, leg.fasi_senato) == (False, [], ["2122-BIS"])
+    assert leg.testi[0].testo == "http://x/1.pdf"
 
 
 # Righe vere della scheda XIII 128_59 (sonda camera-schede del 29/10/2026), più un omonimo inventato.
@@ -276,7 +338,8 @@ def legislatura_x() -> LegislaturaCamera:
         [LeggeCamera(LEGGE + "L1990_241", "urn:nir:stato:legge:1990-08-07;241", 241, date(1990, 8, 7), "Procedimento amministrativo",
                      "Ordinaria", [ATTO + "ac10_1913"])],
         [AttoCamera(ATTO + "ac10_1913", "1913", "Norme sul procedimento", date(1987, 10, 20), "Governo", "35330", "http://scheda",
-                    ["GORIA GIOVANNI, Presidente del Consiglio"], ["GAVA ANTONIO, Ministro dell'interno"])],
+                    ["GORIA GIOVANNI, Presidente del Consiglio"], ["GAVA ANTONIO, Ministro dell'interno"],
+                    "http://www.camera.it/_dati/leg10/lavori/stampati/pdf/1913.pdf")],
         [],
     )
 
@@ -286,6 +349,10 @@ def test_json_andata_e_ritorno(tmp_path):
     camera.scrivi(tmp_path / "camera_10.json", leg)
     assert camera.leggi_legislatura(tmp_path / "camera_10.json") == leg
     leg15 = LegislaturaCamera(15, [], [], [votazione("v", voti={"favorevoli": ["305578"]})], 7, ["2122-BIS"])
+    leg15.testi = [camera.TestoAtto("2122-BIS", "http://x/1.pdf", "http://scheda")]
+    camera.scrivi(tmp_path / "camera_15.json", leg15)
+    assert camera.leggi_legislatura(tmp_path / "camera_15.json") == leg15
+    leg15.con_voti = False
     camera.scrivi(tmp_path / "camera_15.json", leg15)
     assert camera.leggi_legislatura(tmp_path / "camera_15.json") == leg15
     persone = PersoneCamera(

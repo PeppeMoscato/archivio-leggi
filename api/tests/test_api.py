@@ -155,7 +155,9 @@ def test_iter(client):
     assert [(f["ramo"], f["numero"], f["numero_votazioni"]) for f in iter_["fasi"]] == [("senato", "S.795", 2), ("camera", "C.2122", 0)]
     assert iter_["fasi"][0]["firmatari"][0]["primo_firmatario"] is True
     assert iter_["fasi"][0]["testo_presentato"] == "urn:nir:senato.repubblica:disegno.legge:14.legislatura;795"
-    assert iter_["fasi"][1]["testo_presentato"] is None
+    assert iter_["fasi"][0]["scheda_url"] is None
+    assert iter_["fasi"][1]["testo_presentato"] == "http://documenti.camera.it/_dati/leg14/lavori/stampati/pdf/14PDL0021220.pdf"
+    assert iter_["fasi"][1]["scheda_url"].endswith("camera;14.legislatura;2122")
     assert client.get(f"/leggi/{L241}/iter").json() == []
 
 

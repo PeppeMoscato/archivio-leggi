@@ -1,4 +1,4 @@
--- Schema dati v1.5, parte "archivio" (docs/01_schema_dati.md).
+-- Schema dati v1.7, parte "archivio" (docs/01_schema_dati.md).
 -- Idempotente: si può eseguire più volte. Le tabelle delle schede arrivano in Fase 2.
 
 CREATE TABLE IF NOT EXISTS governo (
@@ -158,6 +158,8 @@ CREATE TABLE IF NOT EXISTS fase_iter (
 CREATE INDEX IF NOT EXISTS fase_iter_iter ON fase_iter (iter_id);
 -- v1.4: il testo presentato (con la relazione illustrativa), come lo identifica la fonte.
 ALTER TABLE fase_iter ADD COLUMN IF NOT EXISTS testo_presentato text;
+-- v1.7: la scheda della fase sul sito del ramo (per ora le fasi Camera, da dati.camera.it).
+ALTER TABLE fase_iter ADD COLUMN IF NOT EXISTS scheda_url text;
 
 CREATE TABLE IF NOT EXISTS parlamentare (
     id         serial PRIMARY KEY,

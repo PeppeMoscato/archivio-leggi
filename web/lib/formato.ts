@@ -1,6 +1,6 @@
 // Come si scrivono date, citazioni ed etichette nelle pagine.
 
-import type { StatoAtto, TipoAtto, TipoRelazione, TipoVotazione, Verso } from "./tipi";
+import type { Fase, StatoAtto, TipoAtto, TipoRelazione, TipoVotazione, Verso } from "./tipi";
 
 const DATA_LUNGA = new Intl.DateTimeFormat("it-IT", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 const DATA_BREVE = new Intl.DateTimeFormat("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
@@ -133,6 +133,13 @@ export function urnDaParametro(parametro: string): string {
     return parametro;
   }
 }
+
+/**
+ * Il link al testo presentato di una fase, se è un indirizzo: la Camera dà il PDF dello stampato, il Senato solo un
+ * URN (che non si apre: per il Senato vale la scheda del ddl).
+ */
+export const urlTestoPresentato = (fase: Pick<Fase, "testo_presentato">) =>
+  fase.testo_presentato && /^https?:\/\//.test(fase.testo_presentato) ? fase.testo_presentato : null;
 
 /** "Democrazia Cristiana (DC)" → "DC"; un nome senza sigla resta com'è. */
 export const siglaPartito = (partito: string) => /\(([^()]+)\)$/.exec(partito)?.[1] ?? partito;

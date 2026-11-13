@@ -298,6 +298,31 @@ SELECT ?d ?p ?o WHERE {{ ?d ?p ?o . {{ SELECT DISTINCT ?d WHERE {{ ?d foaf:surna
 }
 
 
+# Lavori preparatori alla Camera (08/11/2026): per il contesto delle leggi serve il link al testo presentato
+# (con la relazione) anche quando il ddl nasce alla Camera, dove dati.senato.it non lo dà. Che cosa offre
+# dati.camera.it per un atto Camera: L. 85/2001 (XIII, C. 99) e una legge della XVIII.
+_ATTO_XIII = "<http://dati.camera.it/ocd/attocamera.rdf/ac13_99>"
+QUERY_TESTI: dict[str, str] = {
+    "L. 85/2001: tutte le triple della legge": """
+SELECT ?l ?p ?o WHERE { ?l a ocd:legge ; ocd:lex ?lex . FILTER(CONTAINS(STR(?lex), "2001-03-22;85")) ?l ?p ?o }""",
+    "L. 85/2001: lavori preparatori (tutte le triple)": """
+SELECT ?lp ?p ?o WHERE { ?l a ocd:legge ; ocd:lex ?lex ; ocd:lavoriPreparatori ?lp . FILTER(CONTAINS(STR(?lex), "2001-03-22;85"))
+  ?lp ?p ?o } LIMIT 300""",
+    "C. 99 (XIII): tutte le triple dell'atto": f"SELECT ?p ?o WHERE {{ {_ATTO_XIII} ?p ?o }} LIMIT 300",
+    "C. 99 (XIII): che cosa punta all'atto": f"SELECT ?p (COUNT(*) AS ?n) (SAMPLE(?s) AS ?esempio) WHERE {{ ?s ?p {_ATTO_XIII} }} GROUP BY ?p",
+    "C. 99 (XIII): triple di chi punta all'atto (non votazioni)": f"""
+SELECT ?s ?p ?o WHERE {{ {{ SELECT DISTINCT ?s WHERE {{ ?s ?q {_ATTO_XIII} . FILTER NOT EXISTS {{ ?s a ocd:votazione }} }} LIMIT 10 }} ?s ?p ?o }} LIMIT 300""",
+    "XVIII: una legge con lavori preparatori, triple dell'atto": f"""
+SELECT ?a ?p ?o WHERE {{ {{ SELECT ?a WHERE {{ ?l a ocd:legge ; ocd:rif_leg {_legislatura(18)} ; ocd:lavoriPreparatori ?lp .
+  ?lp ocd:rif_attoCamera ?a }} OFFSET 50 LIMIT 1 }} ?a ?p ?o }} LIMIT 300""",
+    "XVIII: che cosa punta a quell'atto": f"""
+SELECT ?p (COUNT(*) AS ?n) (SAMPLE(?s) AS ?esempio) WHERE {{ {{ SELECT ?a WHERE {{ ?l a ocd:legge ; ocd:rif_leg {_legislatura(18)} ;
+  ocd:lavoriPreparatori ?lp . ?lp ocd:rif_attoCamera ?a }} OFFSET 50 LIMIT 1 }} ?s ?p ?a }} GROUP BY ?p""",
+    "classi con testo, documento, relazione o stampato": """
+SELECT DISTINCT ?c WHERE { ?s a ?c . FILTER(REGEX(STR(?c), "test|document|relazion|stampat|dossier", "i")) } LIMIT 50""",
+}
+
+
 def sonda(ramo: str, esplora: bool = True, query: dict[str, str] | None = None) -> tuple[dict[str, Any], str]:
     risultati: dict[str, Any] = {}
     report = f"\n## {ramo.capitalize()} — {ENDPOINT[ramo][0]}\n"
@@ -405,7 +430,7 @@ def schede() -> tuple[dict[str, Any], str]:
 
 def main() -> int:
     # "senato-mirate": solo le query mirate, senza esplorare tutte le classi; "camera-voti": solo QUERY_VOTI;
-    # "camera-schede": le pagine HTML di alcune votazioni; "camera-nomi": solo QUERY_NOMI.
+    # "camera-schede": le pagine HTML di alcune votazioni; "camera-nomi": solo QUERY_NOMI; "camera-testi": solo QUERY_TESTI.
     rami = sys.argv[1:] or list(ENDPOINT)
     tutto: dict[str, Any] = {}
     report = "# Sonda Camera e Senato\n"
@@ -416,8 +441,8 @@ def main() -> int:
             print(parte, flush=True)
             continue
         ramo, _, modo = argomento.partition("-")
-        query = {"voti": QUERY_VOTI, "nomi": QUERY_NOMI}.get(modo)
-        tutto[ramo], parte = sonda(ramo, esplora=modo not in ("mirate", "voti", "nomi"), query=query)
+        query = {"voti": QUERY_VOTI, "nomi": QUERY_NOMI, "testi": QUERY_TESTI}.get(modo)
+        tutto[ramo], parte = sonda(ramo, esplora=modo not in ("mirate", "voti", "nomi", "testi"), query=query)
         report += parte
         print(parte, flush=True)
     CARTELLA_SAMPLES.mkdir(exist_ok=True)

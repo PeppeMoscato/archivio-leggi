@@ -218,9 +218,12 @@ def salva_legislatura(
         iter_righe.append(riga)
         for f in fasi:
             iter_di_fase[f.id] = riga.id
+            ramo = RAMI.get(f.ramo.upper(), f.ramo.lower())
+            # Il testo presentato delle fasi Camera lo scrive la pipeline Camera (lo stampato della Camera).
+            testo_presentato = f.testo_presentato if ramo != "camera" else None
             fasi_righe.append((
-                codice(f.id, DDL), riga.id, f.progressivo, RAMI.get(f.ramo.upper(), f.ramo.lower()), f.numero, f.titolo,
-                f.data_presentazione, f.stato, f.data_stato, f.id, f.testo_presentato,
+                codice(f.id, DDL), riga.id, f.progressivo, ramo, f.numero, f.titolo,
+                f.data_presentazione, f.stato, f.data_stato, f.id, testo_presentato,
             ))
     firmatari = [
         (codice(i.fase_id, DDL), i.nome, INIZIATIVE.get((i.tipo or "").strip().lower(), i.tipo), i.primo_firmatario,
@@ -276,7 +279,8 @@ def salva_legislatura(
             ON CONFLICT (id) DO UPDATE SET iter_id = EXCLUDED.iter_id, progressivo = EXCLUDED.progressivo, ramo = EXCLUDED.ramo,
                 numero = EXCLUDED.numero, titolo = EXCLUDED.titolo, data_presentazione = EXCLUDED.data_presentazione,
                 stato = EXCLUDED.stato, data_stato = EXCLUDED.data_stato, fonte_url = EXCLUDED.fonte_url,
-                testo_presentato = EXCLUDED.testo_presentato
+                testo_presentato = CASE WHEN EXCLUDED.ramo = 'camera' THEN fase_iter.testo_presentato
+                                        ELSE EXCLUDED.testo_presentato END
             """,
             fasi_righe,
         )
@@ -475,6 +479,7 @@ def iter_camera(leg: LegislaturaCamera, indice: IndiceLeggi, ids: dict[str, int]
             fase_id = codice_camera(atto.id, camera.ATTO)
             fasi_righe.append((
                 fase_id, id_iter, progressivo, "camera", f"C.{atto.numero}", atto.titolo, atto.data, None, None, atto.scheda or atto.id,
+                atto.testo, atto.scheda,
             ))
             tipo = camera.iniziativa(atto.iniziativa)
             # La persona del primo firmatario si collega solo se il nome è uno: con più nomi non si sa quale sia.
@@ -503,8 +508,9 @@ def salva_legislatura_camera(
             )
             cur.executemany(
                 """
-                INSERT INTO fase_iter (id, iter_id, progressivo, ramo, numero, titolo, data_presentazione, stato, data_stato, fonte_url)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO fase_iter (id, iter_id, progressivo, ramo, numero, titolo, data_presentazione, stato, data_stato, fonte_url,
+                    testo_presentato, scheda_url)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 fasi_righe,
             )
@@ -520,8 +526,13 @@ def salva_legislatura_camera(
             f"({len(fasi_righe)} fasi, {len(firmatari)} firmatari); leggi senza lavori preparatori: {senza_lavori}"
         )
         rapporto.aggiungi(f"- collegati a una legge di Normattiva: {con_urn} (non trovati: {len(iter_righe) - con_urn})")
+        rapporto.aggiungi(f"- fasi col testo presentato (stampato della Camera): {sum(1 for f in fasi_righe if f[10])}")
         return
 
+    salva_testi_camera(conn, leg, rapporto)
+    if not leg.con_voti:
+        rapporto.aggiungi(f"Camera, legislatura {leg.numero}: votazioni non estratte, restano quelle già nel database")
+        return
     tipi: Counter = Counter()
     votazioni, senza_fase = [], Counter()
     voti_totali = mancanti_totali = discordanti = 0
@@ -574,6 +585,31 @@ def salva_legislatura_camera(
     rapporto.aggiungi(
         f"- atti dei lavori preparatori della Camera che non sono fasi Camera negli iter del Senato: "
         f"{len(atti_leggi - numeri_senato)} su {len(atti_leggi)}"
+    )
+
+
+def salva_testi_camera(conn: psycopg.Connection, leg: LegislaturaCamera, rapporto: Rapporto) -> None:
+    """Testo presentato e scheda della Camera sulle fasi Camera degli iter del Senato della legislatura.
+
+    Si riscrivono tutte le fasi Camera della legislatura: quelle senza testo o senza scheda nella fonte restano vuote."""
+    testi = {t.numero: t for t in leg.testi}
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT f.id, f.numero FROM fase_iter f JOIN iter i ON i.id = f.iter_id
+            WHERE f.ramo = 'camera' AND i.id LIKE 'senato:%%' AND i.legislatura = %s
+            """,
+            (leg.numero,),
+        )
+        righe = []
+        for fase, numero in cur.fetchall():
+            t = testi.get(numero_senza_ramo(numero))
+            righe.append((t.testo if t else None, t.scheda if t else None, fase))
+        cur.executemany("UPDATE fase_iter SET testo_presentato = %s, scheda_url = %s WHERE id = %s", righe)
+    conn.commit()
+    rapporto.aggiungi(
+        f"Camera, legislatura {leg.numero}: fasi Camera negli iter del Senato {len(righe)}, col testo presentato "
+        f"{sum(1 for r in righe if r[0])}, con la scheda {sum(1 for r in righe if r[1])}"
     )
 
 

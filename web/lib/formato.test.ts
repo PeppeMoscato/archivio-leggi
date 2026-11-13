@@ -9,12 +9,21 @@ import {
   quanteRelazioni,
   romano,
   siglaPartito,
+  urlTestoPresentato,
   urnDaParametro,
 } from "./formato";
 
 const sirchia = { tipo: "legge", numero: "3", data: "2003-01-16" } as const;
 
 describe("formato", () => {
+  it("dà il link al testo presentato solo se è un indirizzo", () => {
+    const pdf = "http://documenti.camera.it/_dati/leg18/lavori/stampati/pdf/18PDL0163500.pdf";
+    expect(urlTestoPresentato({ testo_presentato: pdf })).toBe(pdf);
+    expect(urlTestoPresentato({ testo_presentato: "urn:nir:senato.repubblica:disegno.legge:14.legislatura;795" })).toBeNull();
+    expect(urlTestoPresentato({ testo_presentato: null })).toBeNull();
+    expect(urlTestoPresentato({})).toBeNull();
+  });
+
   it("scrive le date in italiano senza spostamenti di fuso", () => {
     expect(dataLunga("2003-01-16")).toBe("16 gennaio 2003");
     expect(dataLunga("1990-08-01")).toBe("1 agosto 1990");

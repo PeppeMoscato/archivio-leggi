@@ -137,7 +137,8 @@ export interface Fase {
   stato: string | null;
   data_stato: string | null;
   fonte_url: string;
-  testo_presentato?: string | null;
+  testo_presentato?: string | null; // Senato: URN; Camera: PDF dello stampato
+  scheda_url?: string | null; // scheda della Camera (schema v1.7)
   numero_votazioni: number;
   firmatari: Firmatario[];
 }

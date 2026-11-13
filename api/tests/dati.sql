@@ -50,10 +50,12 @@ INSERT INTO iter (id, urn, legislatura, natura, titolo, iniziativa, data_present
      'governativa', '2001-09-12', '2002-12-18', 3, '2003-01-16', 'http://dati.senato.it/ddl/15000');
 
 INSERT INTO fase_iter (id, iter_id, progressivo, ramo, numero, titolo, data_presentazione, stato, data_stato, fonte_url,
-                       testo_presentato) VALUES
-    ('senato:15001', 'senato:15000', 2, 'camera', 'C.2122', NULL, '2001-12-10', 'approvato con modificazioni', '2002-10-17', 'http://dati.senato.it/ddl/15001', NULL),
+                       testo_presentato, scheda_url) VALUES
+    ('senato:15001', 'senato:15000', 2, 'camera', 'C.2122', NULL, '2001-12-10', 'approvato con modificazioni', '2002-10-17', 'http://dati.senato.it/ddl/15001',
+     'http://documenti.camera.it/_dati/leg14/lavori/stampati/pdf/14PDL0021220.pdf',
+     'http://www.camera.it/uri-res/N2Ls?urn:camera-it:parlamento:scheda.progetto.legge:camera;14.legislatura;2122'),
     ('senato:15002', 'senato:15000', 1, 'senato', 'S.795', NULL, '2001-09-12', 'approvato', '2001-11-28', 'http://dati.senato.it/ddl/15002',
-     'urn:nir:senato.repubblica:disegno.legge:14.legislatura;795');
+     'urn:nir:senato.repubblica:disegno.legge:14.legislatura;795', NULL);
 
 -- Premessa inventata, nella forma reale (D.L. 223/2006).
 INSERT INTO premessa (urn, motivazioni, citazioni, proposta, fonte_url) VALUES

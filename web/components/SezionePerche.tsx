@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import AttesaRisveglio from "@/components/AttesaRisveglio";
 import Avviso from "@/components/Avviso";
 import { iter as leggiIter, relazioni } from "@/lib/api";
-import { citazioneBreve, percorsoLegge } from "@/lib/formato";
+import { citazioneBreve, percorsoLegge, urlTestoPresentato } from "@/lib/formato";
 import type { LeggeDettaglio } from "@/lib/tipi";
 
 /**
@@ -141,11 +141,28 @@ async function SchedaDdl({ urn }: { urn: string }) {
   const primo = elenco[0];
   if (!primo) return <p className="nota">Relazione illustrativa: dato non disponibile nell&apos;archivio.</p>;
   const presentata = primo.fasi.find((f) => f.testo_presentato) ?? primo.fasi[0];
+  const pdf = presentata ? urlTestoPresentato(presentata) : null;
+  const iniziativa = primo.iniziativa ? `, di iniziativa ${primo.iniziativa}` : "";
+  if (pdf) {
+    // Iter partito dalla Camera: lo stampato della Camera ha il testo presentato e la relazione.
+    return (
+      <p className="nota">
+        Il testo presentato ({presentata.numero}){iniziativa}, con la relazione, è nello{" "}
+        <a href={pdf}>stampato della Camera (PDF)</a>
+        {presentata.scheda_url && (
+          <>
+            ; l&apos;esame è nella <a href={presentata.scheda_url}>scheda della Camera</a>
+          </>
+        )}
+        .
+      </p>
+    );
+  }
   return (
     <p className="nota">
       Il testo presentato{presentata ? ` (${presentata.numero})` : ""}, con la relazione, è nella{" "}
-      <a href={primo.fonte_url}>scheda del disegno di legge</a>
-      {primo.iniziativa ? `, di iniziativa ${primo.iniziativa}` : ""}.
+      <a href={presentata?.scheda_url ?? primo.fonte_url}>scheda del disegno di legge</a>
+      {iniziativa}.
     </p>
   );
 }

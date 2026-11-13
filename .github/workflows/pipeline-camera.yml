@@ -11,6 +11,10 @@ on:
       legislature:
         description: "Legislature da estrarre: 19, 10-19 (votazioni dalla XIII, voti dei deputati dalle schede HTML per XIII-XVI; iter della Camera per X-XII)"
         default: "10-19"
+      senza_voti:
+        description: "Solo testo presentato e scheda delle fasi Camera (dalla XIII): niente votazioni, quelle nel database restano"
+        type: boolean
+        default: false
       scrivi_su_neon:
         description: "Scrivi su Neon (secret DATABASE_URL), dopo la Pipeline Senato"
         type: boolean
@@ -74,7 +78,7 @@ jobs:
           path: ingest/dati/cache
           key: camera-cache-${{ matrix.legislatura }}-${{ github.run_id }}
           restore-keys: camera-cache-${{ matrix.legislatura }}-
-      - run: python -m archivio camera-estrai --legislature ${{ matrix.legislatura }} --uscita dati
+      - run: python -m archivio camera-estrai --legislature ${{ matrix.legislatura }} --uscita dati ${{ inputs.senza_voti && '--senza-voti' || '' }}
       - if: always() && hashFiles('ingest/dati/cache/*') != ''
         uses: actions/cache/save@v4
         with:

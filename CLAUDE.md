@@ -48,6 +48,7 @@ DATABASE_URL=... python -m archivio premesse-carica --da dati     # tabella prem
 
 # Pipeline Camera → Postgres (Task 1.2, dopo il Senato)
 python -m archivio camera-estrai --legislature 15 --uscita dati   # votazioni (XIII-XIX) o iter dai lavori preparatori (X-XII)
+python -m archivio camera-estrai --legislature 13-19 --senza-voti --uscita dati   # solo testo presentato e scheda delle fasi Camera: le votazioni nel database restano
 python -m archivio camera-persone --uscita dati                   # deputati, gruppi, adesioni, governi
 python -m archivio camera-stima --legislature 13-19               # votazioni e voti da caricare, senza scaricare i voti
 DATABASE_URL=... python -m archivio camera-carica --da dati

@@ -1,0 +1,149 @@
+# Decreto vaccini (D.L. 73/2017, convertito dalla L. 119/2017)
+
+Scheda n. 24 di `docs/06_leggi_mvp.md`, nel formato di `docs/04_scheda_esempio.md`.
+Compilata l'08/11/2026. Stato: **bozza, da approvare** (nessun verdetto è pubblicato senza l'approvazione dell'autore).
+
+---
+
+## 1. Identità
+- **Atto**: Decreto-legge 7 giugno 2017, n. 73, "Disposizioni urgenti in materia di prevenzione vaccinale", convertito con modificazioni dalla Legge 31 luglio 2017, n. 119. Il titolo vigente aggiunge "di malattie infettive e di controversie relative alla somministrazione di farmaci".
+- **URN**: urn:nir:stato:decreto.legge:2017-06-07;73 (legge di conversione: urn:nir:stato:legge:2017-07-31;119)
+- **Testo**: https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legge:2017-06-07;73
+- **Articolo chiave vigente**: [art. 1 su Normattiva](https://www.normattiva.it/atto/caricaDettaglioAtto?atto.dataPubblicazioneGazzetta=2017-06-07&atto.codiceRedazionale=17G00095&atto.articolo.numero=1&atto.articolo.tipoArticolo=0) (quali vaccinazioni, esoneri, sanzioni)
+- **Governo**: Gentiloni (PD, NCD, Centristi per l'Europa). Proposta del Presidente del Consiglio e della ministra della Salute Beatrice Lorenzin. — fonte: premesse del decreto e firmatari del ddl, dati del nostro archivio letti dall'API l'08/11/2026
+- **Gazzetta Ufficiale**: n. 130 del 07/06/2017 (codice redazionale 17G00095); legge di conversione nella G.U. n. 182 del 05/08/2017 (17G00132). — fonte: [Normattiva](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legge:2017-06-07;73), archivio del progetto
+- **Entrata in vigore**: 08/06/2017; le modifiche della conversione dal 06/08/2017. — fonte: Normattiva, art. 1 (nota "in vigore dal 6/8/2017")
+- **Stato**: vigente. Nel nostro archivio il decreto riceve 13 modifiche: 10 dalla legge di conversione e 3 successive. — fonte: archivio del progetto (relazioni ricavate dalle note di Normattiva)
+  - D.L. 16 ottobre 2017, n. 148 (conv. L. 172/2017), art. 18-ter: anticipa all'anno scolastico 2018/2019 la procedura semplificata scuola-ASL (art. 3-bis) nelle regioni che hanno già l'anagrafe vaccinale. — fonte: [Normattiva, art. 3-bis e nota](https://www.normattiva.it/atto/caricaDettaglioAtto?atto.dataPubblicazioneGazzetta=2017-06-07&atto.codiceRedazionale=17G00095&atto.articolo.numero=3&atto.articolo.sottoArticolo=2&atto.articolo.tipoArticolo=0)
+  - D.L. 25 luglio 2018, n. 91 (conv. L. 108/2018), art. 6, comma 3-quater: proroga all'anno 2018/2019 l'autocertificazione per l'iscrizione, con i documenti da presentare entro il 10/03/2019. — fonte: [Normattiva, art. 5 e nota](https://www.normattiva.it/atto/caricaDettaglioAtto?atto.dataPubblicazioneGazzetta=2017-06-07&atto.codiceRedazionale=17G00095&atto.articolo.numero=5&atto.articolo.tipoArticolo=0)
+  - L. 30 dicembre 2018, n. 145 (bilancio 2019), art. 1, comma 585: modifica l'art. 4-bis, comma 3 (anagrafe nazionale vaccini). — fonte: archivio del progetto (nota di Normattiva)
+  - Corte costituzionale, sentenza n. 5 del 2018 (depositata il 18/01/2018): respinge il ricorso della Regione Veneto. Le questioni su urgenza, competenze regionali, diritti (artt. 2, 3, 32 Cost.) e copertura finanziaria sono non fondate; le altre inammissibili. — fonte: [Corte costituzionale, scheda della pronuncia](https://www.cortecostituzionale.it/scheda-pronuncia/2018/5)
+  - Proposta di "obbligo flessibile" (ddl Patuanelli, M5S, testo base in commissione Sanità del Senato nell'ottobre 2018): non è diventata legge. — fonte: [Quotidiano Sanità, 03/10/2018](https://www.quotidianosanita.it/governo-e-parlamento/vaccini-commissione-sanit-adotta-come-testo-base-ddl-m-s-lega-su-obbligo-flessibile-in-programma-ciclo-di-audizioni/) (stampa specializzata; l'esito va confermato sulla scheda del ddl al Senato)
+
+## 2. Causa e contesto
+- **Problema di partenza**:
+  - Dal 2013 le coperture a 24 mesi scendono sotto il 95%, la soglia raccomandata dall'OMS. Morbillo (prima dose): 90,4% nel 2013, 85,3% nel 2015. Polio (indicatore dell'esavalente): 95,7% nel 2013, 93,3% nel 2016. — fonti: [Camera, dossier n. 612 del 21/07/2017](https://documenti.camera.it/Leg17/Dossier/Pdf/D17073.Pdf); [D'Ancona et al. 2019](https://iris.unisr.it/retrieve/1e36c0fa-2164-4a21-bdcd-d73a70419a34/eurosurv-24-26-5.pdf), tabella
+  - Epidemia di morbillo: 254 casi nel 2015, 865 nel 2016, 5.397 nel 2017 (89,1 per milione), con 5 morti; l'88,8% dei casi non era vaccinato e l'età mediana era 27 anni. — fonte: [ISS, Bollettino epidemiologico nazionale, settembre 2019](https://www.epicentro.iss.it/ben/2019/settembre/sorveglianza-morbollo-rosolia-2017-2018)
+  - Prima del decreto le vaccinazioni obbligatorie erano 4: difterite (L. 891/1939), tetano (L. 292/1963), polio (L. 51/1966), epatite B (L. 165/1991). Le sanzioni andavano da circa 10 a 258 euro e diverse regioni le avevano sospese. — fonte: [Camera, dossier n. 612](https://documenti.camera.it/Leg17/Dossier/Pdf/D17073.Pdf)
+- **Come nasce**:
+  - Il decreto è deliberato dal Consiglio dei ministri il 19/05/2017. Motivo dichiarato nelle premesse: "garantire in maniera omogenea sul territorio nazionale le attività dirette alla prevenzione, al contenimento e alla riduzione dei rischi per la salute pubblica e di assicurare il costante mantenimento di adeguate condizioni di sicurezza epidemiologica in termini di profilassi e di copertura vaccinale". — fonte: [premesse del D.L. 73/2017 su Normattiva](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legge:2017-06-07;73), archivio del progetto
+  - All'inizio del 2017 era stato adottato il Piano nazionale di prevenzione vaccinale 2017-2019, che fissa gli obiettivi di copertura (95%). Il testo approvato dal Senato lo richiama. — fonte: [Senato, testo approvato del ddl S. 2856](https://www.parlamento.it/service/PDF/PDFServer/BGT/01036724.pdf)
+  - Il Senato cambia molto il decreto: le vaccinazioni obbligatorie passano da 12 a 10 (meningococco B e C diventano solo raccomandate), le multe scendono da 500-7.500 euro a 100-500 euro, sparisce la segnalazione al tribunale per i minorenni, e per morbillo, rosolia, parotite e varicella arriva una verifica ogni tre anni. — fonte: [Camera, dossier n. 612](https://documenti.camera.it/Leg17/Dossier/Pdf/D17073.Pdf)
+- **Obiettivi**:
+  1. **Dichiarato**: alzare le coperture vaccinali dei bambini e renderle omogenee sul territorio, fino alla soglia del 95%. — fonte: premesse del decreto; dossier della Camera (soglia OMS); PNPV 2017-2019
+  2. **Dichiarato**: ridurre i rischi per la salute pubblica, cioè contenere le malattie prevenibili con i vaccini, a partire dal morbillo. — fonte: premesse del decreto
+- **Come è stata approvata**:
+  - Senato: ddl S. 2856, presentato l'08/06/2017, approvato con modificazioni il 20/07/2017 con 171 sì, 63 no e 19 astenuti; secondo la stampa il governo non ha posto la fiducia ([l'Adige, 12/07/2017](https://www.ladige.it/salute-e-benessere/vaccini-il-senato-discute-scontro-sul-voto-di-fiducia-bitmb7sv)). — fonti: [archivio del progetto, scheda del ddl](https://www.senato.it/leg/17/BGT/Schede/Ddliter/44314.htm); voti da [ANSA, 20/07/2017](https://www.ansa.it/english/news/politics/2017/07/20/senate-oks-vaccines-decreegoes-to-house_97106c5b-c1d3-4d9f-a7ba-7878c47e552a.html) (stampa: **da confermare su dati.senato.it**, nel nostro archivio questa votazione manca)
+  - Camera: ddl C. 4595. Il governo pone la fiducia (305 sì, 147 no, 2 astenuti; fonte: [Blitz Quotidiano](https://archivio.blitzquotidiano.it/politica-italiana/vaccini-camera-conferma-la-fiducia-305-si-147-contrari-2730268), stampa). Voto finale del 28/07/2017: 296 sì, 92 no, 15 astenuti. Sì da PD (223), Misto (20), MDP (17 sì, 4 no, 1 astenuto), Forza Italia (14 sì, 1 no), AP-CpE-NCD (10), DeS-CD (6), Scelta Civica-ALA-MAIE (6). No da M5S (66), Lega (12) e parte del Misto (7). Astenuti Sinistra Italiana-Possibile (11, più 2 no) e Fratelli d'Italia (3). — fonte: [Camera, votazione finale](http://documenti.camera.it/votazioni/votazionitutte/schedavotazione.asp?Legislatura=XVII&RifVotazione=844_13&tipo=dettaglio), archivio del progetto
+  - In sintesi: il decreto è del centrosinistra, votato anche da Forza Italia; contrari M5S e Lega, che nel 2018, al governo insieme, proporranno di sostituire l'obbligo con un "obbligo flessibile" senza approvarlo.
+
+## 3. Cosa prevede
+- **Dieci vaccinazioni obbligatorie e gratuite** da 0 a 16 anni, anche per i minori stranieri non accompagnati: polio, difterite, tetano, epatite B, pertosse, Haemophilus influenzae tipo b (comma 1); morbillo, rosolia, parotite, varicella (comma 1-bis), secondo il calendario vaccinale di ogni coorte di nascita. Per la varicella questo vuol dire i nati dal 2017 in poi.
+- **Quattro vaccinazioni a offerta attiva e gratuita**, non obbligatorie: meningococco B e C, pneumococco, rotavirus (comma 1-quater).
+- **Esoneri**: chi ha già avuto la malattia (con notifica del medico o esame del sangue) e chi è in pericolo per la salute, con attestazione del medico (commi 2 e 3).
+- **Sanzioni**: i genitori inadempienti sono chiamati dall'ASL per un colloquio; poi multa da 100 a 500 euro, che non si paga se il bambino viene vaccinato entro il termine (comma 4).
+- **Scuola**: per nidi e scuole dell'infanzia (0-6 anni) le vaccinazioni sono un requisito di accesso. Dalla primaria in poi no: chi non è in regola paga la multa ma va a scuola e fa gli esami (art. 3, comma 3; art. 3-bis, comma 5).
+- **Verifica ogni tre anni**: dal 2020 il ministro della Salute, sentiti ISS, AIFA, Conferenza Stato-Regioni e Parlamento, può togliere l'obbligo per morbillo, rosolia, parotite o varicella (comma 1-ter).
+- **Altro**: anagrafe nazionale vaccini (art. 4-bis), relazione annuale dell'AIFA sugli eventi avversi (comma 3-bis), campagne di informazione.
+- Fonte: [art. 1](https://www.normattiva.it/atto/caricaDettaglioAtto?atto.dataPubblicazioneGazzetta=2017-06-07&atto.codiceRedazionale=17G00095&atto.articolo.numero=1&atto.articolo.tipoArticolo=0), [art. 3](https://www.normattiva.it/atto/caricaDettaglioAtto?atto.dataPubblicazioneGazzetta=2017-06-07&atto.codiceRedazionale=17G00095&atto.articolo.numero=3&atto.articolo.tipoArticolo=0) e [art. 3-bis](https://www.normattiva.it/atto/caricaDettaglioAtto?atto.dataPubblicazioneGazzetta=2017-06-07&atto.codiceRedazionale=17G00095&atto.articolo.numero=3&atto.articolo.sottoArticolo=2&atto.articolo.tipoArticolo=0) vigenti su Normattiva
+
+## 4. Indicatori
+Le coperture a 24 mesi si misurano al 31 dicembre sui bambini nati due anni prima: la rilevazione 2017 riguarda i nati nel 2015, che avevano tra 18 e 30 mesi quando la legge è entrata in vigore.
+
+| Obiettivo | Indicatore | Prima | Dopo | Fonte |
+|---|---|---|---|---|
+| 1 | Copertura a 24 mesi, **polio** (indicatore dell'esavalente), Italia | 95,7% (2013); 94,7% (2014); 93,4% (2015); 93,3% (2016) | 94,6% (2017); 95,0% (2018); 95,0% (2019); 94,0% (2020); 94,0% (2021); 95,15% (2022); 94,76% (2023); 94,45% (2024) | 2013-2017: [D'Ancona et al. 2019](https://iris.unisr.it/retrieve/1e36c0fa-2164-4a21-bdcd-d73a70419a34/eurosurv-24-26-5.pdf); 2018-2019: [EpiCentro ISS](https://www.epicentro.iss.it/vaccini/coperture-infanzia-adolescenza-2019); 2020: [EpiCentro ISS](https://www.epicentro.iss.it/vaccini/2021); 2021: [Quotidiano Sanità](https://www.quotidianosanita.it/?p=119587); 2022-2023: [Ministero della Salute, commento ai dati 2023](https://sanitainformazione.it/wp-content/uploads/2025/03/report-del-ministero-della-Salute-sulle-coperture-vaccinali-delleta-pediatrica-e-delladolescente-aggiornato-al-31-dicembre-2023.pdf); 2024: [Ministero, dati 2024](https://www.salute.gov.it/new/sites/default/files/2025-12/Allegato%201_Commento%20tecnico.pdf) letti da [Quotidiano Sanità](https://www.quotidianosanita.it/?p=148022) |
+| 1 | Copertura a 24 mesi, **morbillo** prima dose, Italia | 90,4% (2013); 86,7% (2014); 85,3% (2015); 87,3% (2016) | 91,8% (2017); 93,2% (2018); 94,4% (2019); 91,8% (2020); 93,85% (2021); 94,40% (2022); 94,64% (2023); 94,77% (2024) | stesse fonti |
+| 1 | Copertura a 24 mesi, **varicella**, Italia | 33,2% (2013); 30,7% (2015); 46,1% (2016) | 45,6% (2017); 90,5% (2019, primi nati con l'obbligo); 89,4% (2020); 92,1% (2021); 93,35% (2022); 93,76% (2023); 93,87% (2024) | stesse fonti |
+| 1 | Seconda dose di morbillo, bambini più grandi | 83,5% (2013); 82,2% (2016), a 7 anni | 85,7% (2017), a 7 anni; 87,5% (2019), a 5-6 anni; 84,79% (2023), a 5-6 anni | D'Ancona et al. 2019; EpiCentro 2019; Ministero, commento ai dati 2023 |
+| 1 | Differenze tra regioni, morbillo a 24 mesi (2024) | — | 10 regioni sopra il 95%; minimo Sicilia 87,98%, massimo Molise 98,11% | [Quotidiano Sanità, 23/12/2025](https://www.quotidianosanita.it/?p=148022) (dati del Ministero) |
+| 2 | Casi di morbillo notificati, Italia | 254 (2015); 865 (2016) | 5.397 (2017); 2.681 (2018); 1.627 (2019); 105 (2020); 9 (2021); 45 (2023); 1.045 (2024); 529 (2025, provvisorio) | [ISS, BEN 2019](https://www.epicentro.iss.it/ben/2019/settembre/sorveglianza-morbollo-rosolia-2017-2018); ISS, Morbillo & Rosolia News [n. 61](https://www.epicentro.iss.it/morbillo/bollettino/RM_News_2020_61.pdf), [n. 65](https://WWW.EPICENTRO.ISS.IT/morbillo/bollettino/RM_News_2022_65.pdf), [n. 80](https://www.epicentro.iss.it/morbillo/bollettino/RM_News_2024_80.pdf), [n. 90](https://www.epicentro.iss.it/morbillo/bollettino/RM_News_2026_90.pdf) |
+| 2 | Rosolia | — | trasmissione endemica interrotta (Commissione OMS, novembre 2022) | [EpiCentro ISS, 13/07/2023](https://www.epicentro.iss.it/archivio/2023/13-7-2023) |
+
+Note:
+- Il dato 2018 a 24 mesi è quello definitivo (EpiCentro). Il dato provvisorio al 30/06/2018 (95,5% polio, 94,1% morbillo) misurava bambini di 30 mesi e non va confrontato con gli altri anni.
+- Il 2023 dei casi di morbillo è la somma dei mesi della tabella 1 del bollettino n. 90; il 2022 non è stato letto.
+- Le coperture del 2020 e del 2021 risentono della pandemia: le ASL hanno ridotto le attività vaccinali (Quotidiano Sanità, [8/10/2021](https://www.quotidianosanita.it/?p=109866), dati del Ministero).
+- La seconda dose cambia età di misura nel tempo (7 anni fino al 2018, 5-6 anni dopo): i valori non sono del tutto confrontabili.
+
+## 5. Effetto
+- **Cosa è cambiato**:
+  - Le coperture salgono subito. Il morbillo a 24 mesi passa dall'87,3% del 2016 al 94,4% del 2019 (+7 punti); la varicella, prima offerta in modo molto diverso tra regioni (dal 4% al 92% di copertura nel 2018), passa da circa il 46% a oltre il 90% per i nati dal 2017. Polio ed esavalente, già obbligatori in parte e già vicini alla soglia, salgono meno: dal 93,3% al 95,0% (+1,7 punti). — fonti: tabella sopra
+  - L'aumento si concentra sui vaccini diventati obbligatori nel 2017, con differenze forti tra regioni (per il morbillo, tra il 2015-2016 e il 2017-2019, da +2,4% in Basilicata a +11% in Campania). — fonti: Loiacono et al. 2026; Pennisi et al. 2025
+  - I casi di morbillo calano dal picco del 2017 (5.397) al 2019 (1.627) e quasi spariscono durante la pandemia; risalgono nel 2024 (1.045), con il 90% dei casi non vaccinati. La rosolia è dichiarata non più endemica nel 2022.
+- **Quanto dura**:
+  - Dopo il salto del 2017-2019 le coperture restano intorno al 94-95% fino al 2024, con un calo nel 2020 per la pandemia e un recupero dal 2021. — fonti: tabella sopra; Pennisi et al. 2025
+  - La soglia del 95% è raggiunta a livello nazionale solo per la polio (2018, 2019, 2022), mai per il morbillo a 24 mesi. La seconda dose a 5-6 anni resta intorno all'85%, lontana dal 95%.
+- **Altri fattori**:
+  - **Epidemia di morbillo del 2017** e grande attenzione dei media: molti genitori possono aver vaccinato per paura, indipendentemente dall'obbligo. Pennisi et al. 2025 attribuiscono l'aumento a più fattori, tra cui l'epidemia.
+  - **Piano nazionale di prevenzione vaccinale 2017-2019**, adottato pochi mesi prima, e **campagna di comunicazione** del Ministero: partono quasi insieme al decreto e non si separano facilmente dall'obbligo. — fonte: D'Ancona et al. 2019
+  - **Pandemia**: abbassa le coperture del 2020 e i casi di morbillo del 2020-2023 (meno contatti e viaggi), poi i casi tornano a salire nel 2024 (bollettini ISS n. 80 e 90).
+  - **Età dei malati**: nel 2017-2018 l'età mediana dei casi è 25-27 anni; la legge copre solo i minori fino a 16 anni, quindi non può proteggere direttamente gli adulti non vaccinati.
+
+## 6. Valutazioni ufficiali e studi
+- **D'Ancona et al., Eurosurveillance 2018** (autori di ISS e Ministero della Salute): prima valutazione a fine 2017. Coperture in aumento per tutti i vaccini; morbillo a 24 mesi dall'87,2% al 91,6% (dati provvisori). "Continued monitoring is needed to evaluate the medium to long-term effects of the law." — [link](https://www.eurosurveillance.org/docserver/fulltext/eurosurveillance/23/22/eurosurv-23-22-1.pdf)
+- **D'Ancona et al., Eurosurveillance 2019**: aggiornamento a due anni, serie 2013-2018. Aumento per tutti i vaccini, forte variabilità tra regioni. Gli autori collegano l'aumento anche alla campagna di comunicazione; l'articolo è descrittivo e non stabilisce un nesso causale. — [link](https://iris.unisr.it/retrieve/1e36c0fa-2164-4a21-bdcd-d73a70419a34/eurosurv-24-26-5.pdf)
+- **Fondazione GIMBE, Report 3/2019**: confronta le stesse coorti prima e dopo il decreto. Esavalente +2 punti, trivalente (morbillo) +7,3 punti, varicella +8-12 punti. Gli autori parlano di associazione, non di causalità: dati grezzi, senza correzione per altri fattori. — [link](https://www.gimbe.org/osservatorio/Report_Osservatorio_GIMBE_2019.03_Coperture_vaccinali_2018.pdf)
+- **Sindoni et al., Human Vaccines & Immunotherapeutics 2022**: dati 2013-2019 trasmessi all'OMS. Morbillo prima dose dal 90,4% (2013) all'85,3% (2015), poi 94,4% nel 2019; seconda dose dall'82,2% (2016) al 90,2% (2019). Conclusione: la legge ha portato a un aumento significativo della copertura per morbillo e rosolia. — [link](https://doi.org/10.1080/21645515.2021.1950505)
+- **Loiacono, Puglisi, Rizzo e Secomandi, European Journal of Health Economics 2026**: dati regionali 2013-2019, bambini di 0-2 anni, vaccini obbligatori e raccomandati a confronto. La legge alza le coperture dei vaccini diventati obbligatori fino a circa il 6%; nelle regioni con più esitazione i vaccini solo raccomandati ricevono relativamente meno attenzione. È lo studio più vicino a un confronto controllato; metodo letto solo dall'abstract. — [link](https://sfera.unife.it/handle/11392/2595771) (DOI 10.1007/s10198-025-01805-3)
+- **Pennisi et al., Vaccines 2025** (con autori del Ministero e dell'ISS): regressione joinpoint sulle coorti 2013-2021. Aumento significativo per morbillo, varicella e meningococco B dopo la legge, polio stabile; calo nel 2020-2021, soprattutto al Sud, e recupero nel 2022-2023. Dati aggregati: gli autori avvertono che non permettono conclusioni causali. — [link](https://www.mdpi.com/2076-393X/13/7/683)
+- **Nurchis, Ricciardi e Villani, European Journal of Public Health 2025** (abstract di congresso): serie storiche interrotte attorno al Piano vaccinale 2017-2019. Per morbillo, parotite e rosolia trovano una crescita già in corso e nessun effetto significativo attribuibile alla politica; per la varicella un forte cambio di tendenza. Non separa il Piano dalla legge. — [link](https://pmc.ncbi.nlm.nih.gov/articles/PMC12556644/)
+- **Gaeta et al., Annali di Igiene 2025**: morbillo, Italia e UE. In Italia la copertura sale del 5,2% dopo l'obbligo; tra i paesi UE con e senza obbligo non c'è una differenza significativa di copertura. — [link](https://mattioli1885journals.com/index.php/annali-igiene/article/view/17414) (letto solo l'abstract)
+- **Manna, Melegaro, Rubera e Toffolutti, European Population Conference 2020** (abstract): regression discontinuity su coperture, casi di morbillo e social media 2013-2019; la legge aumenta la copertura MPR, con forti differenze regionali. Numeri non pubblicati nell'abstract. — [link](https://epc2020.popconf.org/abstracts/200153)
+- **Corte costituzionale, sentenza 5/2018**: non valuta gli effetti, ma riconosce "una tendenza al calo delle coperture vaccinali" e scrive che "nulla esclude che, mutate le condizioni, la scelta possa essere rivalutata". — [link](https://www.cortecostituzionale.it/scheda-pronuncia/2018/5)
+- **VIR ministeriale e verifica triennale (comma 1-ter)**: nessuna trovata all'08/11/2026. Il Ministero pubblica ogni anno le coperture, ma senza valutare la legge.
+
+## 7. Verdetto
+- **Esito**: Parzialmente raggiunto
+- **Confidenza**: Media-Alta
+- **Motivazione**: le coperture salgono subito e in modo netto, soprattutto per i vaccini diventati obbligatori: il morbillo a 24 mesi passa dall'87,3% (2016) al 94,4% (2019) e resta tra il 94 e il 95% fino al 2024. Ma l'obiettivo dichiarato era il 95% in modo omogeneo: a livello nazionale il morbillo non lo raggiunge mai, la polio solo in alcuni anni, la seconda dose a 5-6 anni resta intorno all'85% e nel 2024 circa metà delle regioni è sotto soglia (11 su 21 per il morbillo).
+  - **Cosa alza la confidenza**: tutti gli studi trovano un aumento nella stessa direzione e nello stesso momento; il salto è grande proprio per i vaccini diventati obbligatori (morbillo, varicella) e piccolo per quelli già vicini alla soglia; uno studio su riviste peer-reviewed confronta vaccini obbligatori e raccomandati regione per regione (Loiacono et al. 2026). Che il 95% non sia stato raggiunto è un dato, non una stima.
+  - **Cosa la abbassa**: nessuno studio con controfattuale separa l'effetto dell'obbligo da quello dell'epidemia del 2017, del Piano vaccinale e della campagna di comunicazione; per il morbillo una serie storica interrotta (abstract di congresso) trova una crescita già in corso e nessun effetto significativo, e il confronto con gli altri paesi UE non trova differenze tra paesi con e senza obbligo; la pandemia interrompe la serie dal 2020.
+- **Obiettivo 2 (meno malattie)**: Parzialmente raggiunto, confidenza Bassa. La rosolia è dichiarata non più endemica (2022) e i casi di morbillo scendono da 5.397 (2017) a 1.627 (2019), ma il morbillo torna a oltre mille casi nel 2024 e non è eliminato. Le epidemie di morbillo vanno a ondate, la pandemia ha cambiato i contatti e i malati sono soprattutto adulti fuori dall'obbligo: nessuno studio attribuisce il calo dei casi alla legge.
+- **Lungo periodo**: a nove anni dalla legge le coperture a 24 mesi sono stabili intorno al 94-95%, ma i dati 2023-2024 mostrano un lieve calo per la polio e coperture basse negli adolescenti (polio a 16 anni 65,6% nel 2024). L'obbligo ha alzato le coperture dei più piccoli, ma non ha chiuso il divario tra regioni. Vedi la questione aperta sui verdetti per orizzonte temporale (`docs/stato/aperte/05_effetti-breve-medio-lungo-periodo-metodo.md`).
+- **Letture alternative**:
+  - Per il Ministero, l'ISS e la maggior parte della letteratura sanitaria l'obbligo ha funzionato: ha invertito in un anno un calo che durava dal 2013, ha portato la varicella da meno del 50% a oltre il 90% e ha accompagnato l'eliminazione della rosolia. Per GIMBE (2019) era "inopportuno" discutere di ridurre l'obbligo.
+  - Per chi lo ha contestato (M5S, Lega, Regione Veneto) l'obbligo è una forzatura che rischia di aumentare la sfiducia: meglio informare e intervenire solo dove le coperture scendono ("obbligo flessibile"). Studi recenti danno argomenti anche a questa lettura: parte dell'aumento può venire dall'epidemia e dal Piano vaccinale, i paesi UE senza obbligo non hanno coperture più basse e nelle regioni più esitanti i vaccini solo raccomandati sono stati trascurati.
+  - Entrambe le letture vanno mostrate.
+
+## 8. Fonti
+- [Normattiva — D.L. 73/2017, testo vigente](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legge:2017-06-07;73)
+- [Normattiva — D.L. 73/2017, art. 1](https://www.normattiva.it/atto/caricaDettaglioAtto?atto.dataPubblicazioneGazzetta=2017-06-07&atto.codiceRedazionale=17G00095&atto.articolo.numero=1&atto.articolo.tipoArticolo=0)
+- [Normattiva — D.L. 73/2017, art. 3](https://www.normattiva.it/atto/caricaDettaglioAtto?atto.dataPubblicazioneGazzetta=2017-06-07&atto.codiceRedazionale=17G00095&atto.articolo.numero=3&atto.articolo.tipoArticolo=0), [art. 3-bis](https://www.normattiva.it/atto/caricaDettaglioAtto?atto.dataPubblicazioneGazzetta=2017-06-07&atto.codiceRedazionale=17G00095&atto.articolo.numero=3&atto.articolo.sottoArticolo=2&atto.articolo.tipoArticolo=0), [art. 5](https://www.normattiva.it/atto/caricaDettaglioAtto?atto.dataPubblicazioneGazzetta=2017-06-07&atto.codiceRedazionale=17G00095&atto.articolo.numero=5&atto.articolo.tipoArticolo=0)
+- [Normattiva — L. 119/2017 (conversione)](https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:legge:2017-07-31;119)
+- [Camera — dossier n. 612 del Servizio Studi, 21/07/2017](https://documenti.camera.it/Leg17/Dossier/Pdf/D17073.Pdf)
+- [Senato — testo approvato del ddl S. 2856](https://www.parlamento.it/service/PDF/PDFServer/BGT/01036724.pdf); [scheda del ddl](https://www.senato.it/leg/17/BGT/Schede/Ddliter/44314.htm)
+- [Camera — votazione finale del 28/07/2017](http://documenti.camera.it/votazioni/votazionitutte/schedavotazione.asp?Legislatura=XVII&RifVotazione=844_13&tipo=dettaglio)
+- [Corte costituzionale — sentenza 5/2018](https://www.cortecostituzionale.it/scheda-pronuncia/2018/5)
+- [Ministero della Salute — coperture vaccinali al 31/12/2023, commento tecnico](https://sanitainformazione.it/wp-content/uploads/2025/03/report-del-ministero-della-Salute-sulle-coperture-vaccinali-delleta-pediatrica-e-delladolescente-aggiornato-al-31-dicembre-2023.pdf) (copia del documento ministeriale)
+- [Ministero della Salute — coperture vaccinali al 31/12/2024, commento tecnico](https://www.salute.gov.it/new/sites/default/files/2025-12/Allegato%201_Commento%20tecnico.pdf) (il sito blocca i programmi: numeri letti da [Quotidiano Sanità, 23/12/2025](https://www.quotidianosanita.it/?p=148022))
+- [EpiCentro ISS — coperture 2019](https://www.epicentro.iss.it/vaccini/coperture-infanzia-adolescenza-2019); [coperture 2020](https://www.epicentro.iss.it/vaccini/2021)
+- [Quotidiano Sanità — coperture 2020, 08/10/2021](https://www.quotidianosanita.it/?p=109866); [coperture 2021, 20/10/2022](https://www.quotidianosanita.it/?p=119587)
+- [ISS — BEN, morbillo e rosolia 2017-2018](https://www.epicentro.iss.it/ben/2019/settembre/sorveglianza-morbollo-rosolia-2017-2018)
+- ISS — Morbillo & Rosolia News [n. 61 (2020)](https://www.epicentro.iss.it/morbillo/bollettino/RM_News_2020_61.pdf), [n. 65 (2022)](https://WWW.EPICENTRO.ISS.IT/morbillo/bollettino/RM_News_2022_65.pdf), [n. 80 (2025)](https://www.epicentro.iss.it/morbillo/bollettino/RM_News_2024_80.pdf), [n. 90 (2026)](https://www.epicentro.iss.it/morbillo/bollettino/RM_News_2026_90.pdf)
+- [EpiCentro ISS — rosolia non più endemica, 13/07/2023](https://www.epicentro.iss.it/archivio/2023/13-7-2023)
+- [D'Ancona et al. 2018, Eurosurveillance](https://www.eurosurveillance.org/docserver/fulltext/eurosurveillance/23/22/eurosurv-23-22-1.pdf)
+- [D'Ancona et al. 2019, Eurosurveillance](https://iris.unisr.it/retrieve/1e36c0fa-2164-4a21-bdcd-d73a70419a34/eurosurv-24-26-5.pdf)
+- [Fondazione GIMBE, Report Osservatorio 3/2019](https://www.gimbe.org/osservatorio/Report_Osservatorio_GIMBE_2019.03_Coperture_vaccinali_2018.pdf)
+- [Sindoni et al. 2022, Human Vaccines & Immunotherapeutics](https://doi.org/10.1080/21645515.2021.1950505)
+- [Loiacono et al. 2026, European Journal of Health Economics](https://sfera.unife.it/handle/11392/2595771)
+- [Pennisi et al. 2025, Vaccines](https://www.mdpi.com/2076-393X/13/7/683)
+- [Nurchis et al. 2025, European Journal of Public Health (abstract)](https://pmc.ncbi.nlm.nih.gov/articles/PMC12556644/)
+- [Gaeta et al. 2025, Annali di Igiene](https://mattioli1885journals.com/index.php/annali-igiene/article/view/17414)
+- [Manna et al. 2020, European Population Conference (abstract)](https://epc2020.popconf.org/abstracts/200153)
+- [ANSA, voto del Senato, 20/07/2017](https://www.ansa.it/english/news/politics/2017/07/20/senate-oks-vaccines-decreegoes-to-house_97106c5b-c1d3-4d9f-a7ba-7878c47e552a.html) (stampa)
+- [Blitz Quotidiano, fiducia alla Camera](https://archivio.blitzquotidiano.it/politica-italiana/vaccini-camera-conferma-la-fiducia-305-si-147-contrari-2730268) (stampa)
+- [Quotidiano Sanità, "obbligo flessibile", 03/10/2018](https://www.quotidianosanita.it/governo-e-parlamento/vaccini-commissione-sanit-adotta-come-testo-base-ddl-m-s-lega-su-obbligo-flessibile-in-programma-ciclo-di-audizioni/) (stampa specializzata)
+
+## Da verificare prima dell'approvazione
+1. Voto finale del Senato (20/07/2017): confermare 171-63-19 su dati.senato.it; nel nostro archivio la fase al Senato ha 0 votazioni, da segnalare alla pipeline Senato.
+2. Coperture 2021 e 2024: confermare i numeri sulle pagine del Ministero della Salute (dal container il sito risponde con un controllo anti-robot; basta aprirle dal browser).
+3. Testo completo di Loiacono et al. 2026 e di Gaeta et al. 2025: metodo e numeri sono letti solo dagli abstract.
+4. Verifica triennale del comma 1-ter (dal 2020): cercare se il ministro ha mai presentato il decreto o la relazione alle Camere.
+5. Relazione illustrativa del ddl S. 2856: può contenere obiettivi espliciti (per esempio una copertura da raggiungere entro una data).
+
+## Cosa insegna questa scheda (per Claude)
+- Con le coperture vaccinali bisogna dire sempre quale coorte e a che età si misura: un anno di rilevazione non è l'anno di nascita.
+- Un obiettivo con una soglia (95%) si giudica anche sulla soglia, non solo sulla direzione: si può migliorare molto senza raggiungerlo.
+- Quando un obbligo arriva insieme a un'epidemia e a un piano nazionale, il prima/dopo non basta: cercare studi che confrontino vaccini obbligatori e raccomandati, o paesi con e senza obbligo.
+- Guardare anche gli effetti sulle misure vicine non coperte dalla legge (qui i vaccini solo raccomandati).

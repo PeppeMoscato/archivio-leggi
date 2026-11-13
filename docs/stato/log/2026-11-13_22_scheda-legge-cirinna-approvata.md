@@ -1,0 +1,2 @@
+Data: 2026-11-13
+Testo: scheda della Legge Cirinnà (L. 76/2016, n. 22) approvata da CAPO con il verdetto proposto: riconoscimento e tutele per le coppie dello stesso sesso raggiunto, confidenza Alta; convivenze di fatto non valutabili; risposta alla giurisprudenza costituzionale ed europea raggiunta, Alta. Restano da verificare il voto di fiducia del Senato del 25/02/2016 (manca nell'archivio) e i dati INPS e ANPR su pensioni ai superstiti e convivenze registrate.

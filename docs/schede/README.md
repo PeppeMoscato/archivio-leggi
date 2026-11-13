@@ -11,3 +11,4 @@ l'approvazione dell'autore: ogni scheda dice in testa se è in bozza o approvata
 |---|---|---|
 | 9 | Legge Sirchia (L. 3/2003, art. 51) | approvata il 29/10/2026 (`docs/04_scheda_esempio.md`) |
 | 7 | Patente a punti (D.Lgs. 9/2002) | approvata l'8/11/2026 (`07_patente_a_punti.md`) |
+| 22 | Legge Cirinnà (L. 76/2016) | approvata il 13/11/2026 (`22_legge_cirinna.md`) |

@@ -1,7 +1,7 @@
 # Legge Cirinnà (L. 76/2016)
 
 Scheda n. 22 di `docs/06_leggi_mvp.md`, nel formato di `docs/04_scheda_esempio.md`.
-Compilata l'8/11/2026. Stato: **bozza, da approvare**.
+Compilata l'8/11/2026. Stato: **approvata da CAPO il 13/11/2026** (verdetto come proposto).
 
 ---
 

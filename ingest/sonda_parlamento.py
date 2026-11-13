@@ -318,6 +318,17 @@ SELECT ?a ?p ?o WHERE {{ {{ SELECT ?a WHERE {{ ?l a ocd:legge ; ocd:rif_leg {_le
     "XVIII: che cosa punta a quell'atto": f"""
 SELECT ?p (COUNT(*) AS ?n) (SAMPLE(?s) AS ?esempio) WHERE {{ {{ SELECT ?a WHERE {{ ?l a ocd:legge ; ocd:rif_leg {_legislatura(18)} ;
   ocd:lavoriPreparatori ?lp . ?lp ocd:rif_attoCamera ?a }} OFFSET 50 LIMIT 1 }} ?s ?p ?a }} GROUP BY ?p""",
+    # XVI (2008-2013): la pipeline trova la scheda ma quasi mai il PDF (13/11/2026).
+    "XVI: una legge con lavori preparatori, triple dell'atto": f"""
+SELECT ?a ?p ?o WHERE {{ {{ SELECT ?a WHERE {{ ?l a ocd:legge ; ocd:rif_leg {_legislatura(16)} ; ocd:lavoriPreparatori ?lp .
+  ?lp ocd:rif_attoCamera ?a }} OFFSET 50 LIMIT 1 }} ?a ?p ?o }} LIMIT 300""",
+    "XVI: dc:relation e versioni di 15 atti dei lavori preparatori": f"""
+SELECT ?a ?p ?o WHERE {{ {{ SELECT ?a WHERE {{ ?l a ocd:legge ; ocd:rif_leg {_legislatura(16)} ; ocd:lavoriPreparatori ?lp .
+  ?lp ocd:rif_attoCamera ?a }} OFFSET 100 LIMIT 15 }} ?a ?p ?o FILTER(?p IN (dc:relation, ocd:rif_versioneTestoAtto)) }} LIMIT 300""",
+    "XVI: triple di una versione del testo": f"""
+SELECT ?v ?p ?o WHERE {{ {{ SELECT ?v WHERE {{ ?a ocd:rif_leg {_legislatura(16)} ; ocd:rif_versioneTestoAtto ?v }} OFFSET 500 LIMIT 2 }} ?v ?p ?o }} LIMIT 100""",
+    "atti con dc:relation per legislatura": """
+SELECT ?leg (COUNT(DISTINCT ?a) AS ?atti) WHERE { ?a a ocd:atto ; ocd:rif_leg ?leg ; dc:relation ?r } GROUP BY ?leg""",
     "classi con testo, documento, relazione o stampato": """
 SELECT DISTINCT ?c WHERE { ?s a ?c . FILTER(REGEX(STR(?c), "test|document|relazion|stampat|dossier", "i")) } LIMIT 50""",
 }
